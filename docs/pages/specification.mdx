@@ -1,0 +1,165 @@
+# Specification
+
+ERC-8128 defines how Ethereum accounts sign HTTP requests using RFC 9421 (HTTP Message Signatures).
+
+> **Full Specification:** [ERC-8128 on GitHub](https://github.com/slice-so/ERCs/blob/d9c6f41183008285a0e9f1af1d2aeac72e7a8fdc/ERCS/erc-8128.md)
+
+## Overview
+
+ERC-8128 is a profile of RFC 9421 that specifies:
+
+1. **Signature algorithm**: Ethereum message signing (EIP-191)
+2. **Key identification**: `eip8128:<chainId>:<address>` format
+3. **Default components**: Request-bound signing
+4. **Replay protection**: Nonce-based with time bounds
+
+## Headers
+
+### Signature-Input
+
+Structured Dictionary (RFC 8941) listing signed components and parameters:
+
+```
+Signature-Input: eth=("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+```
+
+**Required parameters:**
+- `created` — Unix timestamp when signature was created
+- `expires` — Unix timestamp when signature expires
+- `keyid` — Signer identifier in `eip8128:<chainId>:<address>` format
+
+**Optional parameters:**
+- `nonce` — Unique value for replay protection
+- `tag` — Application-specific tag
+
+### Signature
+
+Structured Dictionary with base64-encoded signature:
+
+```
+Signature: eth=:MEUCIQDXtPCJ5f7oKr...base64...:
+```
+
+### Content-Digest
+
+SHA-256 hash of the request body (RFC 9530):
+
+```
+Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
+```
+
+## Keyid Format
+
+```
+eip8128:<chainId>:<address>
+```
+
+- `chainId`: Decimal integer (e.g., `1` for Ethereum mainnet)
+- `address`: Checksummed or lowercase Ethereum address with `0x` prefix
+
+**Examples:**
+```
+eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045
+eip8128:8453:0x1234567890abcdef1234567890abcdef12345678
+eip8128:42161:0xABCDEF1234567890ABCDEF1234567890ABCDEF12
+```
+
+## Signature Base
+
+The message signed is an RFC 9421 signature base — a canonical representation of the HTTP request:
+
+```
+"@authority": api.example.com
+"@method": POST
+"@path": /orders
+"@query": ?market=ETH-USD
+"content-digest": sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
+"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+```
+
+This is then signed as an Ethereum message:
+
+```
+keccak256("\x19Ethereum Signed Message:\n" + len(signatureBase) + signatureBase)
+```
+
+## Binding Modes
+
+### Request-Bound
+
+The signature MUST cover at minimum:
+- `@authority`
+- `@method`
+- `@path`
+- `@query` (if query string present)
+- `content-digest` (if body present)
+
+### Class-Bound
+
+The signer explicitly specifies which components to sign. The verifier MUST enforce its own required components.
+
+## Replay Protection
+
+### Non-Replayable
+
+- `nonce` parameter MUST be present
+- Verifier MUST track consumed nonces
+- Verifier SHOULD reject if `expires - created` exceeds policy limit
+
+### Replayable
+
+- `nonce` parameter MAY be absent
+- Verifier MAY accept based on time bounds alone
+- SHOULD only be used for safe, idempotent operations
+
+## Signature Verification
+
+### EOA (Externally Owned Account)
+
+1. Reconstruct the signature base from the request
+2. Apply EIP-191 prefix: `"\x19Ethereum Signed Message:\n" + length + message`
+3. Recover the public key using `ecrecover`
+4. Derive address and compare to `keyid` address
+
+### SCA (Smart Contract Account)
+
+1. Reconstruct the signature base from the request
+2. Apply EIP-191 prefix
+3. Call `isValidSignature(hash, signature)` on the contract at `keyid` address
+4. Verify return value is `0x1626ba7e` (ERC-1271 magic value)
+
+## Time Constraints
+
+- `created` MUST be a positive integer (Unix timestamp)
+- `expires` MUST be greater than `created`
+- Verifier SHOULD reject if `now < created - clockSkew`
+- Verifier MUST reject if `now > expires + clockSkew`
+- Verifier SHOULD enforce `expires - created <= maxValiditySec`
+
+## Error Codes
+
+| Code | Meaning |
+|------|---------|
+| `missing_headers` | No Signature-Input or Signature header |
+| `label_not_found` | Requested label not in Signature-Input |
+| `bad_signature_input` | Malformed Signature-Input header |
+| `bad_signature` | Signature verification failed |
+| `bad_keyid` | Invalid keyid format |
+| `bad_time` | Invalid time parameters |
+| `not_yet_valid` | Signature not yet valid |
+| `expired` | Signature expired |
+| `validity_too_long` | Validity window exceeds policy |
+| `nonce_required` | Nonce required but missing |
+| `replay` | Nonce already consumed |
+| `not_request_bound` | Required components not signed |
+| `digest_required` | Content-Digest header missing |
+| `digest_mismatch` | Content-Digest doesn't match body |
+
+## References
+
+- [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421.html) — HTTP Message Signatures
+- [RFC 9530](https://www.rfc-editor.org/rfc/rfc9530.html) — Digest Fields
+- [RFC 8941](https://www.rfc-editor.org/rfc/rfc8941.html) — Structured Field Values
+- [EIP-191](https://eips.ethereum.org/EIPS/eip-191) — Signed Data Standard
+- [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271) — Standard Signature Validation
+- [ERC-6492](https://eips.ethereum.org/EIPS/eip-6492) — Signature Validation for Pre-deploy Contracts

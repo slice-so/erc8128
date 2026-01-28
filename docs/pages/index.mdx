@@ -1,0 +1,106 @@
+# ERC-8128
+
+Signed HTTP Requests with Ethereum — authenticate API requests using Ethereum accounts.
+
+:::info
+**Status:** Draft — this standard is under active development.
+:::
+
+## Overview
+
+ERC-8128 is a standard for authenticating HTTP requests using Ethereum accounts. Sign requests with your EOA or Smart Contract Account, and verify signatures on any compliant server — no bearer tokens, no handshakes, no centralized identity providers.
+
+## Why ERC-8128?
+
+Traditional HTTP authentication relies on bearer credentials — cookies, API keys, JWTs — that the server must issue and protect.
+
+ERC-8128 inverts this model:
+
+- **The signer chooses** the security guarantees for each request
+- **The verifier evaluates** those guarantees against its acceptance rules
+- **No handshake required** — any compliant client can authenticate with any compliant server
+
+## Features
+
+### Request Integrity
+
+Signatures bind cryptographically to the HTTP request itself. Any tampering with the method, path, query, or body causes verification to fail.
+
+### Replay Protection
+
+Built-in nonce mechanism prevents captured requests from being reused.
+
+### Ethereum Identity
+
+Use EOAs or Smart Contract Accounts (via ERC-1271) as the signing authority. Enables delegation, session modules, and onchain composability.
+
+### RFC 9421 Compatible
+
+Built on HTTP Message Signatures (RFC 9421) — the IETF standard for cryptographic request signing.
+
+## Quick Example
+
+```typescript
+import { createClient } from '@slicekit/erc8128'
+import type { EthHttpSigner } from '@slicekit/erc8128'
+import { privateKeyToAccount } from 'viem/accounts'
+
+// Create a signer
+const account = privateKeyToAccount('0x...')
+
+const signer: EthHttpSigner = {
+  chainId: 1,
+  address: account.address,
+  signMessage: async (message) => account.signMessage({ message: { raw: message } }),
+}
+
+// Create a client
+const client = createClient(signer)
+
+// Sign and send a request
+const response = await client.fetch('https://api.example.com/orders', {
+  method: 'POST',
+  body: JSON.stringify({ amount: '100' }),
+})
+```
+
+## Use Cases
+
+- **API Authentication** — authenticate requests without managing tokens
+- **Agent-to-Agent Communication** — secure machine-to-machine interactions
+- **Payment Gateways** — authorize transactions with cryptographic proof
+- **Onchain Identity** — use smart contract policies for authorization
+
+## Install
+
+:::code-group
+
+```bash [bun]
+bun add @slicekit/erc8128
+```
+
+```bash [npm]
+npm install @slicekit/erc8128
+```
+
+```bash [yarn]
+yarn add @slicekit/erc8128
+```
+
+```bash [pnpm]
+pnpm add @slicekit/erc8128
+```
+
+:::
+
+## Next Steps
+
+- [Quick Start](/getting-started/quick-start) — Sign your first request in 5 minutes
+- [Concepts Overview](/concepts/overview) — Understand the security model
+- [API Reference](/api/signRequest) — Full API documentation
+
+## Links
+
+- [ERC-8128 Specification](https://github.com/slice-so/ERCs/blob/d9c6f41183008285a0e9f1af1d2aeac72e7a8fdc/ERCS/erc-8128.md)
+- [Ethereum Magicians Discussion](https://ethereum-magicians.org/t/erc-8128-signed-http-requests-with-ethereum/27515)
+- [GitHub Repository](https://github.com/slice-so/erc8128)

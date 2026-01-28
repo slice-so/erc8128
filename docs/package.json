@@ -1,0 +1,17 @@
+{
+  "name": "@slicekit/erc8128-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation for ERC-8128: Signed HTTP Requests with Ethereum",
+  "type": "module",
+  "scripts": {
+    "dev": "vocs dev",
+    "build": "vocs build",
+    "preview": "vocs preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "vocs": "^1.4.1"
+  }
+}

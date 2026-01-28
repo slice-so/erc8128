@@ -1,0 +1,142 @@
+# Quick Start
+
+Learn to sign and verify HTTP requests with ERC-8128 in 5 minutes.
+
+## 1. Install
+
+:::code-group
+
+```bash [bun]
+bun add @slicekit/erc8128
+```
+
+```bash [pnpm]
+pnpm add @slicekit/erc8128
+```
+
+```bash [npm]
+npm install @slicekit/erc8128
+```
+
+```bash [yarn]
+yarn add @slicekit/erc8128
+```
+
+:::
+
+## 2. Sign a Request
+
+:::code-group
+
+```typescript [main.ts]
+import { client } from './client'
+
+const response = await client.fetch(
+  'https://api.example.com/orders',
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ side: 'buy', amount: '1.5' }),
+  }
+)
+```
+
+```typescript [client.ts]
+import { createClient } from '@slicekit/erc8128'
+import { signer } from './signer'
+
+export const client = createClient(signer)
+```
+
+```typescript [signer.ts]
+import type { EthHttpSigner } from '@slicekit/erc8128'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+
+export const signer: EthHttpSigner = {
+  chainId: 1,
+  address: account.address,
+  signMessage: async (message) => {
+    return account.signMessage({ message: { raw: message } })
+  },
+}
+```
+
+:::
+
+The signed request has these headers added:
+- `Signature-Input` — Components and parameters
+- `Signature` — Ethereum signature
+- `Content-Digest` — SHA-256 hash of body
+
+## 3. Verify Request
+
+:::code-group
+
+```typescript [verify.ts]
+import { verifyRequest } from '@slicekit/erc8128'
+import { publicClient } from './client'
+import { nonceStore } from './nonce'
+
+const result = await verifyRequest(request, {
+  nonceStore,
+  verifyMessage: publicClient.verifyMessage,
+})
+
+if (result.ok) {
+  console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
+} else {
+  console.log(`Failed: ${result.reason}`)
+}
+```
+
+```typescript [client.ts]
+import { createPublicClient, http } from 'viem'
+import { mainnet } from 'viem/chains'
+
+export const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(),
+})
+```
+
+```typescript [nonce.ts]
+import type { NonceStore } from '@slicekit/erc8128'
+
+// Use KV in production
+const seen = new Set<string>()
+export const nonceStore: NonceStore = {
+  consume: async (key: string) => {
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }
+}
+```
+
+:::
+
+## What Just Happened?
+
+1. **Client signed the request** — The signature covers `@authority`, `@method`, `@path`, `@query`, and `content-digest`. Any tampering fails verification.
+
+2. **Automatic nonce** — By default, a unique nonce is generated for replay protection.
+
+3. **Server verified** — The server reconstructed the signature base, verified the Ethereum signature, and checked the nonce wasn't reused.
+
+## Defaults
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `binding` | `"request-bound"` | Sign all applicable components |
+| `replay` | `"non-replayable"` | Include auto-generated nonce |
+| `ttlSeconds` | `60` | Signature valid for 1 minute |
+| `label` | `"eth"` | Signature label in headers |
+
+## Next Steps
+
+- [Concepts Overview](/concepts/overview) — Understand request binding and replay protection
+- [Signing Requests](/guides/signing-requests) — Full guide with all options
+- [Verifying Requests](/guides/verifying-requests) — Production verification setup
+- [Smart Contract Accounts](/guides/smart-contract-accounts) — Using ERC-1271 signers

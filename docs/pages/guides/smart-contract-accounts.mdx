@@ -1,0 +1,166 @@
+# Smart Contract Accounts
+
+How to use ERC-8128 with smart contract accounts (SCAs) like ERC-4337 wallets, Safe, and session keys.
+
+## How It Works
+
+ERC-8128 supports smart contract accounts through ERC-1271 signature verification. When verifying a signature:
+
+1. The verifier calls `isValidSignature(hash, signature)` on the signer's contract
+2. The contract returns `0x1626ba7e` (magic value) if valid
+3. The signature format is contract-dependent (could be multi-sig, threshold, etc.)
+
+## Signing with an SCA
+
+### Session Keys
+
+Many SCAs support session keys — temporary EOAs authorized to sign on behalf of the contract:
+
+```typescript
+import type { EthHttpSigner } from '@slicekit/erc8128'
+
+const sessionKeySigner: EthHttpSigner = {
+  // The smart contract account address
+  address: '0xSmartContractAccount...',
+  chainId: 1,
+  
+  signMessage: async (message) => {
+    // Sign with the session key EOA
+    const sessionSig = await sessionKeyAccount.signMessage({
+      message: { raw: message },
+    })
+    
+    // Some SCAs require wrapping the signature with metadata
+    // Check your SCA's documentation
+    return sessionSig
+  },
+}
+```
+
+### Delegate Signing
+
+For SCAs that support delegation:
+
+```typescript
+const delegateSigner: EthHttpSigner = {
+  address: '0xSmartContractAccount...',
+  chainId: 1,
+  
+  signMessage: async (message) => {
+    // The SCA will verify this delegate signature internally
+    return delegateKey.signMessage({ message: { raw: message } })
+  },
+}
+```
+
+## Verifying SCA Signatures
+
+The `verifyMessage` function in your policy must support ERC-1271:
+
+### With viem
+
+viem's `verifyMessage` automatically handles both EOA signatures (ecrecover) and ERC-1271 contract signatures:
+
+```typescript
+import { createPublicClient, http } from 'viem'
+import { mainnet } from 'viem/chains'
+
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(),
+})
+
+// Use directly in policy
+const result = await verifyRequest(request, {
+  verifyMessage: publicClient.verifyMessage,
+  nonceStore,
+})
+```
+
+## Common SCA Patterns
+
+### Safe (Gnosis Safe)
+
+```typescript
+const safeSigner: EthHttpSigner = {
+  address: safeAddress,
+  chainId: 1,
+  
+  signMessage: async (message) => {
+    // For Safe, you typically need multiple signatures
+    // collected through their SDK
+    const safeMessage = await safe.signMessage(message)
+    return safeMessage.signature
+  },
+}
+```
+
+### ERC-4337 Wallets
+
+```typescript
+const erc4337Signer: EthHttpSigner = {
+  address: smartAccountAddress,
+  chainId: 1,
+  
+  signMessage: async (message) => {
+    // Most 4337 wallets expose a signMessage method
+    return smartAccount.signMessage(message)
+  },
+}
+```
+
+### Privy Embedded Wallets
+
+```typescript
+const privySigner: EthHttpSigner = {
+  address: embeddedWalletAddress,
+  chainId: 1,
+  
+  signMessage: async (message) => {
+    const { signature } = await privy.signMessage(
+      bytesToHex(message)
+    )
+    return signature
+  },
+}
+```
+
+## Chain Considerations
+
+When using SCAs, the `chainId` in the keyid matters:
+
+1. **Same chain verification** — If the verifier is on the same chain as the SCA, ERC-1271 calls work directly.
+
+2. **Cross-chain verification** — If verifying on a different chain:
+   - The verifier must have access to the SCA's chain
+   - Use a multi-chain client or RPC aggregator
+   - Consider chain-specific policies
+
+```typescript
+// Multi-chain verifier
+const verifyMessage: VerifyMessageFn = async ({ address, message, signature }) => {
+  // Parse chainId from the keyid
+  // Use appropriate client for that chain
+  const publicClient = getClientForChain(chainId)
+  
+  return publicClient.verifyMessage({
+    address,
+    message: { raw: message.raw },
+    signature,
+  })
+}
+```
+
+## Security Considerations
+
+1. **Session key expiry** — Ensure session keys have appropriate TTLs
+2. **Signature validity** — SCA signatures may have their own expiry
+3. **Contract state** — SCA authorization state can change (signers removed, thresholds changed)
+4. **Gas costs** — ERC-1271 verification requires an RPC call
+
+## Best Practices
+
+1. **Cache contract code** — Check if address is a contract once, not per request
+2. **Use appropriate timeouts** — ERC-1271 calls can be slow
+3. **Handle contract errors** — Contracts may revert for various reasons
+4. **Log SCA verification** — Debugging SCA issues requires good observability

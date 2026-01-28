@@ -1,0 +1,118 @@
+# verifyRequest
+
+Verify an ERC-8128 signed HTTP request.
+
+## Usage
+
+```typescript
+import { verifyRequest } from '@slicekit/erc8128'
+
+// Simple: just input and policy
+const result = await verifyRequest(request, {
+  nonceStore,
+  verifyMessage,
+  maxValiditySec: 300,
+})
+
+// With RequestInit (useful when you have separate input/init)
+const result = await verifyRequest(request, undefined, {
+  nonceStore,
+  verifyMessage,
+})
+
+if (result.ok) {
+  console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
+} else {
+  console.log(`Failed: ${result.reason}`)
+}
+```
+
+## Returns
+
+[`VerifyResult`](/api/types#verifyresult)
+
+An object indicating success or failure:
+
+```typescript
+if (result.ok) {
+  // Success — access verified data
+  result.address   // Ethereum address
+  result.chainId   // Chain ID
+  result.kind      // "eoa" or "sca"
+  result.label     // Signature label
+  result.components // Signed components
+} else {
+  // Failure — check reason
+  result.reason    // VerifyFailReason
+  result.detail    // Optional detail message
+}
+```
+
+## Parameters
+
+### Overload 1: Simple
+
+```typescript
+verifyRequest(input: RequestInfo, policy?: VerifyPolicy): Promise<VerifyResult>
+```
+
+### Overload 2: With RequestInit
+
+```typescript
+verifyRequest(input: RequestInfo, init: RequestInit | undefined, policy?: VerifyPolicy): Promise<VerifyResult>
+```
+
+### input
+
+- **Type:** `RequestInfo`
+
+The Request to verify (or URL string).
+
+### init (optional)
+
+- **Type:** `RequestInit | undefined`
+
+Optional RequestInit.
+
+### policy (optional)
+
+- **Type:** [`VerifyPolicy`](/api/types#verifypolicy)
+
+Verification policy with rules for validation.
+
+## Examples
+
+:::code-group
+
+```typescript [Strict Policy]
+const result = await verifyRequest(request, {
+  label: 'eth',
+  strictLabel: true,
+  nonce: 'required',
+  maxValiditySec: 60,
+  maxNonceWindowSec: 60,
+  clockSkewSec: 5,
+  enforceContentDigest: true,
+  nonceStore,
+  verifyMessage,
+})
+```
+
+```typescript [Relaxed Policy]
+const result = await verifyRequest(request, {
+  nonce: 'optional',
+  maxValiditySec: 300,
+  clockSkewSec: 30,
+  verifyMessage,
+})
+```
+
+```typescript [Custom Components]
+const result = await verifyRequest(request, {
+  requiredComponents: ['@authority', 'x-custom-header'],
+  nonce: 'optional',
+  verifyMessage,
+})
+```
+
+:::

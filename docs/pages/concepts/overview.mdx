@@ -1,0 +1,161 @@
+# Concepts Overview
+
+ERC-8128 combines three technologies to create a secure HTTP authentication system:
+
+1. **RFC 9421** — HTTP Message Signatures standard
+2. **EIP-191** — Ethereum Signed Message format
+3. **ERC-1271** — Smart contract signature verification
+
+## The Problem
+
+Traditional HTTP authentication has limitations:
+
+- **Bearer tokens** (JWTs, API keys) can be stolen and reused
+- **Session cookies** require server-side state
+- **OAuth** requires a handshake and centralized identity providers
+
+What if the client could prove their identity on every request using their existing Ethereum keys?
+
+## The Solution
+
+ERC-8128 lets Ethereum accounts sign HTTP requests directly:
+
+```
+┌─────────────┐    Signed Request     ┌─────────────┐
+│             │ ───────────────────▶  │             │
+│   Client    │  Signature-Input      │   Server    │
+│  (signer)   │  Signature            │ (verifier)  │
+│             │  Content-Digest       │             │
+└─────────────┘                       └─────────────┘
+       │                                     │
+       │ Signs with ETH key                  │ Verifies signature
+       ▼                                     ▼
+┌─────────────┐                       ┌─────────────┐
+│    EOA      │                       │  ecrecover  │
+│    or       │                       │    or       │
+│    SCA      │                       │  ERC-1271   │
+└─────────────┘                       └─────────────┘
+```
+
+## Core Components
+
+### Signature Base
+
+The "message" being signed is an RFC 9421 **signature base** — a canonical representation of the HTTP request:
+
+```
+"@authority": api.example.com
+"@method": POST
+"@path": /orders
+"@query": ?market=ETH-USD
+"content-digest": sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
+"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0x1234...abcd"
+```
+
+This is signed as an Ethereum message (EIP-191).
+
+### Headers
+
+Three headers carry the signature:
+
+| Header | Purpose |
+|--------|---------|
+| `Signature-Input` | Lists what was signed and parameters |
+| `Signature` | The cryptographic signature |
+| `Content-Digest` | SHA-256 hash of the body |
+
+Example:
+
+```http
+POST /orders HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Signature-Input: eth=("@authority" "@method" "@path" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0x1234...abcd"
+Signature: eth=:MEUCIQDXtPCJ5...base64...:
+Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
+
+{"amount": "100"}
+```
+
+### Keyid Format
+
+The `keyid` identifies the signer:
+
+```
+eip8128:<chainId>:<address>
+```
+
+Examples:
+- `eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045` — Ethereum mainnet
+- `eip8128:8453:0x1234...abcd` — Base
+- `eip8128:42161:0x1234...abcd` — Arbitrum
+
+## Security Properties
+
+| Property | How It's Achieved |
+|----------|-------------------|
+| **Authentication** | Signature proves knowledge of private key |
+| **Integrity** | Tampering with signed components fails verification |
+| **Replay Protection** | Nonce prevents request reuse |
+| **Time Bounds** | `created`/`expires` limit validity window |
+
+## Binding Modes
+
+### Request-Bound (Required)
+
+To be ERC-8128 compliant, implementations **must** support request-bound signatures. This mode signs everything relevant to the request:
+- `@authority` — Domain (prevents use on different server)
+- `@method` — HTTP method (prevents GET→POST)
+- `@path` — Path (prevents use on different endpoint)
+- `@query` — Query string (if present)
+- `content-digest` — Body hash (if body present)
+
+Request-bound provides full request integrity. The request sender can always choose this strictest option for maximum security.
+
+### Class-Bound (Optional)
+
+Implementations may additionally support class-bound signatures for performance optimization. This mode signs only specified components:
+- Signatures that work across endpoints
+- Reduced signature overhead for high-frequency requests
+- Delegation patterns
+
+:::warning
+Class-bound is less secure and optional. Request-bound should be the default.
+:::
+
+## Replay Protection
+
+Two modes:
+
+| Mode | Nonce | Use Case |
+|------|-------|----------|
+| `non-replayable` | Required | Mutations, payments |
+| `replayable` | None | Idempotent reads |
+
+The server tracks seen nonces and rejects duplicates.
+
+## Account Types
+
+| Account Type | Signature | Verification |
+|--------------|-----------|--------------|
+| EOA | ECDSA (65 bytes) | `ecrecover` |
+| SCA | Contract-defined | ERC-1271 `isValidSignature` |
+
+Both are supported transparently — the verifier checks if the address is a contract and uses the appropriate method.
+
+## Why RFC 9421?
+
+RFC 9421 (HTTP Message Signatures) is an IETF standard that provides:
+
+- Canonical serialization of HTTP components
+- Extensible component system
+- Multi-signature support
+- Time bounds and nonce support
+
+ERC-8128 is a profile of RFC 9421 with Ethereum-specific defaults.
+
+## Next Steps
+
+- [Request Binding](/concepts/request-binding) — Deep dive into what gets signed
+- [Replay Protection](/concepts/replay-protection) — Nonce handling details
+- [Security Model](/concepts/security-model) — Threat model and mitigations

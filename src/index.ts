@@ -1,0 +1,18 @@
+export { type Client, type ClientOptions, createClient } from "./client.js"
+export { formatKeyId, parseKeyId } from "./lib/keyId.js"
+export {
+  type BindingMode,
+  type ContentDigestMode,
+  Eip8128Error,
+  type EthHttpSigner,
+  type HeaderMode,
+  type NonceStore,
+  type ReplayMode,
+  type SignatureParams,
+  type SignOptions,
+  type VerifyFailReason,
+  type VerifyPolicy,
+  type VerifyResult
+} from "./lib/types.js"
+export { signedFetch, signRequest } from "./sign.js"
+export { verifyRequest } from "./verify.js"

@@ -1,0 +1,290 @@
+# Verifying Requests
+
+Learn how to verify ERC-8128 signed requests on your server.
+
+## Overview
+
+Verification confirms that a request was signed by the claimed Ethereum address and hasn't been tampered with. The process checks:
+
+- Signature validity (cryptographic verification)
+- Timing (created/expires window)
+- Replay protection (nonce consumption)
+- Request binding (signed components match)
+
+## Basic Verification
+
+The simplest way to verify a request using [verifyRequest](/api/verifyRequest):
+
+```typescript
+import { verifyRequest } from '@slicekit/erc8128'
+
+const result = await verifyRequest(request, {
+  nonceStore,
+  verifyMessage,
+})
+
+if (result.ok) {
+  console.log(`Authenticated: ${result.address}`)
+  console.log(`Chain: ${result.chainId}`)
+} else {
+  console.log(`Failed: ${result.reason}`)
+}
+```
+
+## Required Setup
+
+### Nonce Store
+
+For replay protection, you need a store that tracks consumed nonces.
+
+:::code-group
+
+```typescript [Redis (Production)]
+import type { NonceStore } from '@slicekit/eip8128'
+import { Redis } from 'ioredis'
+
+const redis = new Redis()
+
+export const nonceStore: NonceStore = {
+  async consume(key: string, ttlSeconds: number) {
+    const result = await redis.set(`nonce:${key}`, '1', 'EX', ttlSeconds, 'NX')
+    return result === 'OK'
+  },
+}
+```
+
+```typescript [In-Memory (Development)]
+import type { NonceStore } from '@slicekit/eip8128'
+
+const seen = new Set<string>()
+
+export const nonceStore: NonceStore = {
+  consume: async (key: string) => {
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  },
+}
+```
+
+:::
+
+## Policy Configuration
+
+Choose the appropriate policy based on your endpoint's security requirements:
+
+:::code-group
+
+```typescript [Strict (Mutations)]
+// For high-security endpoints that modify state
+const result = await verifyRequest(request, {
+  nonce: 'required',
+  maxValiditySec: 60,       // Short window
+  maxNonceWindowSec: 60,
+  clockSkewSec: 5,          // Small tolerance
+  enforceContentDigest: true,
+  nonceStore,
+  verifyMessage: verifyMessageFn,
+})
+```
+
+```typescript [Relaxed (Reads)]
+// For idempotent read operations
+const result = await verifyRequest(request, {
+  nonce: 'optional',        // Allow replayable signatures
+  maxValiditySec: 300,      // Longer window
+  clockSkewSec: 30,         // More tolerance
+  verifyMessage: verifyMessageFn,
+})
+```
+
+:::
+
+### Label Selection
+
+When multiple signatures exist on a request:
+
+:::code-group
+
+```typescript [Default (Prefer Label)]
+// Prefer "eth" label, fall back to first valid
+const result = await verifyRequest(request, {
+  label: 'eth',
+  nonceStore,
+  verifyMessage: verifyMessageFn,
+})
+```
+
+```typescript [Strict (Require Label)]
+// Require exact label match
+const result = await verifyRequest(request, {
+  label: 'user',
+  strictLabel: true,  // Fail if "user" label not found
+  nonceStore,
+  verifyMessage: verifyMessageFn,
+})
+```
+
+:::
+
+### Custom Component Requirements
+
+Require specific headers to be signed:
+
+```typescript
+const result = await verifyRequest(request, {
+  requiredComponents: ['@authority', '@method', '@path', 'x-idempotency-key'],
+  nonceStore,
+  verifyMessage: verifyMessageFn,
+})
+```
+
+## Framework Integration
+
+:::code-group
+
+```typescript [Hono]
+import { verifyRequest } from '@slicekit/erc8128'
+import { createMiddleware } from 'hono/factory'
+
+const erc8128Auth = createMiddleware(async (c, next) => {
+  const result = await verifyRequest(c.req.raw, {
+    nonceStore,
+    verifyMessage: verifyMessageFn,
+    maxValiditySec: 300,
+  })
+
+  if (!result.ok) {
+    return c.json({ error: 'Unauthorized', reason: result.reason }, 401)
+  }
+
+  c.set('auth', {
+    address: result.address,
+    chainId: result.chainId,
+  })
+
+  await next()
+})
+```
+
+```typescript [Next.js]
+import { verifyRequest } from '@slicekit/erc8128'
+import type { NextRequest } from 'next/server'
+
+export async function POST(req: NextRequest) {
+  const result = await verifyRequest(req, {
+    nonceStore,
+    verifyMessage: verifyMessageFn,
+  })
+
+  if (!result.ok) {
+    return Response.json({ error: result.reason }, { status: 401 })
+  }
+
+  // Authenticated! Use result.address
+  return Response.json({ address: result.address })
+}
+```
+
+```typescript [Express]
+import { verifyRequest } from '@slicekit/erc8128'
+import type { Request, Response, NextFunction } from 'express'
+
+const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
+  // Convert Express request to Fetch Request
+  const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`
+  const fetchRequest = new Request(url, {
+    method: req.method,
+    headers: req.headers as HeadersInit,
+    body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+  })
+
+  const result = await verifyRequest(fetchRequest, {
+    nonceStore,
+    verifyMessage: verifyMessageFn,
+    maxValiditySec: 300,
+  })
+
+  if (!result.ok) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      reason: result.reason,
+    })
+  }
+
+  // Attach identity to request
+  req.auth = {
+    address: result.address,
+    chainId: result.chainId,
+  }
+
+  next()
+}
+```
+
+:::
+
+## Handling Failures
+
+```typescript
+const result = await verifyRequest(request, policy)
+
+if (!result.ok) {
+  switch (result.reason) {
+    case 'missing_headers':
+      // No signature present
+      return { status: 401, error: 'Authentication required' }
+      
+    case 'expired':
+    case 'not_yet_valid':
+      // Time-based rejection
+      return { status: 401, error: 'Signature expired or not yet valid' }
+      
+    case 'replay':
+      // Nonce reuse detected
+      return { status: 401, error: 'Request replay detected' }
+      
+    case 'bad_signature':
+      // Cryptographic verification failed
+      return { status: 401, error: 'Invalid signature' }
+      
+    case 'digest_mismatch':
+      // Body was tampered
+      return { status: 400, error: 'Body integrity check failed' }
+      
+    default:
+      return { status: 401, error: `Authentication failed: ${result.reason}` }
+  }
+}
+```
+
+## Multi-Chain Support
+
+The `chainId` in the verification result tells you which chain the signer claims to be on:
+
+```typescript
+if (result.ok) {
+  const { address, chainId } = result
+
+  // Verify the signer has permissions on this chain
+  const hasAccess = await checkPermissions(address, chainId)
+
+  if (!hasAccess) {
+    // Return 403 Forbidden
+  }
+}
+```
+
+## Best Practices
+
+1. **Always use nonce stores in production** — In-memory stores don't work across server restarts or multiple instances.
+
+2. **Keep validity windows short** — 60-300 seconds is reasonable. Longer windows increase replay risk.
+
+3. **Use strict label matching** when you expect a specific signature source.
+
+4. **Log verification failures** — They can indicate attacks or client bugs.
+
+5. **Consider clock skew** — Allow 5-30 seconds for network latency and clock drift.
+
+6. **Use Redis or a distributed store** — Essential for multi-instance deployments.

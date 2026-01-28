@@ -1,0 +1,250 @@
+# Signing Requests
+
+Learn how to sign HTTP requests with ERC-8128.
+
+## Overview
+
+ERC-8128 signing creates cryptographic proof that an HTTP request was authorized by a specific Ethereum address. The signature covers the request components (method, URL, headers, body) and includes timing/replay protection.
+
+With a signed request, servers can:
+- Authenticate users by their Ethereum address (no passwords or API keys)
+- Verify request integrity (tampering detection)
+- Prevent replay attacks (via nonces)
+
+## Basic Signing
+
+The simplest way to sign a request using [signRequest](/api/signRequest):
+
+```typescript
+import { signRequest } from '@slicekit/erc8128'
+
+const signed = await signRequest(
+  'https://api.example.com/resource',
+  signer
+)
+```
+
+This uses all defaults:
+- **Request-bound** — signs authority, method, path, query, body digest
+- **Non-replayable** — auto-generated nonce
+- **60-second TTL**
+- **Label: "eth"**
+
+## Creating a Signer
+
+```typescript
+import type { EthHttpSigner } from '@slicekit/erc8128'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+
+const signer: EthHttpSigner = {
+  chainId: 1,
+  address: account.address,
+  signMessage: async (message) => {
+    return account.signMessage({ message: { raw: message } })
+  },
+}
+```
+
+## Using createClient
+
+For repeated requests, use [createClient](/api/createClient) to bind the signer:
+
+```typescript
+import { createClient } from '@slicekit/erc8128'
+
+const client = createClient(signer, {
+  ttlSeconds: 120,
+})
+
+// Use client.fetch
+const response = await client.fetch('https://api.example.com/orders', {
+  method: 'POST',
+  body: JSON.stringify({ amount: '100' }),
+})
+
+// Override options per-call
+const response = await client.fetch(
+  'https://api.example.com/status',
+  { method: 'GET' },
+  { replay: 'replayable' }
+)
+```
+
+## Signing Options
+
+:::code-group
+
+```typescript [Custom TTL]
+const signed = await signRequest(
+  'https://api.example.com/resource',
+  signer,
+  { ttlSeconds: 300 } // Valid for 5 minutes
+)
+```
+
+```typescript [Explicit Timestamps]
+const now = Math.floor(Date.now() / 1000)
+
+const signed = await signRequest(
+  'https://api.example.com/resource',
+  signer,
+  {
+    created: now,
+    expires: now + 120, // 2 minutes
+  }
+)
+```
+
+```typescript [Custom Nonce]
+const signed = await signRequest(
+  'https://api.example.com/resource',
+  signer,
+  { nonce: `request-${crypto.randomUUID()}` }
+)
+```
+
+```typescript [Async Nonce Generator]
+const signed = await signRequest(
+  'https://api.example.com/resource',
+  signer,
+  {
+    nonce: async () => {
+      const res = await fetch('https://nonce.example.com/generate')
+      return res.text()
+    },
+  }
+)
+```
+
+:::
+
+## Binding Modes
+
+:::code-group
+
+```typescript [Request-Bound (Default)]
+// Signs all applicable components for maximum security
+const signed = await signRequest(
+  'https://api.example.com/search?q=test',
+  { method: 'POST', body: '{"data": true}' },
+  signer,
+  { binding: 'request-bound' }
+)
+
+// Signature covers: @authority, @method, @path, @query, content-digest
+```
+
+```typescript [Class-Bound]
+// For signing only specific components
+// (e.g., authorization that works across multiple endpoints)
+const signed = await signRequest(
+  'https://api.example.com/any-endpoint',
+  signer,
+  {
+    binding: 'class-bound',
+    components: ['@authority'],  // Only sign the domain
+    replay: 'replayable',        // Often combined
+  }
+)
+```
+
+:::
+
+:::warning
+Class-bound signatures are less secure. Only use when you understand the trade-offs.
+:::
+
+### Additional Components
+
+Sign extra headers alongside the default request-bound set:
+
+```typescript
+const signed = await signRequest(
+  request,
+  signer,
+  { components: ['x-idempotency-key', 'x-request-id'] }
+)
+
+// Signature covers: @authority, @method, @path, content-digest, 
+//                   x-idempotency-key, x-request-id
+```
+
+## Replay Modes
+
+:::code-group
+
+```typescript [Non-Replayable (Default)]
+// Every request gets a unique nonce
+const signed = await signRequest(
+  'https://api.example.com/resource',
+  signer,
+  { replay: 'non-replayable' }
+)
+```
+
+```typescript [Replayable]
+// No nonce — use only for safe, idempotent operations
+const signed = await signRequest(
+  'https://api.example.com/status',
+  { method: 'GET' },
+  signer,
+  { replay: 'replayable' }
+)
+```
+
+:::
+
+:::warning
+Replayable signatures can be replayed by anyone who intercepts them. Only use for safe, idempotent operations.
+:::
+
+## Content-Digest
+
+### Automatic (Default)
+
+Content-Digest is computed automatically for request-bound requests with a body:
+
+```typescript
+const signed = await signRequest(
+  'https://api.example.com/data',
+  {
+    method: 'POST',
+    body: JSON.stringify({ data: 'value' }),
+  },
+  signer
+)
+
+// Content-Digest header added automatically
+```
+
+### Manual Control
+
+```typescript
+const signed = await signRequest(
+  request,
+  signer,
+  { contentDigest: 'off' } // Don't add Content-Digest
+)
+```
+
+## Error Handling
+
+```typescript
+import { signRequest, Eip8128Error } from '@slicekit/erc8128'
+
+try {
+  const signed = await signRequest(input, signer)
+} catch (error) {
+  if (error instanceof Eip8128Error) {
+    console.error(`Signing failed: ${error.code} - ${error.message}`)
+  }
+  throw error
+}
+```
+
+Common errors:
+- `CRYPTO_UNAVAILABLE` — No WebCrypto (older Node.js or restricted environment)
+- `UNSUPPORTED_REQUEST` — Can't sign this request (e.g., invalid URL)
+- `BODY_READ_FAILED` — Couldn't read request body for Content-Digest

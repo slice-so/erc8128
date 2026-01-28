@@ -1,0 +1,93 @@
+# signedFetch
+
+Signs and sends an HTTP request in one call.
+
+Internally, `signedFetch` uses [signRequest](/api/signRequest) to create the signed request, then sends it using fetch.
+
+## Usage
+
+```typescript
+import { signedFetch } from '@slicekit/erc8128'
+
+// Simple
+const response = await signedFetch(
+  'https://api.example.com/orders',
+  signer
+)
+
+// With RequestInit
+const response = await signedFetch(
+  'https://api.example.com/orders',
+  { method: 'POST', body: JSON.stringify({ amount: '100' }) },
+  signer
+)
+
+// With options
+const response = await signedFetch(
+  'https://api.example.com/orders',
+  { method: 'POST', body: JSON.stringify({ amount: '100' }) },
+  signer,
+  { ttlSeconds: 30 }
+)
+
+const data = await response.json()
+```
+
+## Returns
+
+`Promise<Response>`
+
+The fetch Response.
+
+## Parameters
+
+### Overload 1: Simple
+
+```typescript
+signedFetch(input: RequestInfo, signer: EthHttpSigner, opts?: SignOptions & { fetch?: typeof fetch }): Promise<Response>
+```
+
+### Overload 2: With RequestInit
+
+```typescript
+signedFetch(input: RequestInfo, init: RequestInit | undefined, signer: EthHttpSigner, opts?: SignOptions & { fetch?: typeof fetch }): Promise<Response>
+```
+
+### input
+
+- **Type:** `RequestInfo`
+
+URL string or Request object.
+
+### init (optional)
+
+- **Type:** `RequestInit | undefined`
+
+Optional RequestInit.
+
+### signer
+
+- **Type:** [`EthHttpSigner`](/api/types#ethhttpsigner)
+
+The signer.
+
+### opts (optional)
+
+- **Type:** [`SignOptions`](/api/types#signoptions) `& { fetch?: typeof fetch }`
+
+Sign options, plus an optional custom fetch implementation.
+
+## Examples
+
+### Custom Fetch
+
+Provide a custom fetch implementation (useful for testing or edge runtimes):
+
+```typescript
+const response = await signedFetch(
+  'https://api.example.com/orders',
+  { method: 'POST', body: JSON.stringify({ amount: '100' }) },
+  signer,
+  { fetch: customFetch }
+)
+```

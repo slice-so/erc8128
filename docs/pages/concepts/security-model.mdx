@@ -1,0 +1,237 @@
+# Security Model
+
+Understanding the security guarantees and limitations of ERC-8128.
+
+## Threat Model
+
+ERC-8128 protects against:
+
+| Threat | Protection |
+|--------|------------|
+| **Impersonation** | Signature proves key ownership |
+| **Request tampering** | Signed components detect modifications |
+| **Replay attacks** | Nonces and time bounds |
+| **Man-in-the-middle** | Request binding to specific authority |
+
+ERC-8128 does **not** protect against:
+
+| Threat | Why | Mitigation |
+|--------|-----|------------|
+| Private key theft | Out of scope | Secure key storage |
+| TLS stripping | Transport security | Use HTTPS |
+| Response tampering | Only requests are signed | Sign responses too |
+| Timing attacks | Implementation detail | Constant-time comparison |
+
+## Security Properties
+
+### Authentication
+
+The signature proves the signer controls the private key for `address`:
+
+- **EOA**: ECDSA signature verification via `ecrecover`
+- **SCA**: Contract-defined via ERC-1271 `isValidSignature`
+
+### Integrity
+
+Tampering with signed components causes verification failure:
+
+```
+Original:  POST /transfer {"amount": "100"}
+Tampered:  POST /transfer {"amount": "1000000"}
+                          ^^^^^^^^^^^^^^^^^^^
+                          Different body → different content-digest → signature invalid
+```
+
+### Non-Repudiation
+
+The signer cannot deny having signed a request (assuming key wasn't compromised).
+
+### Freshness
+
+Time bounds ensure signatures aren't valid indefinitely:
+
+```
+created=1618884473 → signature starts being valid
+expires=1618884533 → signature stops being valid
+                     (60 second window)
+```
+
+## Attack Scenarios
+
+### Replay Attack
+
+**Attack:** Resend a captured signed request.
+
+**Defense:**
+1. Nonce uniqueness — server rejects seen nonces
+2. Time bounds — expired signatures rejected
+3. Short TTL — narrow window for attack
+
+**Configuration:**
+```typescript
+{
+  nonce: 'required',
+  nonceStore: redisStore,
+  maxValiditySec: 60,
+}
+```
+
+### Parameter Tampering
+
+**Attack:** Modify query parameters or body.
+
+**Defense:**
+- Query signed via `@query` component
+- Body signed via `content-digest` component
+
+**If not using request-bound mode:**
+```typescript
+// No request integrity
+opts: { binding: 'class-bound', components: ['@authority'] }
+
+// Request integrity
+opts: { binding: 'request-bound' }  // Default
+```
+
+### Path Confusion
+
+**Attack:** Use signature for different endpoint.
+
+**Defense:** `@path` component in signature.
+
+**Example:**
+```
+Signed for:     POST /api/v1/orders
+Attacker uses:  POST /api/v1/admin/delete
+                     ^^^^^^^^^^^^^^^^^^
+                     Different path → signature invalid
+```
+
+### Domain Confusion
+
+**Attack:** Use signature on malicious server.
+
+**Defense:** `@authority` component in signature.
+
+**Example:**
+```
+Signed for:     POST https://api.example.com/transfer
+Attacker uses:  POST https://evil.com/transfer
+                          ^^^^^^^^
+                          Different authority → signature invalid
+```
+
+### Clock Drift Exploitation
+
+**Attack:** Exploit clock differences between client and server.
+
+**Defense:** `clockSkewSec` policy.
+
+**Configuration:**
+```typescript
+{
+  clockSkewSec: 30,  // Allow 30 second drift
+}
+```
+
+### Nonce Prediction
+
+**Attack:** Guess nonces to pre-generate valid signatures.
+
+**Defense:** Use cryptographically random nonces.
+
+**Good:**
+```typescript
+{ nonce: crypto.randomUUID() }
+```
+
+**Bad:**
+```typescript
+{ nonce: `request-${counter++}` }  // Predictable!
+```
+
+## Verification Checklist
+
+A secure verifier should:
+
+1. ✅ Require signatures on sensitive endpoints
+2. ✅ Enforce request-bound components
+3. ✅ Use a distributed nonce store
+4. ✅ Set reasonable `maxValiditySec`
+5. ✅ Allow minimal `clockSkewSec`
+6. ✅ Verify `content-digest` for bodies
+7. ✅ Support ERC-1271 for SCAs
+8. ✅ Log verification failures
+
+## Recommended Policies
+
+:::code-group
+
+```typescript [High Security]
+// For payments and mutations
+{
+  nonce: 'required',
+  nonceStore: redisStore,
+  maxValiditySec: 60,
+  maxNonceWindowSec: 60,
+  clockSkewSec: 5,
+  enforceContentDigest: true,
+  verifyMessage,
+}
+```
+
+```typescript [Standard API]
+{
+  nonce: 'required',
+  nonceStore: redisStore,
+  maxValiditySec: 300,
+  clockSkewSec: 30,
+  verifyMessage,
+}
+```
+
+```typescript [Read-Only / Idempotent]
+{
+  nonce: 'optional',
+  maxValiditySec: 300,
+  clockSkewSec: 60,
+  verifyMessage,
+}
+```
+
+:::
+
+## Implementation Considerations
+
+### Signature Verification
+
+- Use constant-time comparison for signatures
+- Don't leak timing information on failures
+- Verify signature before processing request
+
+### Nonce Storage
+
+- Use atomic operations (SET NX)
+- Include TTL for automatic cleanup
+- Scope nonces per keyid to prevent collision
+
+### Error Messages
+
+- Don't reveal which check failed in production
+- Log detailed failures server-side
+- Return generic "authentication failed" to client
+
+### Rate Limiting
+
+Even with valid signatures, apply rate limits:
+
+```typescript
+const result = await verifyRequest(request, policy)
+if (result.ok) {
+  // Check rate limit for this address
+  const allowed = await rateLimit(result.address)
+  if (!allowed) {
+    return { status: 429, error: 'Rate limited' }
+  }
+}
+```

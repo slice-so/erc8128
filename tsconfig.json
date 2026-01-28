@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "./dist",
+    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
+    "types": ["bun-types"]
+  },
+  "include": ["src/**/*", "scripts/**/*"]
+}

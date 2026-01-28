@@ -1,0 +1,63 @@
+# createClient
+
+Create a client with a bound signer for convenient repeated use.
+
+The client provides `signRequest`, `signedFetch`, and `fetch` methods that automatically use the configured signer and default options.
+
+## Usage
+
+```typescript
+import { createClient } from '@slicekit/erc8128'
+
+const client = createClient(signer, {
+  ttlSeconds: 120,
+  replay: 'non-replayable',
+})
+
+// Use client.fetch (alias for signedFetch)
+const response = await client.fetch('https://api.example.com/orders', {
+  method: 'POST',
+  body: JSON.stringify({ amount: '100' }),
+})
+
+// Override options per-call
+const response = await client.fetch(
+  'https://api.example.com/status',
+  { method: 'GET' },
+  { replay: 'replayable' }
+)
+
+// Sign without sending
+const signed = await client.signRequest('https://api.example.com/orders')
+```
+
+## Returns
+
+[`Client`](/api/types#client)
+
+An object with bound methods:
+- `signRequest` — Sign a request
+- `signedFetch` — Sign and send a request
+- `fetch` — Alias for `signedFetch`
+
+## Parameters
+
+### signer
+
+- **Type:** [`EthHttpSigner`](/api/types#ethhttpsigner)
+
+The signer to use for all requests.
+
+### defaults (optional)
+
+- **Type:** [`ClientOptions`](/api/types#clientoptions)
+
+Default options for all requests. Can be overridden per-call.
+
+```typescript
+const client = createClient(signer, {
+  ttlSeconds: 300,
+  replay: 'non-replayable',
+  fetch: customFetch,
+})
+```

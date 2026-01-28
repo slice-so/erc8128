@@ -1,0 +1,29 @@
+# parseKeyId
+
+Parse an ERC-8128 keyid into chain ID and address.
+
+## Usage
+
+```typescript
+import { parseKeyId } from '@slicekit/erc8128'
+
+const result = parseKeyId('eip8128:1:0xabc123...')
+// { chainId: 1, address: '0xabc123...' }
+
+const invalid = parseKeyId('invalid')
+// null
+```
+
+## Returns
+
+`{ chainId: number; address: Address } | null`
+
+The parsed result, or `null` if the keyid is invalid.
+
+## Parameters
+
+### keyid
+
+- **Type:** `string`
+
+The keyid string to parse.

@@ -1,0 +1,215 @@
+# Replay Protection
+
+Replay attacks occur when an attacker captures a valid signed request and resends it. ERC-8128 provides multiple layers of defense.
+
+## The Threat
+
+Without protection:
+
+```
+1. Alice signs: POST /api/orders {"item": "coffee", "quantity": 1}
+2. Attacker intercepts the signed request
+3. Attacker replays it 100 times
+4. Alice has 100 orders instead of 1
+```
+
+## Defense Layers
+
+ERC-8128 provides three complementary protections:
+
+| Layer | Protection | Bypass Difficulty |
+|-------|------------|-------------------|
+| Time bounds | `expires` parameter | Wait and retry |
+| Nonce | Unique per request | Requires new nonce |
+| Request binding | Components in signature | Requires valid signature |
+
+## Time Bounds
+
+Every signature has `created` and `expires` timestamps:
+
+```
+Signature-Input: eth=(...);created=1618884473;expires=1618884533;...
+```
+
+:::code-group
+
+```typescript [Client Side]
+const signed = await signRequest(
+  request,
+  signer,
+  {
+    ttlSeconds: 60,     // Default: 60 seconds
+    // Or explicit timestamps:
+    // created: Math.floor(Date.now() / 1000),
+    // expires: Math.floor(Date.now() / 1000) + 120,
+  }
+)
+```
+
+```typescript [Server Side]
+const result = await verifyRequest(request, {
+  maxValiditySec: 300,  // Max 5 minutes allowed
+  clockSkewSec: 30,     // Allow 30s clock drift
+  now: () => Math.floor(Date.now() / 1000),  // Time source
+  ...
+})
+```
+
+:::
+
+### Failure Reasons
+
+- `not_yet_valid` — `now < created` (clock skew issue)
+- `expired` — `now > expires`
+- `validity_too_long` — `expires - created > maxValiditySec`
+- `bad_time` — Invalid time values (e.g., `expires <= created`)
+
+## Nonces
+
+For non-replayable requests, a unique nonce ensures each request can only be used once:
+
+```
+Signature-Input: eth=(...);nonce="a1b2c3d4-e5f6-7890";...
+```
+
+:::code-group
+
+```typescript [Client: Auto Nonce]
+// Auto-generated (default)
+const signed = await signRequest(
+  request,
+  signer,
+  { replay: 'non-replayable' }  // Default
+)
+```
+
+```typescript [Client: Custom Nonce]
+// Custom nonce
+const signed = await signRequest(
+  request,
+  signer,
+  { nonce: `${Date.now()}-${crypto.randomUUID()}` }
+)
+```
+
+```typescript [Client: Async Nonce]
+// Async nonce generator
+const signed = await signRequest(
+  request,
+  signer,
+  {
+    nonce: async () => {
+      const res = await fetch('https://nonce-service.example.com/generate')
+      return res.text()
+    },
+  }
+)
+```
+
+```typescript [Server]
+const result = await verifyRequest(request, {
+  nonce: 'required',    // Default: reject requests without nonce
+  nonceStore,           // Required for nonce enforcement
+  maxNonceWindowSec: 60, // Optional: limit nonce validity window
+  ...
+})
+```
+
+:::
+
+### Nonce Store
+
+The nonce store tracks consumed nonces:
+
+```typescript
+interface NonceStore {
+  consume(key: string, ttlSeconds: number): Promise<boolean>
+}
+```
+
+**Requirements:**
+- Atomic — no race conditions
+- TTL — automatic cleanup
+
+**Redis example:**
+
+```typescript
+const nonceStore: NonceStore = {
+  async consume(key, ttlSeconds) {
+    const result = await redis.set(
+      `nonce:${key}`,
+      '1',
+      'EX', ttlSeconds,
+      'NX'  // Only set if not exists
+    )
+    return result === 'OK'
+  },
+}
+```
+
+### Nonce Key Format
+
+By default: `${keyid}:${nonce}`
+
+This scopes nonces per signer. Custom format:
+
+```typescript
+const result = await verifyRequest(request, {
+  nonceKey: (keyid, nonce) => `myapp:${keyid}:${nonce}`,
+  ...
+})
+```
+
+## Replayable Mode
+
+For safe, idempotent operations, nonces can be omitted:
+
+:::code-group
+
+```typescript [Client]
+const signed = await signRequest(
+  'https://api.example.com/status',
+  { method: 'GET' },
+  signer,
+  { replay: 'replayable' }
+)
+```
+
+```typescript [Server]
+const result = await verifyRequest(request, {
+  nonce: 'optional',  // Allow missing nonce
+  verifyMessage,
+})
+```
+
+:::
+
+### When Replayable Is Safe
+
+- `GET` requests that don't modify state
+- Idempotent operations with idempotency keys
+- Read-only status checks
+
+### When Replayable Is Dangerous
+
+- Order creation
+- State mutations
+- Actions with side effects
+
+## Nonce Policy Options
+
+| Policy | Behavior |
+|--------|----------|
+| `required` | Reject if no nonce (default) |
+| `optional` | Accept with or without nonce |
+| `forbidden` | Reject if nonce present |
+
+## Best Practices
+
+1. **Use non-replayable by default** — Only use replayable when you're sure it's safe
+
+2. **Keep TTLs short** — 60 seconds is usually enough; longer windows increase risk
+
+3. **Set `maxNonceWindowSec`** — Limit how long nonces can be valid
+
+4. **Monitor replay attempts** — Log `replay` failures for security analysis

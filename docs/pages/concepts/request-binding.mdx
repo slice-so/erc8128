@@ -1,0 +1,179 @@
+# Request Binding
+
+Request binding determines which parts of the HTTP request are cryptographically protected by the signature.
+
+## Request-Bound (Default)
+
+For request-bound signatures, the library automatically selects components based on the request:
+
+| Condition | Components Signed |
+|-----------|-------------------|
+| All requests | `@authority`, `@method`, `@path` |
+| Has query string | `+ @query` |
+| Has body | `+ content-digest` |
+
+Example for `POST /orders?market=ETH` with body:
+
+```
+Signature-Input: eth=("@authority" "@method" "@path" "@query" "content-digest");...
+```
+
+## Why These Components?
+
+### @authority (Host)
+
+Prevents the signature from being used on a different server.
+
+Without `@authority`:
+```
+Attacker captures: POST https://api.example.com/transfer
+Replays to: POST https://malicious.com/transfer ❌ (would work!)
+```
+
+With `@authority`:
+```
+Signature binds to api.example.com
+Replay to malicious.com → verification fails ✓
+```
+
+### @method
+
+Prevents changing the HTTP method.
+
+Without `@method`:
+```
+Signed: GET /resource
+Attacker changes to: POST /resource ❌ (could create data!)
+```
+
+### @path
+
+Prevents using the signature on a different endpoint.
+
+Without `@path`:
+```
+Signed: POST /api/v1/orders
+Attacker uses: POST /api/v1/admin/delete ❌ (different action!)
+```
+
+### @query
+
+Prevents tampering with query parameters.
+
+Without `@query`:
+```
+Signed: GET /search?q=cats
+Attacker changes: GET /search?q=dogs&admin=true ❌
+```
+
+### content-digest
+
+Prevents tampering with the request body.
+
+Without `content-digest`:
+```
+Signed: POST /transfer with body {"amount": "10"}
+Attacker changes: POST /transfer with body {"amount": "1000000"} ❌
+```
+
+## Content-Digest Header
+
+For body integrity, ERC-8128 uses the `Content-Digest` header (RFC 9530):
+
+```http
+Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
+```
+
+The signature covers this header, and the server verifies that the header matches the actual body bytes.
+
+### Automatic Handling
+
+```typescript
+// Body present → Content-Digest added automatically
+const signed = await signRequest(
+  'https://api.example.com/data',
+  { method: 'POST', body: '{"value": 42}' },
+  signer
+)
+// Content-Digest: sha-256=:hash: is added
+```
+
+### Verification
+
+```typescript
+const result = await verifyRequest(request, {
+  enforceContentDigest: true, // Default
+  ...
+})
+
+// If content-digest is in components:
+// 1. Header must exist
+// 2. Hash must match body bytes
+// Otherwise: result.reason === "digest_mismatch" or "digest_required"
+```
+
+## Class-Bound Signatures
+
+For special cases, you can sign only specific components:
+
+```typescript
+const signed = await signRequest(
+  request,
+  signer,
+  {
+    binding: 'class-bound',
+    components: ['@authority'],  // Only the domain
+    replay: 'replayable',
+  }
+)
+```
+
+### Use Cases
+
+1. **Domain-scoped tokens** — Sign only `@authority` for any endpoint on a domain
+2. **Method-scoped authorization** — Sign `@authority` + `@method` for any GET request
+3. **Custom authorization** — Sign application-specific headers
+
+### Security Warning
+
+Class-bound signatures are less secure:
+
+| Risk | Mitigation |
+|------|------------|
+| Path confusion | Include `@path` if endpoints have different permissions |
+| Parameter tampering | Include `@query` or relevant headers |
+| Body manipulation | Include `content-digest` for mutations |
+
+## Adding Extra Components
+
+Sign additional headers alongside the default set:
+
+```typescript
+const signed = await signRequest(
+  request,
+  signer,
+  { components: ['x-idempotency-key', 'x-request-id'] }
+)
+
+// Signature covers: @authority + @method + @path + @query + content-digest + x-idempotency-key + x-request-id
+```
+
+## Server Enforcement
+
+Servers can require specific components:
+
+```typescript
+const result = await verifyRequest(request, {
+  requiredComponents: ['@authority', '@method', '@path', 'x-api-version'],
+  ...
+})
+```
+
+If the signature doesn't cover all required components (in order), verification fails with `not_request_bound`.
+
+## Best Practices
+
+1. **Use request-bound** as the default — it's the safest option
+2. **Sign idempotency keys** — if your API uses them
+3. **Be explicit about requirements** — configure `requiredComponents` on the server
+4. **Audit class-bound usage** — ensure you understand what's not being signed

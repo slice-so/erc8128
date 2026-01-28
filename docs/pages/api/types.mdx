@@ -1,0 +1,404 @@
+# Types
+
+Glossary of types in `@slicekit/erc8128`.
+
+## Hex
+
+Hex-encoded string with `0x` prefix.
+
+```typescript
+type Hex = `0x${string}`
+```
+
+## Address
+
+Ethereum address (40 hex characters with `0x` prefix).
+
+```typescript
+type Address = `0x${string}`
+```
+
+---
+
+## EthHttpSigner
+
+Interface for Ethereum message signing. Used by [signRequest](/api/signRequest) and [signedFetch](/api/signedFetch).
+
+```typescript
+interface EthHttpSigner {
+  /** Ethereum address (EOA or smart contract account) */
+  address: Address
+  
+  /** Chain ID for the keyid */
+  chainId: number
+  
+  /** Sign the RFC 9421 signature base as an Ethereum message (EIP-191) */
+  signMessage: (message: Uint8Array) => Promise<Hex>
+}
+```
+
+### Example
+
+```typescript
+import type { EthHttpSigner } from '@slicekit/erc8128'
+import { privateKeyToAccount } from 'viem/accounts'
+
+const account = privateKeyToAccount('0x...')
+
+const signer: EthHttpSigner = {
+  chainId: 1,
+  address: account.address,
+  signMessage: async (message) => {
+    return account.signMessage({ message: { raw: message } })
+  },
+}
+```
+
+---
+
+## SignOptions
+
+Options for [signRequest](/api/signRequest) and [signedFetch](/api/signedFetch).
+
+```typescript
+type SignOptions = {
+  /** Signature label (default: "eth") */
+  label?: string
+  
+  /** Binding mode (default: "request-bound") */
+  binding?: BindingMode
+  
+  /** Replay mode (default: "non-replayable") */
+  replay?: ReplayMode
+  
+  /** Unix timestamp when signature becomes valid (default: now) */
+  created?: number
+  
+  /** Unix timestamp when signature expires (default: created + ttlSeconds) */
+  expires?: number
+  
+  /** Validity duration in seconds (default: 60) */
+  ttlSeconds?: number
+  
+  /** Custom nonce value or generator function */
+  nonce?: string | (() => Promise<string>)
+  
+  /** Content-Digest handling (default: "auto") */
+  contentDigest?: ContentDigestMode
+  
+  /** How to add headers when signatures exist (default: "replace") */
+  headerMode?: HeaderMode
+  
+  /** Additional components to sign beyond the default set */
+  components?: string[]
+}
+```
+
+---
+
+## BindingMode
+
+Controls which request components are signed.
+
+```typescript
+type BindingMode = "request-bound" | "class-bound"
+```
+
+| Value | Description |
+|-------|-------------|
+| `request-bound` | Sign `@authority`, `@method`, `@path`, `@query` (if present), and `content-digest` (if body present). This is the secure default. |
+| `class-bound` | Sign only the components you explicitly specify. Requires `components` array. |
+
+---
+
+## ReplayMode
+
+Controls whether requests can be replayed.
+
+```typescript
+type ReplayMode = "non-replayable" | "replayable"
+```
+
+| Value | Description |
+|-------|-------------|
+| `non-replayable` | Include a nonce (auto-generated if not provided). Default. |
+| `replayable` | No nonce. Use only for idempotent, safe operations. |
+
+---
+
+## ContentDigestMode
+
+Controls Content-Digest header handling.
+
+```typescript
+type ContentDigestMode = "auto" | "recompute" | "require" | "off"
+```
+
+| Value | Description |
+|-------|-------------|
+| `auto` | Add Content-Digest if body is present and components include it. Default. |
+| `recompute` | Always recompute Content-Digest even if header exists. |
+| `require` | Require existing Content-Digest header. |
+| `off` | Don't add Content-Digest. |
+
+---
+
+## HeaderMode
+
+Controls how signature headers are written.
+
+```typescript
+type HeaderMode = "replace" | "append"
+```
+
+| Value | Description |
+|-------|-------------|
+| `replace` | Replace existing Signature-Input and Signature headers. Default. |
+| `append` | Append new signature to existing headers (for multi-signature scenarios). |
+
+---
+
+## VerifyPolicy
+
+Policy for [verifyRequest](/api/verifyRequest).
+
+```typescript
+type VerifyPolicy = {
+  /** Preferred signature label (default: "eth") */
+  label?: string
+  
+  /** If true, require exact label match (default: false) */
+  strictLabel?: boolean
+  
+  /** Override default required components */
+  requiredComponents?: string[]
+  
+  /** Nonce handling (default: "required") */
+  nonce?: "required" | "optional" | "forbidden"
+  
+  /** Current time function (default: Date.now() / 1000) */
+  now?: () => number
+  
+  /** Allowed clock skew in seconds (default: 0) */
+  clockSkewSec?: number
+  
+  /** Maximum validity window in seconds (default: 300) */
+  maxValiditySec?: number
+  
+  /** Maximum nonce validity window (optional) */
+  maxNonceWindowSec?: number
+  
+  /** Store for replay protection (required for non-replayable) */
+  nonceStore?: NonceStore
+  
+  /** Custom key generator for nonce storage */
+  nonceKey?: (keyid: string, nonce: string) => string
+  
+  /** Verify Content-Digest if present (default: true) */
+  enforceContentDigest?: boolean
+  
+  /** Message verification function (required) */
+  verifyMessage?: VerifyMessageFn
+}
+```
+
+---
+
+## NonceStore
+
+Interface for replay protection storage. See [NonceStore implementations](/api/types#noncestore).
+
+```typescript
+interface NonceStore {
+  /**
+   * Atomically consume a nonce.
+   * Returns true if newly stored (not seen before), false if already exists.
+   */
+  consume(key: string, ttlSeconds: number): Promise<boolean>
+}
+```
+
+---
+
+## VerifyMessageFn
+
+Function type for verifying Ethereum signatures. See [VerifyMessageFn with viem](/api/types#verifymessagefn).
+
+```typescript
+type VerifyMessageFn = (args: {
+  address: Address
+  message: { raw: Hex }
+  signature: Hex
+}) => boolean | Promise<boolean>
+```
+
+---
+
+## VerifyResult
+
+Result of [verifyRequest](/api/verifyRequest).
+
+```typescript
+type VerifyResult =
+  | {
+      ok: true
+      kind: "eoa" | "sca"
+      address: Address
+      chainId: number
+      label: string
+      components: string[]
+      params: SignatureParams
+    }
+  | {
+      ok: false
+      reason: VerifyFailReason
+      detail?: string
+    }
+```
+
+### Success Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ok` | `true` | Verification succeeded |
+| `kind` | `"eoa" \| "sca"` | Account type (EOA or smart contract account) |
+| `address` | `Address` | Verified Ethereum address |
+| `chainId` | `number` | Chain ID from keyid |
+| `label` | `string` | Signature label that was verified |
+| `components` | `string[]` | Components that were signed |
+| `params` | `SignatureParams` | Parsed signature parameters |
+
+### Failure Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ok` | `false` | Verification failed |
+| `reason` | `VerifyFailReason` | Why verification failed |
+| `detail` | `string?` | Optional detail message |
+
+---
+
+## SignatureParams
+
+Parsed signature parameters from `Signature-Input` header.
+
+```typescript
+type SignatureParams = {
+  created: number
+  expires: number
+  keyid: string
+  nonce?: string
+  tag?: string
+}
+```
+
+---
+
+## VerifyFailReason
+
+All possible verification failure reasons. See [Failure Reasons](/api/verifyRequest) for descriptions.
+
+```typescript
+type VerifyFailReason =
+  | "missing_headers"
+  | "label_not_found"
+  | "bad_signature_input"
+  | "bad_signature"
+  | "bad_keyid"
+  | "bad_time"
+  | "not_yet_valid"
+  | "expired"
+  | "validity_too_long"
+  | "nonce_required"
+  | "nonce_window_too_long"
+  | "replay"
+  | "not_request_bound"
+  | "digest_required"
+  | "digest_mismatch"
+  | "bad_signature_bytes"
+  | "bad_signature_check"
+```
+
+---
+
+## Client
+
+Return type of [createClient](/api/createClient). Provides bound methods for signing requests.
+
+```typescript
+type Client = {
+  signRequest: {
+    (input: RequestInfo, opts?: SignOptions): Promise<Request>
+    (input: RequestInfo, init: RequestInit | undefined, opts?: SignOptions): Promise<Request>
+  }
+  signedFetch: {
+    (input: RequestInfo, opts?: ClientOptions): Promise<Response>
+    (input: RequestInfo, init: RequestInit | undefined, opts?: ClientOptions): Promise<Response>
+  }
+  fetch: {
+    (input: RequestInfo, opts?: ClientOptions): Promise<Response>
+    (input: RequestInfo, init: RequestInit | undefined, opts?: ClientOptions): Promise<Response>
+  }
+}
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `signRequest` | Sign a request without sending |
+| `signedFetch` | Sign and send a request |
+| `fetch` | Alias for `signedFetch` |
+
+---
+
+## ClientOptions
+
+Options for [createClient](/api/createClient) and client methods. Extends [SignOptions](#signoptions).
+
+```typescript
+type ClientOptions = SignOptions & { fetch?: typeof fetch }
+```
+
+---
+
+## Eip8128Error
+
+Custom error class for ERC-8128 operations.
+
+```typescript
+class Eip8128Error extends Error {
+  code: Eip8128ErrorCode
+}
+```
+
+## Eip8128ErrorCode
+
+Error codes for `Eip8128Error`.
+
+```typescript
+type Eip8128ErrorCode =
+  | "CRYPTO_UNAVAILABLE"   // WebCrypto not available
+  | "INVALID_OPTIONS"      // Bad sign options
+  | "UNSUPPORTED_REQUEST"  // Can't sign this request
+  | "BODY_READ_FAILED"     // Can't read request body
+  | "DIGEST_REQUIRED"      // Content-Digest required but not present
+  | "BAD_DERIVED_VALUE"    // Can't derive component value
+  | "BAD_HEADER_VALUE"     // Invalid header format
+  | "PARSE_ERROR"          // Can't parse input
+```
+
+### Example
+
+```typescript
+import { signRequest, Eip8128Error } from '@slicekit/erc8128'
+
+try {
+  const signed = await signRequest({ input, signer })
+} catch (error) {
+  if (error instanceof Eip8128Error) {
+    console.error(`Error (${error.code}): ${error.message}`)
+  }
+  throw error
+}
+```

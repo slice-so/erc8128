@@ -1,0 +1,82 @@
+# Installation
+
+Install `@slicekit/erc8128` — the official ERC-8128 implementation for signing HTTP requests with Ethereum accounts.
+
+## Install
+
+:::code-group
+
+```bash [bun]
+bun add @slicekit/erc8128
+```
+
+```bash [pnpm]
+pnpm add @slicekit/erc8128
+```
+
+```bash [npm]
+npm install @slicekit/erc8128
+```
+
+```bash [yarn]
+yarn add @slicekit/erc8128
+```
+
+:::
+
+## Requirements
+
+- **Bun** 1.0+ (recommended), Node.js 18+, or modern browser with Web Crypto API
+- **TypeScript** 5.0+ (recommended, but not required)
+
+## Exports
+
+```typescript
+import {
+  // Client
+  signRequest,
+  signedFetch,
+  
+  // Server
+  verifyRequest,
+  
+  // Utilities
+  formatKeyId,
+  parseKeyId,
+  
+  // Types
+  type EthHttpSigner,
+  type SignOptions,
+  type VerifyPolicy,
+  type VerifyResult,
+  type NonceStore,
+  type VerifyMessageFn,
+  
+  // Errors
+  Eip8128Error,
+} from '@slicekit/erc8128'
+```
+
+## TypeScript
+
+`@slicekit/erc8128` is written in TypeScript and ships with full type definitions. No additional `@types/*` packages needed.
+
+Types are exported directly from the main entry point:
+
+```typescript
+import type {
+  EthHttpSigner,
+  SignOptions,
+  VerifyPolicy,
+  VerifyResult,
+} from '@slicekit/erc8128'
+```
+
+## Ethereum Signing
+
+For producing Ethereum signatures, any library or wallet that supports `personal_sign` (EIP-191) will work. The examples in this documentation use [viem](https://viem.sh).
+
+## Next Steps
+
+- [Quick Start](/getting-started/quick-start) — Sign your first request in 5 minutes
+- [Concepts](/concepts/overview) — Understand the security model
