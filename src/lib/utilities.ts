@@ -99,8 +99,7 @@ export function base64Encode(bytes: Uint8Array): string {
       BASE64_ALPHABET[(n2 >> 6) & 63] +
       "="
   } else {
-    out +=
-      BASE64_ALPHABET[(n >> 18) & 63] + BASE64_ALPHABET[(n >> 12) & 63] + "=="
+    out += `${BASE64_ALPHABET[(n >> 18) & 63] + BASE64_ALPHABET[(n >> 12) & 63]}==`
   }
   return out
 }

@@ -57,7 +57,7 @@ export default defineConfig({
   socials: [
     {
       icon: "github",
-      link: "https://github.com/slice-so/ERCs"
+      link: "https://github.com/slice-so/erc8128"
     },
     {
       icon: "x",
