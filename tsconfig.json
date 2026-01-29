@@ -1,6 +1,6 @@
 {
+  "extends": "@slice/typescript-config/base.json",
   "compilerOptions": {
-    "strict": true,
     "outDir": "./dist",
     "moduleResolution": "NodeNext",
     "module": "NodeNext",

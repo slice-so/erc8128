@@ -1,7 +1,7 @@
 {
   "name": "@slicekit/erc8128",
   "version": "0.0.1",
-  "description": "ERC-8128 implementation",
+  "description": "Minimal ERC-8128 implementation for signing and verifying HTTP requests with Ethereum accounts",
   "scripts": {
     "format": "biome format --write",
     "lint": "biome lint --write",
@@ -38,12 +38,13 @@
   },
   "devDependencies": {
     "@noble/secp256k1": "^1.7.2",
-    "viem": "^2.37.5"
+    "@slice/typescript-config": "workspace:*",
+    "viem": "catalog:"
   },
   "peerDependencies": {},
   "repository": {
     "type": "git",
-    "url": "https://github.com/slice-so/slicekit"
+    "url": "https://github.com/slice-so/erc8128"
   },
   "homepage": "https://slice.so",
   "keywords": [

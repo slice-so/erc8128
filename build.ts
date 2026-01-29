@@ -1,3 +1,3 @@
-import { buildPackage } from "../../../build"
+import { buildPackage } from "../../build"
 
 await buildPackage()
