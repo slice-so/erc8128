@@ -1,10 +1,7 @@
 {
   "extends": "@slice/typescript-config/base.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "moduleResolution": "NodeNext",
-    "module": "NodeNext",
-    "types": ["bun-types"]
+    "outDir": "./dist"
   },
-  "include": ["src/**/*", "scripts/**/*"]
+  "include": ["src/**/*"]
 }
