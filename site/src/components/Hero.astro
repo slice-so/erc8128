@@ -3,42 +3,20 @@
     <div>
       <div class="accent-bar"></div>
       <h1>ERC<br />8128</h1>
-      <h2>Authenticate HTTP requests with Ethereum accounts</h2>
     </div>
 
     <div class="hero-bottom">
-      <p>
-        No bearer tokens, no handshakes, no centralized identity providers—just cryptographic signatures.
+      <p class="hero-subtitle">
+        Signed<br />
+        HTTP Requests<br />
+        With Ethereum
       </p>
-      <div class="hero-ctas">
-        <a
-          href="https://erc8128-docs.vercel.app/"
-          class="hero-link"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span>Get Started</span>
-          <span>→</span>
-        </a>
-        <a
-          href="https://github.com/ethereum/ERCs/pull/1478"
-          class="hero-link hero-link-dim"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <span>View Specification</span>
-          <span>↗</span>
-        </a>
-      </div>
+      <div class="accent-bar accent-bar-bottom"></div>
     </div>
   </div>
 
   <div class="hero-right">
     <canvas id="dots"></canvas>
-    <div class="hero-badge">
-      <p class="badge-main">RFC 9421 COMPLIANT</p>
-      <p class="badge-sub">HTTP MESSAGE SIGNATURES</p>
-    </div>
   </div>
 </header>
 
@@ -80,25 +58,29 @@
 
   .accent-bar {
     width: 120px;
-    height: 8px;
+    height: 6px;
     background: white;
     margin-bottom: 2rem;
   }
 
+  .accent-bar-bottom {
+    margin-top: 2rem;
+    margin-bottom: 0;
+  }
+
   h1 {
-    font-size: clamp(3.5rem, 8vw, 8rem);
+    font-size: clamp(4rem, 10vw, 9rem);
     font-weight: 700;
     line-height: 0.9;
     letter-spacing: -0.04em;
     text-transform: uppercase;
-    margin-bottom: 2rem;
   }
 
-  h2 {
-    font-size: clamp(1.25rem, 3vw, 1.875rem);
-    font-weight: 700;
-    line-height: 1.2;
-    text-transform: uppercase;
+  .hero-subtitle {
+    font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+    font-weight: 400;
+    line-height: 1.25;
+    opacity: 0.9;
     max-width: 28rem;
   }
 
@@ -112,55 +94,13 @@
     }
   }
 
-  .hero-bottom p {
-    font-size: clamp(1rem, 2vw, 1.25rem);
-    line-height: 1.6;
-    opacity: 0.8;
-    max-width: 24rem;
-    margin-bottom: 2rem;
-  }
-
-  .hero-ctas {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .hero-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    text-decoration: none;
-    color: var(--text);
-  }
-
-  .hero-link:hover {
-    text-decoration: underline;
-    text-underline-offset: 4px;
-    text-decoration-thickness: 2px;
-    opacity: 1;
-  }
-
-  .hero-link-dim {
-    font-size: 0.875rem;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-  }
-
-  .hero-link-dim:hover {
-    opacity: 1;
-    text-decoration: underline;
-  }
-
   .hero-right {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: var(--surface);
+    background: var(--bg);
     height: 400px;
     border-top: 1px solid var(--border-subtle);
   }
@@ -178,34 +118,6 @@
     width: 100%;
     height: 100%;
   }
-
-  .hero-badge {
-    position: absolute;
-    bottom: 2rem;
-    right: 2rem;
-    text-align: right;
-    display: none;
-    pointer-events: none;
-    mix-blend-mode: difference;
-    z-index: 10;
-  }
-
-  @media (min-width: 1024px) {
-    .hero-badge {
-      display: block;
-    }
-  }
-
-  .badge-main {
-    font-family: var(--mono);
-    font-size: 0.875rem;
-  }
-
-  .badge-sub {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    opacity: 0.6;
-  }
 </style>
 
 <script>
@@ -213,108 +125,92 @@
   const ctx = canvas.getContext('2d')!;
 
   let width = 0, height = 0;
-  let time = 0;
+  let dpr = 1;
+  let angleX = 0;
+  let angleY = 0;
 
   function resize() {
     const parent = canvas.parentElement!;
     width = parent.offsetWidth;
     height = parent.offsetHeight;
-    const dpr = window.devicePixelRatio || 1;
+    dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-    // Re-init particle positions on resize
-    particles.forEach(p => {
-      if (p.x > width) p.x = Math.random() * width;
-      if (p.y > height) p.y = Math.random() * height;
-    });
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // Particle system for signed HTTP requests
-  interface Particle {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    size: number;
-    opacity: number;
-    phase: number;
-    type: 'request' | 'signature';
-  }
+  // Generate points on a sphere using Fibonacci distribution
+  const NUM_POINTS = 800;
+  const spherePoints: { x: number; y: number; z: number }[] = [];
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
-  const maxParticles = 120;
-  const particles: Particle[] = [];
-
-  for (let i = 0; i < maxParticles; i++) {
-    particles.push({
-      x: Math.random() * 1920,
-      y: Math.random() * 1080,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      size: Math.random() * 2 + 0.5,
-      opacity: Math.random() * 0.5 + 0.3,
-      phase: Math.random() * Math.PI * 2,
-      type: Math.random() > 0.5 ? 'request' : 'signature'
+  for (let i = 0; i < NUM_POINTS; i++) {
+    const y = 1 - (i / (NUM_POINTS - 1)) * 2; // y goes from 1 to -1
+    const radius = Math.sqrt(1 - y * y);
+    const theta = goldenAngle * i;
+    spherePoints.push({
+      x: Math.cos(theta) * radius,
+      y: y,
+      z: Math.sin(theta) * radius,
     });
   }
 
   function draw() {
-    if (!width || !height) return;
-
-    // Fade trail
-    ctx.fillStyle = 'rgba(8, 8, 8, 0.08)';
-    ctx.fillRect(0, 0, width, height);
-
-    // Update and draw particles
-    particles.forEach((p, i) => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.phase += 0.01;
-
-      // Wrap edges
-      if (p.x < 0) p.x = width;
-      if (p.x > width) p.x = 0;
-      if (p.y < 0) p.y = height;
-      if (p.y > height) p.y = 0;
-
-      // Pulsing
-      const pulse = Math.sin(p.phase) * 0.3 + 0.7;
-      const currentOpacity = p.opacity * pulse;
-
-      ctx.fillStyle = `rgba(255, 255, 255, ${currentOpacity})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Connect nearby particles (HTTP header connections)
-      particles.forEach((p2, j) => {
-        if (i >= j) return;
-        const dx = p.x - p2.x;
-        const dy = p.y - p2.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < 80) {
-          const lineOpacity = (1 - distance / 80) * 0.15;
-          ctx.strokeStyle = `rgba(255, 255, 255, ${lineOpacity})`;
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
-        }
-      });
-    });
-
-    // Subtle signature symbols
-    ctx.font = '10px monospace';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    const symbols = ['0x', 'sig', 'POST', 'GET', 'auth'];
-    for (let i = 0; i < 5; i++) {
-      const x = (width / 6) * (i + 0.5) + Math.sin(time * 0.5 + i) * 30;
-      const y = height / 2 + Math.cos(time * 0.3 + i * 0.5) * 60;
-      ctx.fillText(symbols[i], x, y);
+    if (!width || !height) {
+      requestAnimationFrame(draw);
+      return;
     }
 
-    time += 0.008;
+    ctx.clearRect(0, 0, width, height);
+
+    const cx = width / 2;
+    const cy = height / 2;
+    const sphereRadius = Math.min(width, height) * 0.38;
+
+    // Slow rotation
+    angleY += 0.003;
+    angleX += 0.001;
+
+    const cosY = Math.cos(angleY);
+    const sinY = Math.sin(angleY);
+    const cosX = Math.cos(angleX);
+    const sinX = Math.sin(angleX);
+
+    // Project and draw each point
+    const projected: { px: number; py: number; z: number }[] = [];
+
+    for (const p of spherePoints) {
+      // Rotate around Y axis
+      let x1 = p.x * cosY - p.z * sinY;
+      let z1 = p.x * sinY + p.z * cosY;
+      let y1 = p.y;
+
+      // Rotate around X axis
+      let y2 = y1 * cosX - z1 * sinX;
+      let z2 = y1 * sinX + z1 * cosX;
+
+      projected.push({
+        px: cx + x1 * sphereRadius,
+        py: cy + y2 * sphereRadius,
+        z: z2,
+      });
+    }
+
+    // Sort by z for depth ordering (back to front)
+    projected.sort((a, b) => a.z - b.z);
+
+    for (const pt of projected) {
+      // Depth-based opacity and size
+      const depthFactor = (pt.z + 1) / 2; // 0 (back) to 1 (front)
+      const opacity = 0.1 + depthFactor * 0.8;
+      const dotSize = 1 + depthFactor * 2.5;
+
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      ctx.beginPath();
+      ctx.arc(pt.px, pt.py, dotSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     requestAnimationFrame(draw);
   }
 

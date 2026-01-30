@@ -45,10 +45,16 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--fg);
-  line-height: 1.6;
+  font-size: 1.0625rem;
+  line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+p {
+  font-size: 1.0625rem;
+  line-height: 1.7;
 }
 
 ::selection {
