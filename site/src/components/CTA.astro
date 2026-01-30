@@ -1,62 +1,92 @@
 <section class="cta-section">
+  <div class="cta-glow"></div>
   <div class="container">
-    <h2>Start signing requests today</h2>
-    <p>
-      Install the library, sign your first request, and verify it on your
-      server—takes 5 minutes.
-    </p>
-    <div class="cta-buttons">
-      <a
-        href="https://erc8128-docs.vercel.app/"
-        class="btn btn-primary"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Read the Docs
-        <svg
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          ><path d="M5 12h14M12 5l7 7-7 7"></path></svg
+    <div class="cta-content animate-in">
+      <h2>Start building with ERC-8128</h2>
+      <p>
+        Install the library, sign your first request, verify it server-side.<br class="hide-mobile" />
+        Takes 5 minutes. No account required to try it.
+      </p>
+      <div class="cta-buttons">
+        <a
+          href="https://erc8128-docs.vercel.app/"
+          class="btn btn-primary"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-      </a>
-      <a
-        href="https://t.me/ethhttpmessagesignatures"
-        class="btn btn-secondary"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        💬 Join Telegram
-      </a>
+          Read the Docs
+          <svg
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            ><path d="M5 12h14M12 5l7 7-7 7"></path></svg
+          >
+        </a>
+        <a
+          href="https://t.me/ethhttpmessagesignatures"
+          class="btn btn-secondary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          💬 Join Telegram
+        </a>
+      </div>
     </div>
   </div>
 </section>
 
 <style>
   .cta-section {
+    position: relative;
     text-align: center;
-    padding: 60px 0 80px;
+    padding: 80px 0 100px;
+    overflow: hidden;
+  }
+
+  .cta-glow {
+    position: absolute;
+    bottom: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(133, 138, 255, 0.06) 0%,
+      transparent 60%
+    );
+    pointer-events: none;
+  }
+
+  .cta-content {
+    position: relative;
+    z-index: 1;
   }
 
   .cta-section h2 {
-    font-size: clamp(24px, 4vw, 32px);
+    font-size: clamp(26px, 4vw, 36px);
     font-weight: 800;
-    letter-spacing: -0.02em;
-    margin-bottom: 12px;
+    letter-spacing: -0.025em;
+    margin-bottom: 16px;
+    background: linear-gradient(180deg, var(--text) 0%, rgba(237, 237, 239, 0.7) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .cta-section p {
     color: var(--text-dim);
-    margin-bottom: 32px;
-    font-size: 16px;
+    margin-bottom: 36px;
+    font-size: 17px;
+    line-height: 1.6;
   }
 
   .cta-buttons {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     justify-content: center;
     flex-wrap: wrap;
   }
@@ -65,22 +95,26 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 24px;
+    padding: 13px 26px;
     border-radius: 10px;
     font-size: 15px;
     font-weight: 600;
-    transition: all 0.15s;
+    transition: all 0.25s var(--ease);
     border: none;
     cursor: pointer;
+    text-decoration: none;
   }
 
   .btn-primary {
     background: var(--accent);
     color: #fff;
+    box-shadow: 0 0 0 0 rgba(133, 138, 255, 0);
   }
   .btn-primary:hover {
     background: var(--accent-hover);
     opacity: 1;
+    box-shadow: 0 0 24px rgba(133, 138, 255, 0.3);
+    transform: translateY(-1px);
   }
 
   .btn-secondary {
@@ -91,5 +125,21 @@
   .btn-secondary:hover {
     border-color: var(--text-dim);
     opacity: 1;
+    background: var(--surface-elevated);
+    transform: translateY(-1px);
+  }
+
+  .hide-mobile {
+    display: inline;
+  }
+
+  @media (max-width: 640px) {
+    .cta-section {
+      padding: 60px 0 80px;
+    }
+
+    .hide-mobile {
+      display: none;
+    }
   }
 </style>

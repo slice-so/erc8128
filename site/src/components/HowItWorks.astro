@@ -23,18 +23,20 @@ const steps = [
 
 <section>
   <div class="container">
-    <div class="section-label">How It Works</div>
-    <h2 class="section-title">Three steps, zero trust assumptions</h2>
-    <div class="steps">
+    <div class="section-label animate-in">How It Works</div>
+    <h2 class="section-title animate-in">Three steps, zero trust assumptions</h2>
+    <div class="steps stagger-children">
       {
         steps.map((step, i) => (
-          <div class="step">
-            <div class="step-num">{step.num}</div>
+          <div class="step animate-in">
+            <div class="step-num-wrapper">
+              <div class="step-num">{step.num}</div>
+              {i < steps.length - 1 && <div class="step-connector" />}
+            </div>
             <div class="step-content">
               <h3>{step.title}</h3>
               <p>{step.description}</p>
             </div>
-            {i < steps.length - 1 && <div class="step-connector" />}
           </div>
         ))
       }
@@ -43,24 +45,6 @@ const steps = [
 </section>
 
 <style>
-  .section-label {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--accent);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 12px;
-  }
-
-  .section-title {
-    font-size: clamp(24px, 4vw, 32px);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin-bottom: 40px;
-    line-height: 1.2;
-  }
-
   .steps {
     display: flex;
     flex-direction: column;
@@ -71,48 +55,68 @@ const steps = [
     position: relative;
     display: flex;
     gap: 20px;
-    padding-bottom: 32px;
+    padding-bottom: 36px;
   }
 
   .step:last-child {
     padding-bottom: 0;
   }
 
+  .step-num-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
   .step-num {
     flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--accent-dim);
-    border: 1px solid rgba(133, 138, 255, 0.2);
-    border-radius: 10px;
+    border: 1px solid var(--accent-border);
+    border-radius: 12px;
     font-family: var(--mono);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent);
+    transition: all 0.3s var(--ease);
+  }
+
+  .step:hover .step-num {
+    background: rgba(133, 138, 255, 0.15);
+    box-shadow: 0 0 16px rgba(133, 138, 255, 0.15);
   }
 
   .step-connector {
-    position: absolute;
-    left: 17px;
-    top: 44px;
-    bottom: 0;
+    flex: 1;
     width: 1px;
-    background: var(--border);
+    margin-top: 8px;
+    background: linear-gradient(
+      to bottom,
+      var(--accent-border),
+      var(--border)
+    );
+    min-height: 20px;
+  }
+
+  .step-content {
+    padding-top: 6px;
   }
 
   .step-content h3 {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     letter-spacing: -0.01em;
   }
 
   .step-content p {
     font-size: 14px;
     color: var(--text-dim);
-    line-height: 1.5;
+    line-height: 1.6;
   }
 </style>

@@ -28,11 +28,11 @@ const links = [
     left: 0;
     right: 0;
     z-index: 100;
-    padding: 16px 24px;
-    background: rgba(10, 10, 11, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
+    padding: 16px 28px;
+    background: rgba(10, 10, 11, 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   nav .container {
@@ -47,6 +47,11 @@ const links = [
     color: var(--text);
     font-family: var(--mono);
     letter-spacing: -0.5px;
+    transition: opacity 0.2s;
+  }
+
+  .logo:hover {
+    opacity: 0.8;
   }
 
   .logo span {
@@ -55,13 +60,25 @@ const links = [
 
   .nav-links {
     display: flex;
-    gap: 24px;
+    gap: 28px;
   }
 
   .nav-links a {
     font-size: 14px;
     color: var(--text-dim);
-    transition: color 0.15s;
+    transition: color 0.2s var(--ease);
+    position: relative;
+  }
+
+  .nav-links a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    width: 0;
+    height: 1px;
+    background: var(--accent);
+    transition: width 0.3s var(--ease);
   }
 
   .nav-links a:hover {
@@ -69,9 +86,17 @@ const links = [
     opacity: 1;
   }
 
+  .nav-links a:hover::after {
+    width: 100%;
+  }
+
   @media (max-width: 640px) {
+    nav {
+      padding: 14px 20px;
+    }
+
     .nav-links {
-      gap: 16px;
+      gap: 18px;
     }
   }
 </style>

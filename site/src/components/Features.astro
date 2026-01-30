@@ -1,43 +1,58 @@
 ---
 const features = [
   {
-    icon: "🔐",
-    title: "Request Integrity",
-    description:
-      "Signatures cryptographically bind to the HTTP request itself. Any tampering with method, path, query, or body causes verification to fail."
+    icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
+    title: "Zero Barriers to Access",
+    provider:
+      "Stop losing users at signup. Anyone with an Ethereum account can start using your service instantly—no email, no password, no onboarding friction.",
+    user: "Use your Ethereum account instead of creating yet another login. No forms, no verification emails, no passwords to forget."
   },
   {
-    icon: "🔑",
-    title: "Eliminate Token Management",
-    description:
-      "Stop issuing, rotating, and securing API keys. Clients sign requests directly with EOAs or Smart Contract Accounts—no server-issued credentials required."
+    icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+    title: "Built for Agents & Automation",
+    provider:
+      "Enable agentic traffic without managing API keys. Let autonomous systems authenticate themselves without manual token distribution.",
+    user: "Your wallet becomes your identity. Sign requests from scripts, apps, or agents—same account, zero setup."
   },
   {
-    icon: "⛓️",
-    title: "Built for Onchain Identity",
-    description:
-      "Use ERC-1271 for smart contract authorization. Enable delegation, session modules, and composable access policies without changing your authentication layer."
+    icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
+    title: "You Control Access, Not Tokens",
+    provider:
+      "Stop managing bearer tokens. Authentication happens per-request with verifiable signatures—revocation is instant, no token databases to secure.",
+    user: "Every request is signed by you. No long-lived tokens that can leak. Revoke access by simply not signing anymore."
   },
   {
-    icon: "📐",
-    title: "Standards-Based Security",
-    description:
-      "Built on RFC 9421 (HTTP Message Signatures) with replay protection. Every compliant client can authenticate with every compliant server."
+    icon: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
+    title: "Built on Web Standards",
+    provider:
+      "RFC 9421 HTTP Message Signatures + ERC-1271 smart contract support. Drop into your existing infrastructure with replay protection included.",
+    user: "Works with any Ethereum wallet. Smart contract wallets get full support through ERC-1271."
   }
 ]
 ---
 
 <section>
   <div class="container">
-    <div class="section-label">Why ERC-8128</div>
-    <h2 class="section-title">HTTP auth, rebuilt for Ethereum</h2>
-    <div class="features-grid">
+    <div class="section-label animate-in">Why ERC-8128</div>
+    <h2 class="section-title animate-in">HTTP auth, rebuilt for Ethereum</h2>
+    <div class="features-grid stagger-children">
       {
         features.map((feature) => (
-          <div class="feature">
-            <div class="feature-icon">{feature.icon}</div>
-            <h3>{feature.title}</h3>
-            <p>{feature.description}</p>
+          <div class="feature-card animate-in">
+            <div class="feature-header">
+              <div class="feature-icon" set:html={feature.icon} />
+              <h3>{feature.title}</h3>
+            </div>
+            <div class="feature-perspectives">
+              <div class="perspective">
+                <span class="perspective-label">For service providers</span>
+                <p>{feature.provider}</p>
+              </div>
+              <div class="perspective">
+                <span class="perspective-label">For end users</span>
+                <p>{feature.user}</p>
+              </div>
+            </div>
           </div>
         ))
       }
@@ -46,56 +61,122 @@ const features = [
 </section>
 
 <style>
-  .section-label {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--accent);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 12px;
-  }
-
-  .section-title {
-    font-size: clamp(24px, 4vw, 32px);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin-bottom: 40px;
-    line-height: 1.2;
-  }
-
   .features-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: 20px;
   }
 
-  .feature {
-    padding: 24px;
+  .feature-card {
+    padding: 28px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
+    transition: all 0.35s var(--ease);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-lg);
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(133, 138, 255, 0) 0%,
+      rgba(133, 138, 255, 0) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: background 0.35s var(--ease);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(133, 138, 255, 0.1);
+    border-color: rgba(133, 138, 255, 0.15);
+  }
+
+  .feature-card:hover::before {
+    background: linear-gradient(
+      135deg,
+      rgba(133, 138, 255, 0.2) 0%,
+      rgba(133, 138, 255, 0) 60%
+    );
+  }
+
+  .feature-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
   }
 
   .feature-icon {
-    font-size: 20px;
-    margin-bottom: 12px;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-dim);
+    border: 1px solid var(--accent-border);
+    border-radius: 10px;
+    flex-shrink: 0;
+    color: var(--accent);
+    transition: all 0.35s var(--ease);
   }
 
-  .feature h3 {
-    font-size: 15px;
+  .feature-card:hover .feature-icon {
+    background: rgba(133, 138, 255, 0.15);
+    box-shadow: 0 0 16px rgba(133, 138, 255, 0.15);
+  }
+
+  .feature-header h3 {
+    font-size: 16px;
     font-weight: 700;
-    margin-bottom: 6px;
     letter-spacing: -0.01em;
+    line-height: 1.3;
   }
 
-  .feature p {
+  .feature-perspectives {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .perspective {
+    padding-left: 14px;
+    border-left: 2px solid var(--border);
+    transition: border-color 0.3s var(--ease);
+  }
+
+  .feature-card:hover .perspective {
+    border-left-color: rgba(133, 138, 255, 0.3);
+  }
+
+  .perspective-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+
+  .perspective p {
     font-size: 14px;
     color: var(--text-dim);
-    line-height: 1.5;
+    line-height: 1.55;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 720px) {
     .features-grid {
       grid-template-columns: 1fr;
     }

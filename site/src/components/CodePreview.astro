@@ -1,15 +1,16 @@
 <section class="code-section">
   <div class="container">
-    <div class="section-label">Quick Start</div>
-    <h2 class="section-title">Two sides, both simple</h2>
+    <div class="section-label animate-in">Quick Start</div>
+    <h2 class="section-title animate-in">Two sides, both simple</h2>
 
-    <div class="code-tabs">
-      <button class="code-tab active" data-tab="sign">Sign</button>
-      <button class="code-tab" data-tab="verify">Verify</button>
-    </div>
+    <div class="code-wrapper animate-in">
+      <div class="code-tabs">
+        <button class="code-tab active" data-tab="sign">Sign</button>
+        <button class="code-tab" data-tab="verify">Verify</button>
+      </div>
 
-    <div class="code-block active" data-tab="sign">
-      <pre><span class="cm">// Create a client and sign requests</span>
+      <div class="code-block active" data-tab="sign">
+        <pre><span class="cm">// Create a client and sign requests</span>
 <span class="kw">import</span> {"{"} <span class="fn">createClient</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
 <span class="kw">import</span> {"{"} <span class="fn">privateKeyToAccount</span> {"}"} <span class="kw">from</span> <span class="str">'viem/accounts'</span>
 
@@ -23,10 +24,10 @@
 <span class="kw">const</span> response = <span class="kw">await</span> client.<span class="fn">fetch</span>(<span class="str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="str">'POST'</span>,
   body: <span class="fn">JSON.stringify</span>({"{"} amount: <span class="str">'100'</span> {"}"}),
 {"}"})</pre>
-    </div>
+      </div>
 
-    <div class="code-block" data-tab="verify">
-      <pre><span class="cm">// Verify incoming signed requests</span>
+      <div class="code-block" data-tab="verify">
+        <pre><span class="cm">// Verify incoming signed requests</span>
 <span class="kw">import</span> {"{"} <span class="fn">verifyRequest</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
 <span class="kw">import</span> {"{"} <span class="fn">createPublicClient</span>, <span class="fn">http</span> {"}"} <span class="kw">from</span> <span class="str">'viem'</span>
 <span class="kw">import</span> {"{"} mainnet {"}"} <span class="kw">from</span> <span class="str">'viem/chains'</span>
@@ -41,9 +42,10 @@
 
 <span class="kw">if</span> (result.ok) {"{"}<br />  console.<span class="fn">log</span>(<span class="str">`Authenticated: <span class="kw">${"{"}</span>result.address<span class="kw">{"}"}</span>`</span>)
 {"}"}</pre>
+      </div>
     </div>
 
-    <div class="install-bar">
+    <div class="install-bar animate-in">
       <code><span class="install-prefix">$</span> npm install @slicekit/erc8128</code>
       <button class="copy-btn" title="Copy install command" aria-label="Copy install command">
         <svg
@@ -64,25 +66,11 @@
 
 <style>
   .code-section {
-    padding-bottom: 40px;
+    padding-bottom: 60px;
   }
 
-  .section-label {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--accent);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 12px;
-  }
-
-  .section-title {
-    font-size: clamp(24px, 4vw, 32px);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin-bottom: 40px;
-    line-height: 1.2;
+  .code-wrapper {
+    position: relative;
   }
 
   .code-tabs {
@@ -94,7 +82,7 @@
   }
 
   .code-tab {
-    padding: 10px 20px;
+    padding: 10px 22px;
     font-family: var(--mono);
     font-size: 13px;
     color: var(--text-dim);
@@ -103,7 +91,11 @@
     border-bottom: none;
     border-radius: var(--radius) var(--radius) 0 0;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.25s var(--ease);
+  }
+
+  .code-tab:hover {
+    color: var(--text);
   }
 
   .code-tab.active {
@@ -116,40 +108,34 @@
     background: var(--code-bg);
     border: 1px solid var(--border);
     border-radius: 0 var(--radius) var(--radius) var(--radius);
-    padding: 24px;
+    padding: 28px;
     overflow-x: auto;
     display: none;
+    animation: fadeIn 0.3s var(--ease);
   }
 
   .code-block.active {
     display: block;
   }
 
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .code-block pre {
     font-family: var(--mono);
     font-size: 13px;
-    line-height: 1.7;
+    line-height: 1.75;
     color: var(--text-dim);
   }
 
-  .code-block :global(.kw) {
-    color: #c084fc;
-  }
-  .code-block :global(.fn) {
-    color: #60a5fa;
-  }
-  .code-block :global(.str) {
-    color: #34d399;
-  }
-  .code-block :global(.cm) {
-    color: #4a4a50;
-  }
-  .code-block :global(.ty) {
-    color: #f472b6;
-  }
-  .code-block :global(.num) {
-    color: #fbbf24;
-  }
+  .code-block :global(.kw) { color: #c084fc; }
+  .code-block :global(.fn) { color: #60a5fa; }
+  .code-block :global(.str) { color: #34d399; }
+  .code-block :global(.cm) { color: #4a4a50; }
+  .code-block :global(.ty) { color: #f472b6; }
+  .code-block :global(.num) { color: #fbbf24; }
 
   .install-bar {
     display: flex;
@@ -158,10 +144,15 @@
     background: var(--code-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px 20px;
-    margin-top: 24px;
+    padding: 18px 22px;
+    margin-top: 20px;
     font-family: var(--mono);
     font-size: 14px;
+    transition: border-color 0.3s var(--ease);
+  }
+
+  .install-bar:hover {
+    border-color: var(--accent-border);
   }
 
   .install-bar code {
@@ -178,20 +169,21 @@
     border: none;
     color: var(--text-dim);
     cursor: pointer;
-    padding: 4px;
+    padding: 6px;
     border-radius: 6px;
-    transition: all 0.15s;
+    transition: all 0.25s var(--ease);
     font-size: 14px;
     display: flex;
     align-items: center;
   }
   .copy-btn:hover {
-    color: var(--text);
+    color: var(--accent);
+    background: var(--accent-dim);
   }
 </style>
 
 <script>
-  // Code tab switching
+  // Code tab switching with smooth transition
   document.querySelectorAll(".code-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.getAttribute("data-tab");
@@ -199,21 +191,32 @@
         t.classList.toggle("active", t.getAttribute("data-tab") === target);
       });
       document.querySelectorAll(".code-block").forEach((b) => {
-        b.classList.toggle("active", b.getAttribute("data-tab") === target);
+        const isTarget = b.getAttribute("data-tab") === target;
+        b.classList.toggle("active", isTarget);
+        // Re-trigger animation
+        if (isTarget) {
+          b.style.animation = "none";
+          b.offsetHeight; // trigger reflow
+          b.style.animation = "";
+        }
       });
     });
   });
 
-  // Copy install command
+  // Copy install command with toast
   document.querySelector(".copy-btn")?.addEventListener("click", () => {
     navigator.clipboard.writeText("npm install @slicekit/erc8128");
+    const toast = document.getElementById("toast");
+    if (toast) {
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+    // Also update button icon briefly
     const btn = document.querySelector(".copy-btn");
     if (btn) {
-      btn.innerHTML = "✓";
-      setTimeout(() => {
-        btn.innerHTML =
-          '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
-      }, 1500);
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#858AFF" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+      setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
     }
   });
 </script>

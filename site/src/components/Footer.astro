@@ -12,13 +12,23 @@
 
 <style>
   footer {
-    padding: 24px 0;
+    padding: 28px 0;
     border-top: 1px solid var(--border);
     text-align: center;
   }
 
   footer p {
     font-size: 13px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.01em;
+  }
+
+  footer a {
     color: var(--text-dim);
+    transition: color 0.2s var(--ease);
+  }
+
+  footer a:hover {
+    color: var(--accent);
   }
 </style>
