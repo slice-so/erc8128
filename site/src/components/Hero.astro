@@ -11,6 +11,24 @@
         HTTP Requests<br />
         With Ethereum
       </p>
+      <div class="hero-ctas">
+        <a
+          href="https://erc8128-docs.vercel.app/"
+          class="hero-btn hero-btn-primary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Get Started
+        </a>
+        <a
+          href="https://github.com/ethereum/ERCs/pull/929"
+          class="hero-btn hero-btn-secondary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View Specification
+        </a>
+      </div>
       <div class="accent-bar accent-bar-bottom"></div>
     </div>
   </div>
@@ -61,11 +79,70 @@
     height: 6px;
     background: white;
     margin-bottom: 2rem;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 767px) {
+    .accent-bar {
+      margin-top: 1.5rem;
+    }
   }
 
   .accent-bar-bottom {
     margin-top: 2rem;
     margin-bottom: 0;
+  }
+
+  .hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .hero-btn {
+    display: inline-block;
+    padding: 1rem 2rem;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    text-align: center;
+  }
+
+  .hero-btn-primary {
+    background: white;
+    color: black;
+    border: 2px solid white;
+  }
+
+  .hero-btn-primary:hover {
+    background: transparent;
+    color: white;
+    opacity: 1;
+  }
+
+  .hero-btn-secondary {
+    background: transparent;
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+  }
+
+  .hero-btn-secondary:hover {
+    border-color: white;
+    opacity: 1;
+  }
+
+  @media (max-width: 639px) {
+    .hero-ctas {
+      flex-direction: column;
+    }
+
+    .hero-btn {
+      width: 100%;
+    }
   }
 
   h1 {

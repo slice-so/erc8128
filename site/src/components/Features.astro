@@ -1,28 +1,28 @@
 ---
 const features = [
   {
-    num: "01",
     title: "Request Integrity",
     description:
-      "Signatures cryptographically bind to the HTTP request itself. Any tampering with method, path, query, or body causes verification to fail immediately."
+      "Signatures cryptographically bind to the HTTP request itself. Any tampering with method, path, query, or body causes verification to fail immediately.",
+    icon: "shield"
   },
   {
-    num: "02",
     title: "Eliminate API Keys",
     description:
-      "Stop issuing, rotating, and securing API keys. Clients sign requests directly with EOAs or Smart Contract Accounts—no server-issued credentials required."
+      "Stop issuing, rotating, and securing API keys. Clients sign requests directly with EOAs or Smart Contract Accounts—no server-issued credentials required.",
+    icon: "key-off"
   },
   {
-    num: "03",
     title: "Onchain Identity",
     description:
-      "Use ERC-1271 for smart contract authorization. Enable delegation, session modules, and composable access policies without changing your authentication layer."
+      "Use ERC-1271 for smart contract authorization. Enable delegation, session modules, and composable access policies without changing your authentication layer.",
+    icon: "ethereum"
   },
   {
-    num: "04",
     title: "Standards Based",
     description:
-      "Built on RFC 9421 (HTTP Message Signatures) with replay protection. Every compliant client can authenticate with every compliant server."
+      "Built on RFC 9421 (HTTP Message Signatures) with replay protection. Every compliant client can authenticate with every compliant server.",
+    icon: "document"
   }
 ]
 ---
@@ -31,7 +31,36 @@ const features = [
   {
     features.map((feature, i) => (
       <div class={`feature-cell ${i < features.length - 1 ? 'feature-cell-border' : ''}`}>
-        <div class="feature-num">{feature.num}</div>
+        <div class="feature-icon">
+          {feature.icon === "shield" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          )}
+          {feature.icon === "key-off" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+              <line x1="2" y1="2" x2="22" y2="22" stroke-width="2"/>
+            </svg>
+          )}
+          {feature.icon === "ethereum" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12,2 4,12 12,16 20,12"/>
+              <polygon points="4,12 12,22 20,12 12,16"/>
+              <line x1="12" y1="2" x2="12" y2="16"/>
+            </svg>
+          )}
+          {feature.icon === "document" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+          )}
+        </div>
         <h3>{feature.title}</h3>
         <p>{feature.description}</p>
       </div>
@@ -96,16 +125,18 @@ const features = [
     background: var(--surface-elevated);
   }
 
-  .feature-num {
-    font-size: 3rem;
-    font-weight: 700;
-    opacity: 0.3;
-    font-family: var(--mono);
+  .feature-icon {
     margin-bottom: 2rem;
+    opacity: 0.35;
     transition: opacity 0.3s ease;
+    color: white;
   }
 
-  .feature-cell:hover .feature-num {
+  .feature-icon svg {
+    display: block;
+  }
+
+  .feature-cell:hover .feature-icon {
     opacity: 1;
   }
 
