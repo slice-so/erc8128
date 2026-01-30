@@ -1,13 +1,21 @@
+/**
+ * Docs example validation — ensures the README quick-start examples compile and work.
+ * Uses the same local RPC as sign-verify.test.ts for consistency.
+ */
 import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { mainnet } from "viem/chains"
 import {
+  createClient,
   type EthHttpSigner,
   type NonceStore,
   signRequest,
   verifyRequest
 } from "./index.js"
+
+const publicClient = createPublicClient({
+  transport: http("http://localhost:8787")
+})
 
 const account = privateKeyToAccount(
   "0x0123456789012345678901234567890123456789012345678901234567890123"
@@ -21,11 +29,6 @@ const signer: EthHttpSigner = {
   }
 }
 
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http()
-})
-
 const seen = new Set<string>()
 const nonceStore: NonceStore = {
   consume: async (key: string) => {
@@ -35,8 +38,8 @@ const nonceStore: NonceStore = {
   }
 }
 
-describe("EIP-8128 signRequest/verifyRequest", () => {
-  test("round-trips request-bound POST (auto content-digest, non-replayable nonce)", async () => {
+describe("docs: signRequest + verifyRequest example", () => {
+  test("round-trips request-bound POST as shown in README", async () => {
     const signed = await signRequest(
       "https://api.example.com/orders",
       {
@@ -53,7 +56,6 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     })
 
     expect(result.ok).toBe(true)
-
     if (!result.ok) throw new Error("unreachable")
 
     expect(result.address.toLowerCase()).toBe(account.address.toLowerCase())
@@ -65,5 +67,28 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       "@path",
       "content-digest"
     ])
+  })
+})
+
+describe("docs: createClient example", () => {
+  test("client.signRequest works as shown in README", async () => {
+    const client = createClient(signer)
+
+    const signed = await client.signRequest("https://api.example.com/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: "100" })
+    })
+
+    expect(signed.headers.get("Signature-Input")).toBeTruthy()
+    expect(signed.headers.get("Signature")).toBeTruthy()
+
+    const result = await verifyRequest(signed, {
+      nonceStore: {
+        consume: async () => true
+      },
+      verifyMessage: publicClient.verifyMessage
+    })
+    expect(result.ok).toBe(true)
   })
 })
