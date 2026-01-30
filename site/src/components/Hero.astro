@@ -203,8 +203,18 @@
 
   let width = 0, height = 0;
   let dpr = 1;
-  let angleX = 0;
+  let angleX = 0.3;
   let angleY = 0;
+  let targetAngleX = 0.3;
+  let targetAngleY = 0;
+  let autoRotateY = 0;
+  let isDragging = false;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+  let mouseX = -9999;
+  let mouseY = -9999;
+  let velocityX = 0;
+  let velocityY = 0;
 
   function resize() {
     const parent = canvas.parentElement!;
@@ -217,12 +227,12 @@
   }
 
   // Generate points on a sphere using Fibonacci distribution
-  const NUM_POINTS = 800;
+  const NUM_POINTS = 200;
   const spherePoints: { x: number; y: number; z: number }[] = [];
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
   for (let i = 0; i < NUM_POINTS; i++) {
-    const y = 1 - (i / (NUM_POINTS - 1)) * 2; // y goes from 1 to -1
+    const y = 1 - (i / (NUM_POINTS - 1)) * 2;
     const radius = Math.sqrt(1 - y * y);
     const theta = goldenAngle * i;
     spherePoints.push({
@@ -232,7 +242,128 @@
     });
   }
 
-  function draw() {
+  // Connection distance threshold (in unit sphere space)
+  const CONNECTION_THRESHOLD = 0.55;
+
+  // Pre-compute neighbor pairs (unit sphere distance)
+  const pairs: [number, number][] = [];
+  for (let i = 0; i < NUM_POINTS; i++) {
+    for (let j = i + 1; j < NUM_POINTS; j++) {
+      const dx = spherePoints[i].x - spherePoints[j].x;
+      const dy = spherePoints[i].y - spherePoints[j].y;
+      const dz = spherePoints[i].z - spherePoints[j].z;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist < CONNECTION_THRESHOLD) {
+        pairs.push([i, j]);
+      }
+    }
+  }
+
+  // Traveling "pulse" signals along connections
+  interface Pulse {
+    pairIdx: number;
+    progress: number; // 0 to 1
+    speed: number;
+    forward: boolean;
+  }
+
+  const pulses: Pulse[] = [];
+  const MAX_PULSES = 12;
+
+  function spawnPulse() {
+    if (pulses.length >= MAX_PULSES) return;
+    const pairIdx = Math.floor(Math.random() * pairs.length);
+    pulses.push({
+      pairIdx,
+      progress: 0,
+      speed: 0.008 + Math.random() * 0.012,
+      forward: Math.random() > 0.5,
+    });
+  }
+
+  // Spawn initial pulses
+  for (let i = 0; i < 6; i++) spawnPulse();
+
+  // Mouse / touch interaction
+  const heroRight = canvas.parentElement!;
+
+  heroRight.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    velocityX = 0;
+    velocityY = 0;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    const rect = heroRight.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+
+    if (isDragging) {
+      const dx = e.clientX - lastMouseX;
+      const dy = e.clientY - lastMouseY;
+      velocityY = dx * 0.005;
+      velocityX = dy * 0.005;
+      targetAngleY += dx * 0.005;
+      targetAngleX += dy * 0.005;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
+
+  heroRight.addEventListener('mouseleave', () => {
+    mouseX = -9999;
+    mouseY = -9999;
+  });
+
+  // Touch support
+  heroRight.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    const t = e.touches[0];
+    lastMouseX = t.clientX;
+    lastMouseY = t.clientY;
+    velocityX = 0;
+    velocityY = 0;
+  }, { passive: true });
+
+  heroRight.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    const rect = heroRight.getBoundingClientRect();
+    mouseX = t.clientX - rect.left;
+    mouseY = t.clientY - rect.top;
+
+    if (isDragging) {
+      const dx = t.clientX - lastMouseX;
+      const dy = t.clientY - lastMouseY;
+      velocityY = dx * 0.005;
+      velocityX = dy * 0.005;
+      targetAngleY += dx * 0.005;
+      targetAngleX += dy * 0.005;
+      lastMouseX = t.clientX;
+      lastMouseY = t.clientY;
+    }
+  }, { passive: true });
+
+  heroRight.addEventListener('touchend', () => {
+    isDragging = false;
+    mouseX = -9999;
+    mouseY = -9999;
+  });
+
+  // Cursor style
+  heroRight.style.cursor = 'grab';
+
+  let lastTime = 0;
+
+  function draw(time: number) {
+    const dt = lastTime ? Math.min((time - lastTime) / 16.67, 3) : 1;
+    lastTime = time;
+
     if (!width || !height) {
       requestAnimationFrame(draw);
       return;
@@ -243,44 +374,140 @@
     const cx = width / 2;
     const cy = height / 2;
     const sphereRadius = Math.min(width, height) * 0.38;
+    const cursorRadius = sphereRadius * 0.35; // radius of cursor influence
 
-    // Slow rotation
-    angleY += 0.003;
-    angleX += 0.001;
+    // Auto-rotation (slow)
+    if (!isDragging) {
+      autoRotateY += 0.002 * dt;
+      // Decay velocity for momentum
+      targetAngleY += velocityY * dt;
+      targetAngleX += velocityX * dt;
+      velocityX *= 0.96;
+      velocityY *= 0.96;
+    }
 
-    const cosY = Math.cos(angleY);
-    const sinY = Math.sin(angleY);
+    // Smooth interpolation
+    angleX += (targetAngleX - angleX) * 0.1 * dt;
+    angleY += (targetAngleY - angleY) * 0.1 * dt;
+
+    const totalAngleY = angleY + autoRotateY;
+
+    const cosY = Math.cos(totalAngleY);
+    const sinY = Math.sin(totalAngleY);
     const cosX = Math.cos(angleX);
     const sinX = Math.sin(angleX);
 
-    // Project and draw each point
-    const projected: { px: number; py: number; z: number }[] = [];
+    // Project all points
+    const projected: { px: number; py: number; z: number; idx: number }[] = [];
 
-    for (const p of spherePoints) {
+    for (let i = 0; i < spherePoints.length; i++) {
+      const p = spherePoints[i];
       // Rotate around Y axis
-      let x1 = p.x * cosY - p.z * sinY;
-      let z1 = p.x * sinY + p.z * cosY;
-      let y1 = p.y;
+      const x1 = p.x * cosY - p.z * sinY;
+      const z1 = p.x * sinY + p.z * cosY;
+      const y1 = p.y;
 
       // Rotate around X axis
-      let y2 = y1 * cosX - z1 * sinX;
-      let z2 = y1 * sinX + z1 * cosX;
+      const y2 = y1 * cosX - z1 * sinX;
+      const z2 = y1 * sinX + z1 * cosX;
 
       projected.push({
         px: cx + x1 * sphereRadius,
         py: cy + y2 * sphereRadius,
         z: z2,
+        idx: i,
       });
     }
 
-    // Sort by z for depth ordering (back to front)
-    projected.sort((a, b) => a.z - b.z);
+    // Draw connections (lines)
+    for (const [i, j] of pairs) {
+      const a = projected[i];
+      const b = projected[j];
 
-    for (const pt of projected) {
-      // Depth-based opacity and size
-      const depthFactor = (pt.z + 1) / 2; // 0 (back) to 1 (front)
-      const opacity = 0.1 + depthFactor * 0.8;
-      const dotSize = 1 + depthFactor * 2.5;
+      // Average depth for opacity
+      const avgZ = (a.z + b.z) / 2;
+      const depthFactor = (avgZ + 1) / 2;
+      const lineOpacity = 0.03 + depthFactor * 0.1;
+
+      // Cursor proximity boost
+      let cursorBoost = 0;
+      const midX = (a.px + b.px) / 2;
+      const midY = (a.py + b.py) / 2;
+      const distToCursor = Math.sqrt(
+        (midX - mouseX) ** 2 + (midY - mouseY) ** 2
+      );
+      if (distToCursor < cursorRadius) {
+        cursorBoost = (1 - distToCursor / cursorRadius) * 0.2;
+      }
+
+      const finalOpacity = Math.min(lineOpacity + cursorBoost, 0.4);
+
+      ctx.strokeStyle = `rgba(255, 255, 255, ${finalOpacity})`;
+      ctx.lineWidth = 0.5 + depthFactor * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(a.px, a.py);
+      ctx.lineTo(b.px, b.py);
+      ctx.stroke();
+    }
+
+    // Update and draw pulses
+    for (let pi = pulses.length - 1; pi >= 0; pi--) {
+      const pulse = pulses[pi];
+      pulse.progress += pulse.speed * dt;
+
+      if (pulse.progress > 1) {
+        pulses.splice(pi, 1);
+        continue;
+      }
+
+      const [i, j] = pairs[pulse.pairIdx];
+      const a = projected[i];
+      const b = projected[j];
+      const t = pulse.forward ? pulse.progress : 1 - pulse.progress;
+
+      const px = a.px + (b.px - a.px) * t;
+      const py = a.py + (b.py - a.py) * t;
+      const avgZ = (a.z + b.z) / 2;
+      const depthFactor = (avgZ + 1) / 2;
+
+      // Pulse glow
+      const pulseAlpha = Math.sin(pulse.progress * Math.PI) * (0.3 + depthFactor * 0.7);
+      const pulseSize = 2 + depthFactor * 3;
+
+      ctx.fillStyle = `rgba(255, 255, 255, ${pulseAlpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, pulseSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subtle glow ring
+      ctx.strokeStyle = `rgba(255, 255, 255, ${pulseAlpha * 0.3})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(px, py, pulseSize * 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Spawn new pulses periodically
+    if (Math.random() < 0.03 * dt) spawnPulse();
+
+    // Sort by z for depth ordering (back to front) for dots
+    const sortedProjected = [...projected].sort((a, b) => a.z - b.z);
+
+    // Draw dots
+    for (const pt of sortedProjected) {
+      const depthFactor = (pt.z + 1) / 2;
+      let opacity = 0.15 + depthFactor * 0.7;
+      let dotSize = 1.5 + depthFactor * 2.5;
+
+      // Cursor proximity effect — dots near cursor get larger and brighter
+      const distToCursor = Math.sqrt(
+        (pt.px - mouseX) ** 2 + (pt.py - mouseY) ** 2
+      );
+      if (distToCursor < cursorRadius) {
+        const proximity = 1 - distToCursor / cursorRadius;
+        dotSize += proximity * 3;
+        opacity = Math.min(opacity + proximity * 0.4, 1);
+      }
 
       ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
       ctx.beginPath();
@@ -292,5 +519,5 @@
   }
 
   window.addEventListener('resize', resize);
-  setTimeout(() => { resize(); draw(); }, 100);
+  setTimeout(() => { resize(); requestAnimationFrame(draw); }, 100);
 </script>
