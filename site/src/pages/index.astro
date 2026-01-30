@@ -7,19 +7,21 @@ import Hero from "../components/Hero.astro"
 import HowItWorks from "../components/HowItWorks.astro"
 import Nav from "../components/Nav.astro"
 import Resources from "../components/Resources.astro"
+import SecurityCallout from "../components/SecurityCallout.astro"
 import WhatIs from "../components/WhatIs.astro"
 import Layout from "../layouts/Layout.astro"
 ---
 
 <Layout
-  title="ERC-8128 — Signed HTTP Requests with Ethereum"
-  description="Authenticate HTTP requests using Ethereum accounts. No tokens, no handshakes, no centralized identity—just cryptographic signatures."
+  title="ERC-8128 | Ethereum HTTP Authentication Standard"
+  description="ERC-8128 enables Ethereum accounts to sign and authenticate HTTP requests to any web service. No API keys, no signups—just your wallet."
 >
   <Nav />
   <Hero />
   <WhatIs />
   <Features />
   <HowItWorks />
+  <SecurityCallout />
   <CodePreview />
   <CTA />
   <Resources />
