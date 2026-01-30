@@ -7,7 +7,7 @@ const links = [
 ---
 
 <nav>
-  <div class="container">
+  <div class="nav-inner">
     <a href="/" class="logo">ERC-<span>8128</span></a>
     <div class="nav-links">
       {
@@ -28,26 +28,29 @@ const links = [
     left: 0;
     right: 0;
     z-index: 100;
-    padding: 16px 28px;
-    background: rgba(10, 10, 11, 0.75);
+    padding: 1rem 2rem;
+    background: rgba(5, 5, 5, 0.8);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
     border-bottom: 1px solid var(--border-subtle);
   }
 
-  nav .container {
+  .nav-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    max-width: 80rem;
+    margin: 0 auto;
   }
 
   .logo {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 0.9375rem;
     color: var(--text);
     font-family: var(--mono);
     letter-spacing: -0.5px;
     transition: opacity 0.2s;
+    text-decoration: none;
   }
 
   .logo:hover {
@@ -55,30 +58,20 @@ const links = [
   }
 
   .logo span {
-    color: var(--accent);
+    color: var(--text);
+    opacity: 0.6;
   }
 
   .nav-links {
     display: flex;
-    gap: 28px;
+    gap: 1.75rem;
   }
 
   .nav-links a {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: var(--text-dim);
-    transition: color 0.2s var(--ease);
-    position: relative;
-  }
-
-  .nav-links a::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -4px;
-    width: 0;
-    height: 1px;
-    background: var(--accent);
-    transition: width 0.3s var(--ease);
+    transition: color 0.2s ease;
+    text-decoration: none;
   }
 
   .nav-links a:hover {
@@ -86,17 +79,13 @@ const links = [
     opacity: 1;
   }
 
-  .nav-links a:hover::after {
-    width: 100%;
-  }
-
   @media (max-width: 640px) {
     nav {
-      padding: 14px 20px;
+      padding: 0.875rem 1.25rem;
     }
 
     .nav-links {
-      gap: 18px;
+      gap: 1.125rem;
     }
   }
 </style>

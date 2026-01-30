@@ -1,41 +1,52 @@
 ---
 const steps = [
   {
-    num: "1",
-    title: "Client signs",
+    num: "01",
+    title: "Sign",
     description:
-      "The client creates an HTTP Message Signature over the request method, path, headers, and body using an Ethereum account."
+      "Client creates and signs the HTTP request payload with their Ethereum private key. Signature cryptographically binds to method, path, and body.",
+    code: "sig = sign(hash(request))\nheader: X-Web3-Sig"
   },
   {
-    num: "2",
-    title: "Headers carry signature",
+    num: "02",
+    title: "Send",
     description:
-      "The signature, signer address, chain ID, and nonce are added as standard HTTP headers. No changes to the request body."
+      "Request is transmitted to the server with signature attached in HTTP headers. No session cookies or bearer tokens required.",
+    code: "POST /api/resource\nX-Web3-Sig: 0x..."
   },
   {
-    num: "3",
-    title: "Server verifies",
+    num: "03",
+    title: "Verify",
     description:
-      "The server reconstructs the signed content, recovers the signer, and validates via ecrecover (EOA) or ERC-1271 (smart contract)."
+      "Server recovers the Ethereum address from signature, validates timestamp for replay protection, and executes request.",
+    code: "address = ecrecover(sig)\n200 OK",
+    codeGreen: true
   }
 ]
 ---
 
-<section>
-  <div class="container">
-    <div class="section-label animate-in">How It Works</div>
-    <h2 class="section-title animate-in">Three steps, zero trust assumptions</h2>
-    <div class="steps stagger-children">
+<section class="lifecycle">
+  <div class="lifecycle-bg"></div>
+  <div class="lifecycle-inner">
+    <h3 class="lifecycle-label animate-in">
+      <span class="label-marker"></span>
+      Request Lifecycle
+    </h3>
+
+    <div class="lifecycle-grid stagger-children">
+      <div class="lifecycle-line"></div>
       {
-        steps.map((step, i) => (
-          <div class="step animate-in">
-            <div class="step-num-wrapper">
-              <div class="step-num">{step.num}</div>
-              {i < steps.length - 1 && <div class="step-connector" />}
+        steps.map((step) => (
+          <div class="lifecycle-step animate-in group">
+            <div class="step-circle">
+              <span>{step.num}</span>
             </div>
-            <div class="step-content">
-              <h3>{step.title}</h3>
+            <div class="step-body">
+              <h4>{step.title}</h4>
               <p>{step.description}</p>
+              <div class={`step-code ${step.codeGreen ? 'step-code-green' : ''}`}>
+                {step.code}
+              </div>
             </div>
           </div>
         ))
@@ -45,78 +56,155 @@ const steps = [
 </section>
 
 <style>
-  .steps {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .step {
+  .lifecycle {
+    border-bottom: 1px solid var(--border);
+    padding: 5rem 1rem;
     position: relative;
-    display: flex;
-    gap: 20px;
-    padding-bottom: 36px;
+    overflow: hidden;
   }
 
-  .step:last-child {
-    padding-bottom: 0;
+  @media (min-width: 768px) {
+    .lifecycle {
+      padding: 5rem 3rem;
+    }
   }
 
-  .step-num-wrapper {
+  .lifecycle-bg {
+    position: absolute;
+    inset: 0;
+    opacity: 0.1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .lifecycle-inner {
+    max-width: 80rem;
+    margin: 0 auto;
     position: relative;
+    z-index: 10;
+  }
+
+  .lifecycle-label {
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 5rem;
     display: flex;
-    flex-direction: column;
     align-items: center;
+    gap: 1rem;
   }
 
-  .step-num {
-    flex-shrink: 0;
-    width: 40px;
-    height: 40px;
+  .label-marker {
+    display: block;
+    width: 1rem;
+    height: 1rem;
+    background: white;
+  }
+
+  .lifecycle-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+
+  @media (min-width: 768px) {
+    .lifecycle-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3rem;
+    }
+  }
+
+  .lifecycle-line {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .lifecycle-line {
+      display: block;
+      position: absolute;
+      top: 2rem;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.3);
+      z-index: -1;
+    }
+  }
+
+  .lifecycle-step {
+    position: relative;
+  }
+
+  .step-circle {
+    width: 4rem;
+    height: 4rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 9999px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    border-radius: 12px;
+    margin-bottom: 2rem;
+    z-index: 10;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .lifecycle-step:hover .step-circle {
+    background: white;
+    color: black;
+  }
+
+  .step-circle span {
     font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent);
-    transition: all 0.3s var(--ease);
-  }
-
-  .step:hover .step-num {
-    background: rgba(133, 138, 255, 0.15);
-    box-shadow: 0 0 16px rgba(133, 138, 255, 0.15);
-  }
-
-  .step-connector {
-    flex: 1;
-    width: 1px;
-    margin-top: 8px;
-    background: linear-gradient(
-      to bottom,
-      var(--accent-border),
-      var(--border)
-    );
-    min-height: 20px;
-  }
-
-  .step-content {
-    padding-top: 6px;
-  }
-
-  .step-content h3 {
-    font-size: 16px;
+    font-size: 1.25rem;
     font-weight: 700;
-    margin-bottom: 6px;
-    letter-spacing: -0.01em;
   }
 
-  .step-content p {
-    font-size: 14px;
-    color: var(--text-dim);
+  .step-body {
+    border-left: 2px solid white;
+    padding-left: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .step-body {
+      border-left: none;
+      padding-left: 0;
+    }
+  }
+
+  .step-body h4 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-body p {
+    font-size: 0.875rem;
+    opacity: 0.7;
     line-height: 1.6;
+    margin-bottom: 1rem;
+    min-height: 5rem;
+  }
+
+  .step-code {
+    background: var(--surface-elevated);
+    padding: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: pre-line;
+    line-height: 1.6;
+  }
+
+  .step-code-green {
+    color: #4ade80;
   }
 </style>

@@ -1,196 +1,323 @@
-<section class="hero">
-  <div class="hero-glow"></div>
-  <div class="container">
-    <div class="badge animate-in">
-      <span class="badge-dot"></span>
-       Ethereum Standard · Draft
+<header class="hero">
+  <div class="hero-left">
+    <div>
+      <div class="accent-bar"></div>
+      <h1>ERC<br />8128</h1>
+      <h2>Authenticate HTTP requests with Ethereum accounts</h2>
     </div>
-    <h1 class="animate-in">Let users authenticate with<br />their Ethereum account</h1>
-    <p class="animate-in">
-      Zero signups. Zero API keys. Zero handshakes.<br class="hide-mobile" />
-      Users sign requests directly&mdash;you verify the signature.
-    </p>
-    <div class="hero-ctas animate-in">
-      <a
-        href="https://erc8128-docs.vercel.app/"
-        class="btn btn-primary"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Read the Docs
-        <svg
-          width="16"
-          height="16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          ><path d="M5 12h14M12 5l7 7-7 7"></path></svg
+
+    <div class="hero-bottom">
+      <p>
+        No bearer tokens, no handshakes, no centralized identity providers—just cryptographic signatures.
+      </p>
+      <div class="hero-ctas">
+        <a
+          href="https://erc8128-docs.vercel.app/"
+          class="hero-link"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-      </a>
-      <a
-        href="https://github.com/ethereum/ERCs/pull/1478"
-        class="btn btn-secondary"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        View Specification
-        <svg
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          viewBox="0 0 24 24"
-          ><path
-            d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
-          ></path></svg
+          <span>Get Started</span>
+          <span>→</span>
+        </a>
+        <a
+          href="https://github.com/ethereum/ERCs/pull/1478"
+          class="hero-link hero-link-dim"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-      </a>
+          <span>View Specification</span>
+          <span>↗</span>
+        </a>
+      </div>
     </div>
   </div>
-</section>
+
+  <div class="hero-right">
+    <canvas id="dots"></canvas>
+    <div class="hero-badge">
+      <p class="badge-main">RFC 9421 COMPLIANT</p>
+      <p class="badge-sub">HTTP MESSAGE SIGNATURES</p>
+    </div>
+  </div>
+</header>
 
 <style>
   .hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    border-bottom: 1px solid var(--border);
+    min-height: 85vh;
     position: relative;
-    padding-top: 180px;
-    padding-bottom: 100px;
-    text-align: center;
-    overflow: hidden;
   }
 
-  .hero-glow {
-    position: absolute;
-    top: -200px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 800px;
-    height: 600px;
-    background: radial-gradient(
-      ellipse at center,
-      rgba(133, 138, 255, 0.08) 0%,
-      rgba(133, 138, 255, 0.03) 40%,
-      transparent 70%
-    );
-    pointer-events: none;
-    animation: glowPulse 8s ease-in-out infinite alternate;
+  @media (min-width: 1024px) {
+    .hero {
+      grid-template-columns: 40% 60%;
+    }
   }
 
-  @keyframes glowPulse {
-    0% { opacity: 0.6; transform: translateX(-50%) scale(1); }
-    100% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+  .hero-left {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
   }
 
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 16px;
-    background: var(--accent-dim);
-    border: 1px solid var(--accent-border);
-    border-radius: 100px;
-    font-size: 13px;
-    color: var(--accent);
-    font-weight: 500;
-    margin-bottom: 36px;
+  @media (min-width: 768px) {
+    .hero-left {
+      padding: 3rem;
+    }
   }
 
-  .badge-dot {
-    width: 6px;
-    height: 6px;
-    background: var(--accent);
-    border-radius: 50%;
-    animation: dotPulse 2s ease-in-out infinite;
+  @media (min-width: 1024px) {
+    .hero-left {
+      padding: 4rem;
+      border-right: 1px solid var(--border);
+    }
   }
 
-  @keyframes dotPulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
+  .accent-bar {
+    width: 120px;
+    height: 8px;
+    background: white;
+    margin-bottom: 2rem;
   }
 
   h1 {
-    font-size: clamp(38px, 6vw, 60px);
-    font-weight: 800;
-    line-height: 1.08;
-    letter-spacing: -0.035em;
-    margin-bottom: 24px;
-    background: linear-gradient(180deg, #ffffff 0%, rgba(237, 237, 239, 0.65) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: clamp(3.5rem, 8vw, 8rem);
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
   }
 
-  .hero p {
-    font-size: 19px;
-    color: var(--text-dim);
-    max-width: 540px;
-    margin: 0 auto 44px;
-    line-height: 1.65;
+  h2 {
+    font-size: clamp(1.25rem, 3vw, 1.875rem);
+    font-weight: 700;
+    line-height: 1.2;
+    text-transform: uppercase;
+    max-width: 28rem;
+  }
+
+  .hero-bottom {
+    margin-top: 3rem;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-bottom {
+      margin-top: 0;
+    }
+  }
+
+  .hero-bottom p {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    line-height: 1.6;
+    opacity: 0.8;
+    max-width: 24rem;
+    margin-bottom: 2rem;
   }
 
   .hero-ctas {
     display: flex;
-    gap: 14px;
-    justify-content: center;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 1rem;
   }
 
-  .btn {
+  .hero-link {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 13px 26px;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    transition: all 0.25s var(--ease);
-    border: none;
-    cursor: pointer;
+    gap: 0.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
     text-decoration: none;
-  }
-
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: 0 0 0 0 rgba(133, 138, 255, 0);
-  }
-  .btn-primary:hover {
-    background: var(--accent-hover);
-    opacity: 1;
-    box-shadow: 0 0 24px rgba(133, 138, 255, 0.3);
-    transform: translateY(-1px);
-  }
-
-  .btn-secondary {
-    background: var(--surface);
     color: var(--text);
-    border: 1px solid var(--border);
   }
-  .btn-secondary:hover {
-    border-color: var(--text-dim);
+
+  .hero-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 2px;
     opacity: 1;
-    background: var(--surface-elevated);
-    transform: translateY(-1px);
   }
 
-  .hide-mobile {
-    display: inline;
+  .hero-link-dim {
+    font-size: 0.875rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
   }
 
-  @media (max-width: 640px) {
-    .hero {
-      padding-top: 140px;
-      padding-bottom: 72px;
-    }
+  .hero-link-dim:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
 
-    .hide-mobile {
-      display: none;
-    }
+  .hero-right {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: var(--surface);
+    height: 400px;
+    border-top: 1px solid var(--border-subtle);
+  }
 
-    .hero-glow {
-      width: 500px;
-      height: 400px;
+  @media (min-width: 1024px) {
+    .hero-right {
+      height: auto;
+      border-top: none;
     }
+  }
+
+  #dots {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .hero-badge {
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+    text-align: right;
+    display: none;
+    pointer-events: none;
+    mix-blend-mode: difference;
+    z-index: 10;
+  }
+
+  @media (min-width: 1024px) {
+    .hero-badge {
+      display: block;
+    }
+  }
+
+  .badge-main {
+    font-family: var(--mono);
+    font-size: 0.875rem;
+  }
+
+  .badge-sub {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    opacity: 0.6;
   }
 </style>
+
+<script>
+  const canvas = document.getElementById('dots') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d')!;
+
+  let width = 0, height = 0;
+  let time = 0;
+
+  function resize() {
+    const parent = canvas.parentElement!;
+    width = parent.offsetWidth;
+    height = parent.offsetHeight;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+    // Re-init particle positions on resize
+    particles.forEach(p => {
+      if (p.x > width) p.x = Math.random() * width;
+      if (p.y > height) p.y = Math.random() * height;
+    });
+  }
+
+  // Particle system for signed HTTP requests
+  interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    opacity: number;
+    phase: number;
+    type: 'request' | 'signature';
+  }
+
+  const maxParticles = 120;
+  const particles: Particle[] = [];
+
+  for (let i = 0; i < maxParticles; i++) {
+    particles.push({
+      x: Math.random() * 1920,
+      y: Math.random() * 1080,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      size: Math.random() * 2 + 0.5,
+      opacity: Math.random() * 0.5 + 0.3,
+      phase: Math.random() * Math.PI * 2,
+      type: Math.random() > 0.5 ? 'request' : 'signature'
+    });
+  }
+
+  function draw() {
+    if (!width || !height) return;
+
+    // Fade trail
+    ctx.fillStyle = 'rgba(8, 8, 8, 0.08)';
+    ctx.fillRect(0, 0, width, height);
+
+    // Update and draw particles
+    particles.forEach((p, i) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.phase += 0.01;
+
+      // Wrap edges
+      if (p.x < 0) p.x = width;
+      if (p.x > width) p.x = 0;
+      if (p.y < 0) p.y = height;
+      if (p.y > height) p.y = 0;
+
+      // Pulsing
+      const pulse = Math.sin(p.phase) * 0.3 + 0.7;
+      const currentOpacity = p.opacity * pulse;
+
+      ctx.fillStyle = `rgba(255, 255, 255, ${currentOpacity})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Connect nearby particles (HTTP header connections)
+      particles.forEach((p2, j) => {
+        if (i >= j) return;
+        const dx = p.x - p2.x;
+        const dy = p.y - p2.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 80) {
+          const lineOpacity = (1 - distance / 80) * 0.15;
+          ctx.strokeStyle = `rgba(255, 255, 255, ${lineOpacity})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      });
+    });
+
+    // Subtle signature symbols
+    ctx.font = '10px monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    const symbols = ['0x', 'sig', 'POST', 'GET', 'auth'];
+    for (let i = 0; i < 5; i++) {
+      const x = (width / 6) * (i + 0.5) + Math.sin(time * 0.5 + i) * 30;
+      const y = height / 2 + Math.cos(time * 0.3 + i * 0.5) * 60;
+      ctx.fillText(symbols[i], x, y);
+    }
+
+    time += 0.008;
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', resize);
+  setTimeout(() => { resize(); draw(); }, 100);
+</script>

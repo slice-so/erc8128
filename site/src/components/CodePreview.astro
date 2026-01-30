@@ -1,17 +1,17 @@
 <section class="code-section">
-  <div class="container">
-    <div class="section-label animate-in">Quick Start</div>
-    <h2 class="section-title animate-in">Two sides, both simple</h2>
+  <div class="code-container">
+    <div class="code-grid">
+      <!-- For Users -->
+      <div class="code-panel">
+        <div class="code-panel-inner">
+          <div class="code-badge">For Users</div>
+          <h3>Drop-in SDK</h3>
+          <p>
+            Integrate easily with standard fetch wrappers or axios interceptors. No need to manage sessions or tokens manually in your frontend code.
+          </p>
 
-    <div class="code-wrapper animate-in">
-      <div class="code-tabs">
-        <button class="code-tab active" data-tab="sign">Sign</button>
-        <button class="code-tab" data-tab="verify">Verify</button>
-      </div>
-
-      <div class="code-block active" data-tab="sign">
-        <pre><span class="cm">// Create a client and sign requests</span>
-<span class="kw">import</span> {"{"} <span class="fn">createClient</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
+          <div class="code-block-wrapper">
+            <pre><code><span class="kw">import</span> {"{"} <span class="fn">createClient</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
 <span class="kw">import</span> {"{"} <span class="fn">privateKeyToAccount</span> {"}"} <span class="kw">from</span> <span class="str">'viem/accounts'</span>
 
 <span class="kw">const</span> account = <span class="fn">privateKeyToAccount</span>(<span class="str">'0x...'</span>)
@@ -21,14 +21,25 @@
   signMessage: (msg) =&gt; account.<span class="fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
 {"}"})
 
-<span class="kw">const</span> response = <span class="kw">await</span> client.<span class="fn">fetch</span>(<span class="str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="str">'POST'</span>,
+<span class="kw">const</span> response = <span class="kw">await</span> client.<span class="fn">fetch</span>(
+  <span class="str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="str">'POST'</span>,
   body: <span class="fn">JSON.stringify</span>({"{"} amount: <span class="str">'100'</span> {"}"}),
-{"}"})</pre>
+{"}"})</code></pre>
+          </div>
+        </div>
       </div>
 
-      <div class="code-block" data-tab="verify">
-        <pre><span class="cm">// Verify incoming signed requests</span>
-<span class="kw">import</span> {"{"} <span class="fn">verifyRequest</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
+      <!-- For Providers -->
+      <div class="code-panel code-panel-dark">
+        <div class="code-panel-inner">
+          <div class="code-badge">For Providers</div>
+          <h3>Stateless Verify</h3>
+          <p>
+            Middleware handles the heavy cryptography. You get a validated wallet address in the request context without database lookups.
+          </p>
+
+          <div class="code-block-wrapper">
+            <pre><code><span class="kw">import</span> {"{"} <span class="fn">verifyRequest</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
 <span class="kw">import</span> {"{"} <span class="fn">createPublicClient</span>, <span class="fn">http</span> {"}"} <span class="kw">from</span> <span class="str">'viem'</span>
 <span class="kw">import</span> {"{"} mainnet {"}"} <span class="kw">from</span> <span class="str">'viem/chains'</span>
 
@@ -41,11 +52,14 @@
 {"}"})
 
 <span class="kw">if</span> (result.ok) {"{"}<br />  console.<span class="fn">log</span>(<span class="str">`Authenticated: <span class="kw">${"{"}</span>result.address<span class="kw">{"}"}</span>`</span>)
-{"}"}</pre>
+{"}"}</code></pre>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="install-bar animate-in">
+    <!-- Install bar -->
+    <div class="install-bar">
       <code><span class="install-prefix">$</span> npm install @slicekit/erc8128</code>
       <button class="copy-btn" title="Copy install command" aria-label="Copy install command">
         <svg
@@ -66,143 +80,152 @@
 
 <style>
   .code-section {
-    padding-bottom: 60px;
+    border-bottom: 1px solid var(--border);
   }
 
-  .code-wrapper {
-    position: relative;
+  .code-container {
+    max-width: 80rem;
+    margin: 0 auto;
   }
 
-  .code-tabs {
+  .code-grid {
     display: flex;
-    gap: 0;
-    margin-bottom: -1px;
-    position: relative;
-    z-index: 1;
+    flex-direction: column;
   }
 
-  .code-tab {
-    padding: 10px 22px;
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--text-dim);
-    background: transparent;
-    border: 1px solid transparent;
-    border-bottom: none;
-    border-radius: var(--radius) var(--radius) 0 0;
-    cursor: pointer;
-    transition: all 0.25s var(--ease);
+  @media (min-width: 1024px) {
+    .code-grid {
+      flex-direction: row;
+    }
   }
 
-  .code-tab:hover {
-    color: var(--text);
+  .code-panel {
+    flex: 1;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
   }
 
-  .code-tab.active {
-    color: var(--text);
-    background: var(--code-bg);
-    border-color: var(--border);
+  @media (min-width: 1024px) {
+    .code-panel {
+      border-bottom: none;
+      border-right: 1px solid var(--border);
+    }
+
+    .code-panel:last-child {
+      border-right: none;
+    }
   }
 
-  .code-block {
-    background: var(--code-bg);
+  .code-panel-dark {
+    background: var(--surface);
+  }
+
+  .code-panel-inner {
+    padding: 2rem;
+    flex-grow: 1;
+  }
+
+  @media (min-width: 1024px) {
+    .code-panel-inner {
+      padding: 4rem;
+    }
+  }
+
+  .code-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
     border: 1px solid var(--border);
-    border-radius: 0 var(--radius) var(--radius) var(--radius);
-    padding: 28px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 2rem;
+  }
+
+  h3 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+  }
+
+  .code-section p {
+    opacity: 0.7;
+    max-width: 28rem;
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+  }
+
+  .code-block-wrapper {
+    background: #0a0a0a;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 1.5rem;
     overflow-x: auto;
-    display: none;
-    animation: fadeIn 0.3s var(--ease);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
   }
 
-  .code-block.active {
-    display: block;
+  .code-panel-dark .code-block-wrapper {
+    background: #000000;
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .code-block pre {
-    font-family: var(--mono);
+  .code-block-wrapper pre {
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
     font-size: 13px;
     line-height: 1.75;
-    color: var(--text-dim);
+    color: rgba(255, 255, 255, 0.6);
   }
 
-  .code-block :global(.kw) { color: #c084fc; }
-  .code-block :global(.fn) { color: #60a5fa; }
-  .code-block :global(.str) { color: #34d399; }
-  .code-block :global(.cm) { color: #4a4a50; }
-  .code-block :global(.ty) { color: #f472b6; }
-  .code-block :global(.num) { color: #fbbf24; }
+  .code-block-wrapper :global(.kw) { color: #c084fc; }
+  .code-block-wrapper :global(.fn) { color: #60a5fa; }
+  .code-block-wrapper :global(.str) { color: #34d399; }
+  .code-block-wrapper :global(.cm) { color: #4a4a50; }
+  .code-block-wrapper :global(.ty) { color: #f472b6; }
+  .code-block-wrapper :global(.num) { color: #fbbf24; }
 
   .install-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px 22px;
-    margin-top: 20px;
-    font-family: var(--mono);
-    font-size: 14px;
-    transition: border-color 0.3s var(--ease);
+    background: #0a0a0a;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 1.125rem 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 0.875rem;
+    transition: background 0.3s ease;
   }
 
   .install-bar:hover {
-    border-color: var(--accent-border);
+    background: #111;
   }
 
   .install-bar code {
-    color: var(--text-dim);
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .install-prefix {
-    color: var(--accent);
-    margin-right: 8px;
+    color: #858aff;
+    margin-right: 0.5rem;
   }
 
   .copy-btn {
     background: none;
     border: none;
-    color: var(--text-dim);
+    color: rgba(255, 255, 255, 0.5);
     cursor: pointer;
-    padding: 6px;
+    padding: 0.375rem;
     border-radius: 6px;
-    transition: all 0.25s var(--ease);
-    font-size: 14px;
+    transition: all 0.25s ease;
     display: flex;
     align-items: center;
   }
+
   .copy-btn:hover {
-    color: var(--accent);
-    background: var(--accent-dim);
+    color: #858aff;
+    background: rgba(133, 138, 255, 0.1);
   }
 </style>
 
 <script>
-  // Code tab switching with smooth transition
-  document.querySelectorAll(".code-tab").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const target = tab.getAttribute("data-tab");
-      document.querySelectorAll(".code-tab").forEach((t) => {
-        t.classList.toggle("active", t.getAttribute("data-tab") === target);
-      });
-      document.querySelectorAll(".code-block").forEach((b) => {
-        const isTarget = b.getAttribute("data-tab") === target;
-        b.classList.toggle("active", isTarget);
-        // Re-trigger animation
-        if (isTarget) {
-          b.style.animation = "none";
-          b.offsetHeight; // trigger reflow
-          b.style.animation = "";
-        }
-      });
-    });
-  });
-
   // Copy install command with toast
   document.querySelector(".copy-btn")?.addEventListener("click", () => {
     navigator.clipboard.writeText("npm install @slicekit/erc8128");
@@ -211,7 +234,6 @@
       toast.classList.add("show");
       setTimeout(() => toast.classList.remove("show"), 2000);
     }
-    // Also update button icon briefly
     const btn = document.querySelector(".copy-btn");
     if (btn) {
       const originalHTML = btn.innerHTML;

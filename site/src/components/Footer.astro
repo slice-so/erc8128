@@ -1,34 +1,130 @@
 <footer>
-  <div class="container">
-    <p>
-      An open standard for HTTP authentication with Ethereum · Built by <a
-        href="https://slice.so"
-        target="_blank"
-        rel="noopener noreferrer">Slice</a
-      >
-    </p>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <h2>SLICE + ETHEREUM</h2>
+      <div class="footer-initiative">Open Standards Initiative</div>
+      <div class="footer-copyright">© 2024 SLICE SO. MIT LICENSE.</div>
+    </div>
+    <div class="footer-image-wrapper">
+      <img src="/footer-badge.png" alt="SLICE + ETHEREUM — Open Standards Initiative" class="footer-image" />
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <div class="footer-status">
+      <div class="status-dot"></div>
+      <span>STATUS: DRAFT</span>
+    </div>
+    <span class="footer-tagline">An open standard for HTTP authentication with Ethereum</span>
+    <div class="footer-erc">
+      <span>ERC-8128</span>
+    </div>
   </div>
 </footer>
 
 <style>
   footer {
-    padding: 28px 0;
     border-top: 1px solid var(--border);
+  }
+
+  .footer-top {
+    padding: 3rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .footer-brand {
     text-align: center;
   }
 
-  footer p {
-    font-size: 13px;
-    color: var(--text-dimmer);
-    letter-spacing: 0.01em;
+  .footer-brand h2 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.02em;
   }
 
-  footer a {
-    color: var(--text-dim);
-    transition: color 0.2s var(--ease);
+  .footer-initiative {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    opacity: 0.8;
+    margin-bottom: 0.25rem;
   }
 
-  footer a:hover {
-    color: var(--accent);
+  .footer-copyright {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    opacity: 0.6;
+  }
+
+  .footer-image-wrapper {
+    max-width: 600px;
+    width: 100%;
+    border: 1px solid var(--border-subtle);
+    overflow: hidden;
+  }
+
+  .footer-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    filter: invert(1);
+    opacity: 0.9;
+  }
+
+  .footer-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem 2rem;
+    font-size: 0.75rem;
+    opacity: 0.6;
+    font-family: var(--mono);
+  }
+
+  @media (min-width: 1024px) {
+    .footer-bottom {
+      flex-direction: row;
+      justify-content: space-between;
+      max-width: 56rem;
+      margin: 0 auto;
+      width: 100%;
+    }
+  }
+
+  .footer-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    background: white;
+    border-radius: 9999px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  .footer-tagline {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+
+  .footer-erc {
+    display: flex;
+    gap: 1.5rem;
   }
 </style>
