@@ -1,0 +1,219 @@
+<section class="code-section">
+  <div class="container">
+    <div class="section-label">Quick Start</div>
+    <h2 class="section-title">Two sides, both simple</h2>
+
+    <div class="code-tabs">
+      <button class="code-tab active" data-tab="sign">Sign</button>
+      <button class="code-tab" data-tab="verify">Verify</button>
+    </div>
+
+    <div class="code-block active" data-tab="sign">
+      <pre><span class="cm">// Create a client and sign requests</span>
+<span class="kw">import</span> {"{"} <span class="fn">createClient</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
+<span class="kw">import</span> {"{"} <span class="fn">privateKeyToAccount</span> {"}"} <span class="kw">from</span> <span class="str">'viem/accounts'</span>
+
+<span class="kw">const</span> account = <span class="fn">privateKeyToAccount</span>(<span class="str">'0x...'</span>)
+<span class="kw">const</span> client = <span class="fn">createClient</span>({"{"}
+  chainId: <span class="num">1</span>,
+  address: account.address,
+  signMessage: (msg) =&gt; account.<span class="fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
+{"}"})
+
+<span class="kw">const</span> response = <span class="kw">await</span> client.<span class="fn">fetch</span>(<span class="str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="str">'POST'</span>,
+  body: <span class="fn">JSON.stringify</span>({"{"} amount: <span class="str">'100'</span> {"}"}),
+{"}"})</pre>
+    </div>
+
+    <div class="code-block" data-tab="verify">
+      <pre><span class="cm">// Verify incoming signed requests</span>
+<span class="kw">import</span> {"{"} <span class="fn">verifyRequest</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
+<span class="kw">import</span> {"{"} <span class="fn">createPublicClient</span>, <span class="fn">http</span> {"}"} <span class="kw">from</span> <span class="str">'viem'</span>
+<span class="kw">import</span> {"{"} mainnet {"}"} <span class="kw">from</span> <span class="str">'viem/chains'</span>
+
+<span class="kw">const</span> viemClient = <span class="fn">createPublicClient</span>({"{"}<br />  chain: mainnet,
+  transport: <span class="fn">http</span>(),
+{"}"})
+
+<span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">verifyRequest</span>(request, {"{"}<br />  nonceStore,
+  verifyMessage: viemClient.verifyMessage,
+{"}"})
+
+<span class="kw">if</span> (result.ok) {"{"}<br />  console.<span class="fn">log</span>(<span class="str">`Authenticated: <span class="kw">${"{"}</span>result.address<span class="kw">{"}"}</span>`</span>)
+{"}"}</pre>
+    </div>
+
+    <div class="install-bar">
+      <code><span class="install-prefix">$</span> npm install @slicekit/erc8128</code>
+      <button class="copy-btn" title="Copy install command" aria-label="Copy install command">
+        <svg
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+        >
+          <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .code-section {
+    padding-bottom: 40px;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 40px;
+    line-height: 1.2;
+  }
+
+  .code-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: -1px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .code-tab {
+    padding: 10px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .code-tab.active {
+    color: var(--text);
+    background: var(--code-bg);
+    border-color: var(--border);
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) var(--radius);
+    padding: 24px;
+    overflow-x: auto;
+    display: none;
+  }
+
+  .code-block.active {
+    display: block;
+  }
+
+  .code-block pre {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .code-block :global(.kw) {
+    color: #c084fc;
+  }
+  .code-block :global(.fn) {
+    color: #60a5fa;
+  }
+  .code-block :global(.str) {
+    color: #34d399;
+  }
+  .code-block :global(.cm) {
+    color: #4a4a50;
+  }
+  .code-block :global(.ty) {
+    color: #f472b6;
+  }
+  .code-block :global(.num) {
+    color: #fbbf24;
+  }
+
+  .install-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+
+  .install-bar code {
+    color: var(--text-dim);
+  }
+
+  .install-prefix {
+    color: var(--accent);
+    margin-right: 8px;
+  }
+
+  .copy-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.15s;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+  }
+  .copy-btn:hover {
+    color: var(--text);
+  }
+</style>
+
+<script>
+  // Code tab switching
+  document.querySelectorAll(".code-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.getAttribute("data-tab");
+      document.querySelectorAll(".code-tab").forEach((t) => {
+        t.classList.toggle("active", t.getAttribute("data-tab") === target);
+      });
+      document.querySelectorAll(".code-block").forEach((b) => {
+        b.classList.toggle("active", b.getAttribute("data-tab") === target);
+      });
+    });
+  });
+
+  // Copy install command
+  document.querySelector(".copy-btn")?.addEventListener("click", () => {
+    navigator.clipboard.writeText("npm install @slicekit/erc8128");
+    const btn = document.querySelector(".copy-btn");
+    if (btn) {
+      btn.innerHTML = "✓";
+      setTimeout(() => {
+        btn.innerHTML =
+          '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      }, 1500);
+    }
+  });
+</script>

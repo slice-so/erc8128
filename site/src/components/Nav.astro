@@ -1,0 +1,77 @@
+---
+const links = [
+  { label: "Docs", href: "https://erc8128-docs.vercel.app/" },
+  { label: "GitHub", href: "https://github.com/slice-so/erc8128" },
+  { label: "Telegram", href: "https://t.me/ethhttpmessagesignatures" }
+]
+---
+
+<nav>
+  <div class="container">
+    <a href="/" class="logo">ERC-<span>8128</span></a>
+    <div class="nav-links">
+      {
+        links.map((link) => (
+          <a href={link.href} target="_blank" rel="noopener noreferrer">
+            {link.label}
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</nav>
+
+<style>
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 16px 24px;
+    background: rgba(10, 10, 11, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    font-family: var(--mono);
+    letter-spacing: -0.5px;
+  }
+
+  .logo span {
+    color: var(--accent);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 24px;
+  }
+
+  .nav-links a {
+    font-size: 14px;
+    color: var(--text-dim);
+    transition: color 0.15s;
+  }
+
+  .nav-links a:hover {
+    color: var(--text);
+    opacity: 1;
+  }
+
+  @media (max-width: 640px) {
+    .nav-links {
+      gap: 16px;
+    }
+  }
+</style>

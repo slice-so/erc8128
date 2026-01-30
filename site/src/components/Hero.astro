@@ -1,0 +1,135 @@
+<section class="hero">
+  <div class="container">
+    <div class="badge">
+      <span>📐</span>
+       Ethereum Standard · Draft
+    </div>
+    <h1>Authenticate HTTP requests<br />with Ethereum accounts</h1>
+    <p>
+      No bearer tokens, no handshakes, no centralized identity
+      providers&mdash;just cryptographic signatures.
+    </p>
+    <div class="hero-ctas">
+      <a
+        href="https://erc8128-docs.vercel.app/"
+        class="btn btn-primary"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Get Started
+        <svg
+          width="16"
+          height="16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          ><path d="M5 12h14M12 5l7 7-7 7"></path></svg
+        >
+      </a>
+      <a
+        href="https://github.com/ethereum/ERCs/pull/1478"
+        class="btn btn-secondary"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View Specification
+        <svg
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          ><path
+            d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"
+          ></path></svg
+        >
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-top: 160px;
+    padding-bottom: 80px;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(133, 138, 255, 0.2);
+    border-radius: 100px;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+
+  .hero p {
+    font-size: 18px;
+    color: var(--text-dim);
+    max-width: 520px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.15s;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    opacity: 1;
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--text-dim);
+    opacity: 1;
+  }
+
+  @media (max-width: 640px) {
+    .hero {
+      padding-top: 120px;
+      padding-bottom: 60px;
+    }
+  }
+</style>

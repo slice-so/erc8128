@@ -1,0 +1,179 @@
+---
+const resources = [
+  {
+    href: "https://erc8128-docs.vercel.app/",
+    icon: "book",
+    title: "Documentation",
+    desc: "Guides & API reference"
+  },
+  {
+    href: "https://github.com/slice-so/erc8128",
+    icon: "github",
+    title: "GitHub Library",
+    desc: "TypeScript implementation"
+  },
+  {
+    href: "https://github.com/ethereum/ERCs/pull/1478",
+    icon: "file",
+    title: "ERC Proposal",
+    desc: "Official ERC pull request"
+  },
+  {
+    href: "https://ethereum-magicians.org/t/erc-8128-signed-http-requests-with-ethereum/27515",
+    icon: "chat",
+    title: "Discussion",
+    desc: "Ethereum Magicians forum"
+  },
+  {
+    href: "https://t.me/ethhttpmessagesignatures",
+    icon: "telegram",
+    title: "Telegram",
+    desc: "Join the community"
+  }
+]
+---
+
+<section>
+  <div class="container">
+    <div class="section-label">Resources</div>
+    <h2 class="section-title">Everything you need</h2>
+    <div class="resources-grid">
+      {
+        resources.map((r) => (
+          <a
+            href={r.href}
+            class="resource"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <div class="resource-icon">
+              {r.icon === "book" && (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+                </svg>
+              )}
+              {r.icon === "github" && (
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
+              )}
+              {r.icon === "file" && (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+                </svg>
+              )}
+              {r.icon === "chat" && (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+              )}
+              {r.icon === "telegram" && (
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0h-.056zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <div class="resource-text">{r.title}</div>
+              <div class="resource-desc">{r.desc}</div>
+            </div>
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .section-label {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 40px;
+    line-height: 1.2;
+  }
+
+  .resources-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .resource {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    transition: all 0.15s;
+  }
+
+  .resource:hover {
+    border-color: var(--accent);
+    opacity: 1;
+  }
+
+  .resource-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-dim);
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .resource-icon svg {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+  }
+
+  .resource-text {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .resource-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  @media (max-width: 640px) {
+    .resources-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
