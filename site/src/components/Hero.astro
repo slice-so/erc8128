@@ -235,8 +235,9 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // Generate points on a sphere using Fibonacci distribution
-  const NUM_POINTS = 200;
+  // ── Generate points on a sphere — Fibonacci distribution ──
+  // More points = tighter spacing, denser network
+  const NUM_POINTS = 280;
   const spherePoints: { x: number; y: number; z: number }[] = [];
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
@@ -251,8 +252,8 @@
     });
   }
 
-  // Connection distance threshold — tighter to reduce line count
-  const CONNECTION_THRESHOLD = 0.45;
+  // Connection threshold — balanced: visible network without becoming a blob
+  const CONNECTION_THRESHOLD = 0.38;
 
   // Pre-compute neighbor pairs (unit sphere distance)
   const pairs: [number, number][] = [];
@@ -268,36 +269,103 @@
     }
   }
 
-  // ── Pulsing lines (replace traveling dot pulses) ──
-  // Each "pulse" lights up an entire connection line with accent color
-  interface LinePulse {
-    pairIdx: number;
-    phase: number;      // 0→1 lifecycle
-    speed: number;
-    maxOpacity: number;
+  // ── Build adjacency list for multi-hop signal paths ──
+  const adjacency: number[][] = Array.from({ length: NUM_POINTS }, () => []);
+  const pairByEdge = new Map<string, number>();  // "i-j" → pair index
+  for (let pIdx = 0; pIdx < pairs.length; pIdx++) {
+    const [i, j] = pairs[pIdx];
+    adjacency[i].push(j);
+    adjacency[j].push(i);
+    pairByEdge.set(`${i}-${j}`, pIdx);
+    pairByEdge.set(`${j}-${i}`, pIdx);
   }
 
-  const linePulses: LinePulse[] = [];
-  const MAX_LINE_PULSES = 18;
+  // ── Traveling signal animation ──
+  // A signal travels along a multi-hop path from node A to node B
+  interface TravelingSignal {
+    path: number[];           // node indices forming the path
+    edgeIndices: number[];    // pair indices for each edge in path
+    currentEdge: number;      // which edge we're on (0-based)
+    t: number;                // 0→1 progress along current edge
+    speed: number;            // how fast t increases per frame
+    tailLength: number;       // how many edges the glowing tail extends back
+    opacity: number;          // max opacity of the signal head
+  }
 
-  function spawnLinePulse() {
-    if (linePulses.length >= MAX_LINE_PULSES) return;
-    const pairIdx = Math.floor(Math.random() * pairs.length);
-    // Avoid duplicate on same pair
-    if (linePulses.some(p => p.pairIdx === pairIdx)) return;
-    linePulses.push({
-      pairIdx,
-      phase: 0,
-      speed: 0.006 + Math.random() * 0.01,
-      maxOpacity: 0.4 + Math.random() * 0.4,
+  const signals: TravelingSignal[] = [];
+  const MAX_SIGNALS = 6;
+
+  // Find a random multi-hop path using BFS with random walk
+  function findRandomPath(minHops: number, maxHops: number): number[] | null {
+    const start = Math.floor(Math.random() * NUM_POINTS);
+    const path = [start];
+    const visited = new Set([start]);
+    let current = start;
+
+    const targetHops = minHops + Math.floor(Math.random() * (maxHops - minHops + 1));
+
+    for (let step = 0; step < targetHops; step++) {
+      const neighbors = adjacency[current].filter(n => !visited.has(n));
+      if (neighbors.length === 0) break;
+      const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+      path.push(next);
+      visited.add(next);
+      current = next;
+    }
+
+    return path.length >= minHops + 1 ? path : null;
+  }
+
+  function spawnSignal() {
+    if (signals.length >= MAX_SIGNALS) return;
+
+    const path = findRandomPath(3, 7);
+    if (!path) return;
+
+    // Build edge indices for the path
+    const edgeIndices: number[] = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = `${path[i]}-${path[i + 1]}`;
+      const altKey = `${path[i + 1]}-${path[i]}`;
+      const pIdx = pairByEdge.get(key) ?? pairByEdge.get(altKey);
+      if (pIdx === undefined) return; // shouldn't happen
+      edgeIndices.push(pIdx);
+    }
+
+    signals.push({
+      path,
+      edgeIndices,
+      currentEdge: 0,
+      t: 0,
+      speed: 0.012 + Math.random() * 0.012,
+      tailLength: 2 + Math.floor(Math.random() * 2),
+      opacity: 0.6 + Math.random() * 0.3,
     });
   }
 
-  // Seed initial pulses
-  for (let i = 0; i < 8; i++) spawnLinePulse();
+  // Seed initial signals with staggered starts
+  for (let i = 0; i < 4; i++) {
+    spawnSignal();
+    // Stagger: advance some signals partway through their path
+    if (signals.length > 0) {
+      const s = signals[signals.length - 1];
+      const advanceEdges = Math.floor(Math.random() * Math.min(3, s.edgeIndices.length));
+      s.currentEdge = advanceEdges;
+      s.t = Math.random();
+    }
+  }
 
-  // Accent color for pulsing lines (deep blue-purple)
-  const ACCENT_R = 120, ACCENT_G = 100, ACCENT_B = 255;
+  // ── Build a lookup: for each pair index, what signal data applies? ──
+  // We'll rebuild this each frame
+  interface EdgeGlow {
+    intensity: number;  // 0-1, how bright this edge should glow
+    isHead: boolean;    // is the signal head on this edge?
+    headT: number;      // if isHead, where along the edge (0-1)
+    fromNode: number;   // direction: signal travels from → to
+    toNode: number;
+  }
+
+  const edgeGlowMap = new Map<number, EdgeGlow>();
 
   // Mouse / touch interaction
   const heroGlobe = canvas.parentElement!;
@@ -318,7 +386,6 @@
     if (isDragging) {
       const dx = e.clientX - lastMouseX;
       const dy = e.clientY - lastMouseY;
-      // ── Inverted drag direction (globe moves opposite to cursor) ──
       velocityY = -dx * 0.005;
       velocityX = -dy * 0.005;
       targetAngleY -= dx * 0.005;
@@ -356,7 +423,6 @@
     if (isDragging) {
       const dx = t.clientX - lastMouseX;
       const dy = t.clientY - lastMouseY;
-      // ── Inverted drag direction ──
       velocityY = -dx * 0.005;
       velocityX = -dy * 0.005;
       targetAngleY -= dx * 0.005;
@@ -372,11 +438,12 @@
     mouseY = -9999;
   });
 
-  // Cursor style
   heroGlobe.style.cursor = 'grab';
 
-  // Build a set of currently-pulsing pair indices for fast lookup
-  const pulsingPairs = new Set<number>();
+  // Easing function for smooth signal motion
+  function easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
 
   let lastTime = 0;
 
@@ -396,21 +463,19 @@
     const sphereRadius = Math.min(width, height) * 0.38;
     const cursorRadius = sphereRadius * 0.35;
 
-    // Auto-rotation (slow)
+    // Auto-rotation
     if (!isDragging) {
-      autoRotateY += 0.002 * dt;
+      autoRotateY += 0.0015 * dt;
       targetAngleY += velocityY * dt;
       targetAngleX += velocityX * dt;
       velocityX *= 0.96;
       velocityY *= 0.96;
     }
 
-    // Smooth interpolation
     angleX += (targetAngleX - angleX) * 0.1 * dt;
     angleY += (targetAngleY - angleY) * 0.1 * dt;
 
     const totalAngleY = angleY + autoRotateY;
-
     const cosY = Math.cos(totalAngleY);
     const sinY = Math.sin(totalAngleY);
     const cosX = Math.cos(angleX);
@@ -435,20 +500,57 @@
       });
     }
 
-    // ── Update pulsing lines ──
-    pulsingPairs.clear();
-    for (let pi = linePulses.length - 1; pi >= 0; pi--) {
-      const lp = linePulses[pi];
-      lp.phase += lp.speed * dt;
-      if (lp.phase > 1) {
-        linePulses.splice(pi, 1);
+    // ── Update traveling signals ──
+    edgeGlowMap.clear();
+
+    for (let si = signals.length - 1; si >= 0; si--) {
+      const sig = signals[si];
+      sig.t += sig.speed * dt;
+
+      // Advance to next edge when t >= 1
+      while (sig.t >= 1 && sig.currentEdge < sig.edgeIndices.length - 1) {
+        sig.t -= 1;
+        sig.currentEdge++;
+      }
+
+      // Signal finished its path
+      if (sig.t >= 1 && sig.currentEdge >= sig.edgeIndices.length - 1) {
+        signals.splice(si, 1);
         continue;
       }
-      pulsingPairs.add(lp.pairIdx);
+
+      // Apply glow to current edge (head) and trailing edges (tail)
+      for (let tailOffset = 0; tailOffset <= sig.tailLength; tailOffset++) {
+        const edgeIdx = sig.currentEdge - tailOffset;
+        if (edgeIdx < 0) break;
+
+        const pairIdx = sig.edgeIndices[edgeIdx];
+        // Intensity: head is brightest, tail fades out
+        let intensity: number;
+        if (tailOffset === 0) {
+          // Head edge: full intensity modulated by eased position
+          intensity = sig.opacity;
+        } else {
+          // Tail: fade based on distance from head
+          const falloff = 1 - (tailOffset / (sig.tailLength + 1));
+          intensity = sig.opacity * falloff * 0.6;
+        }
+
+        const existing = edgeGlowMap.get(pairIdx);
+        if (!existing || existing.intensity < intensity) {
+          edgeGlowMap.set(pairIdx, {
+            intensity,
+            isHead: tailOffset === 0,
+            headT: tailOffset === 0 ? easeInOutCubic(sig.t) : -1,
+            fromNode: sig.path[edgeIdx],
+            toNode: sig.path[edgeIdx + 1],
+          });
+        }
+      }
     }
 
-    // Spawn new line pulses periodically
-    if (Math.random() < 0.05 * dt) spawnLinePulse();
+    // Spawn new signals at staggered intervals
+    if (Math.random() < 0.02 * dt) spawnSignal();
 
     // ── Draw connections (lines) ──
     for (let pIdx = 0; pIdx < pairs.length; pIdx++) {
@@ -459,18 +561,8 @@
       const avgZ = (a.z + b.z) / 2;
       const depthFactor = (avgZ + 1) / 2;
 
-      // Check if this line is pulsing
-      let isPulsing = false;
-      let pulseIntensity = 0;
-      if (pulsingPairs.has(pIdx)) {
-        const lp = linePulses.find(p => p.pairIdx === pIdx)!;
-        isPulsing = true;
-        // Bell curve: sin(π * phase)
-        pulseIntensity = Math.sin(lp.phase * Math.PI) * lp.maxOpacity * depthFactor;
-      }
-
-      // Base line opacity — much lower than before
-      const baseOpacity = 0.015 + depthFactor * 0.04;
+      // Base line: visible wireframe
+      const baseOpacity = 0.04 + depthFactor * 0.08;
 
       // Cursor proximity boost
       let cursorBoost = 0;
@@ -480,36 +572,96 @@
         (midX - mouseX) ** 2 + (midY - mouseY) ** 2
       );
       if (distToCursor < cursorRadius) {
-        cursorBoost = (1 - distToCursor / cursorRadius) * 0.1;
+        cursorBoost = (1 - distToCursor / cursorRadius) * 0.12;
       }
 
-      if (isPulsing && pulseIntensity > 0.01) {
-        // Draw accent-colored pulsing line
-        const r = Math.round(ACCENT_R + (255 - ACCENT_R) * 0.3);
-        const g = Math.round(ACCENT_G + (255 - ACCENT_G) * 0.15);
-        const b2 = ACCENT_B;
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b2}, ${pulseIntensity})`;
-        ctx.lineWidth = 1 + depthFactor * 1.5;
+      const glow = edgeGlowMap.get(pIdx);
+
+      if (glow && glow.intensity > 0.01) {
+        // Draw the base line first (dim)
+        const dimOpacity = Math.min(baseOpacity + cursorBoost, 0.2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${dimOpacity})`;
+        ctx.lineWidth = 0.5 + depthFactor * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(a.px, a.py);
+        ctx.lineTo(b.px, b.py);
+        ctx.stroke();
+
+        // Determine direction: which projected point is "from" and which is "to"
+        const fromPt = projected[glow.fromNode] || a;
+        const toPt = projected[glow.toNode] || b;
+
+        if (glow.isHead && glow.headT >= 0) {
+          // ── Draw traveling signal as a gradient along the edge ──
+          const glowIntensity = glow.intensity * depthFactor;
+          const headX = fromPt.px + (toPt.px - fromPt.px) * glow.headT;
+          const headY = fromPt.py + (toPt.py - fromPt.py) * glow.headT;
+
+          // Signal trail: from slightly behind head to head position
+          const trailStart = Math.max(0, glow.headT - 0.4);
+          const trailX = fromPt.px + (toPt.px - fromPt.px) * trailStart;
+          const trailY = fromPt.py + (toPt.py - fromPt.py) * trailStart;
+
+          // Gradient from trail to head
+          const grad = ctx.createLinearGradient(trailX, trailY, headX, headY);
+          grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
+          grad.addColorStop(0.7, `rgba(255, 255, 255, ${glowIntensity * 0.5})`);
+          grad.addColorStop(1, `rgba(255, 255, 255, ${glowIntensity})`);
+
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1.2 + depthFactor * 1.8;
+          ctx.beginPath();
+          ctx.moveTo(trailX, trailY);
+          ctx.lineTo(headX, headY);
+          ctx.stroke();
+
+          // Small bright dot at signal head
+          const dotRadius = 1.5 + depthFactor * 2;
+          ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(glowIntensity * 1.2, 1)})`;
+          ctx.beginPath();
+          ctx.arc(headX, headY, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Subtle glow halo around head
+          const haloGrad = ctx.createRadialGradient(headX, headY, 0, headX, headY, dotRadius * 4);
+          haloGrad.addColorStop(0, `rgba(255, 255, 255, ${glowIntensity * 0.3})`);
+          haloGrad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+          ctx.fillStyle = haloGrad;
+          ctx.beginPath();
+          ctx.arc(headX, headY, dotRadius * 4, 0, Math.PI * 2);
+          ctx.fill();
+
+        } else {
+          // Tail edge: uniform glow fading out
+          const tailIntensity = glow.intensity * depthFactor;
+          ctx.strokeStyle = `rgba(255, 255, 255, ${tailIntensity})`;
+          ctx.lineWidth = 0.8 + depthFactor * 1.2;
+          ctx.beginPath();
+          ctx.moveTo(fromPt.px, fromPt.py);
+          ctx.lineTo(toPt.px, toPt.py);
+          ctx.stroke();
+        }
+
       } else {
-        const finalOpacity = Math.min(baseOpacity + cursorBoost, 0.15);
+        // No glow — just draw base line
+        const finalOpacity = Math.min(baseOpacity + cursorBoost, 0.2);
         ctx.strokeStyle = `rgba(255, 255, 255, ${finalOpacity})`;
-        ctx.lineWidth = 0.3 + depthFactor * 0.3;
+        ctx.lineWidth = 0.5 + depthFactor * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(a.px, a.py);
+        ctx.lineTo(b.px, b.py);
+        ctx.stroke();
       }
-
-      ctx.beginPath();
-      ctx.moveTo(a.px, a.py);
-      ctx.lineTo(b.px, b.py);
-      ctx.stroke();
     }
 
-    // Sort by z for depth ordering (back to front) for dots
+    // Sort by z for depth ordering (back to front)
     const sortedProjected = [...projected].sort((a, b) => a.z - b.z);
 
-    // Draw dots
+    // ── Draw nodes ──
     for (const pt of sortedProjected) {
       const depthFactor = (pt.z + 1) / 2;
       let opacity = 0.15 + depthFactor * 0.7;
-      let dotSize = 1.5 + depthFactor * 2.5;
+      let dotSize = 1.2 + depthFactor * 2;
 
       // Cursor proximity effect
       const distToCursor = Math.sqrt(
@@ -517,7 +669,7 @@
       );
       if (distToCursor < cursorRadius) {
         const proximity = 1 - distToCursor / cursorRadius;
-        dotSize += proximity * 3;
+        dotSize += proximity * 2.5;
         opacity = Math.min(opacity + proximity * 0.4, 1);
       }
 

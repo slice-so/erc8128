@@ -46,7 +46,7 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-size: 1.0625rem;
-  line-height: 1.7;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -57,12 +57,13 @@ p {
   line-height: 1.7;
 }
 
-/* ── Global heading letter-spacing reduction ── */
+/* ── Global heading styles ── */
 h1,
 h2,
 h3,
 h4 {
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 ::selection {

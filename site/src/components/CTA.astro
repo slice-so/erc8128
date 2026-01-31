@@ -7,20 +7,20 @@
     </p>
     <div class="cta-buttons">
       <a
-        href="http://erc8128-docs.vercel.app/"
-        class="cta-link cta-link-primary"
+        href="https://erc8128-docs.vercel.app/"
+        class="cta-btn cta-btn-primary"
         target="_blank"
         rel="noopener noreferrer"
       >
-        GET STARTED <span class="cta-arrow">→</span>
+        Get Started
       </a>
       <a
         href="https://github.com/ethereum/ERCs/pull/1478"
-        class="cta-link cta-link-secondary"
+        class="cta-btn cta-btn-secondary"
         target="_blank"
         rel="noopener noreferrer"
       >
-        VIEW SPECIFICATION <span class="cta-arrow">↗</span>
+        View Specification
       </a>
     </div>
   </div>
@@ -70,42 +70,47 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.25rem;
+    gap: 1.5rem;
   }
 
-  .cta-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-weight: 800;
-    font-size: clamp(1rem, 2vw, 1.25rem);
+  @media (min-width: 640px) {
+    .cta-buttons {
+      flex-direction: row;
+      justify-content: center;
+    }
+  }
+
+  .cta-btn {
+    display: inline-block;
+    padding: 1.25rem 2.5rem;
+    font-weight: 700;
+    font-size: 1.125rem;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.1em;
+    transition: all 0.3s ease;
     text-decoration: none;
-    transition: opacity 0.25s ease;
-    line-height: 1;
   }
 
-  .cta-link:hover {
-    opacity: 0.7;
+  .cta-btn-primary {
+    background: white;
+    color: black;
+    border: 2px solid white;
   }
 
-  .cta-link-primary {
+  .cta-btn-primary:hover {
+    background: transparent;
     color: white;
-  }
-
-  .cta-link-secondary {
-    color: rgba(255, 255, 255, 0.45);
-  }
-
-  .cta-link-secondary:hover {
-    color: rgba(255, 255, 255, 0.7);
     opacity: 1;
   }
 
-  .cta-arrow {
-    font-weight: 300;
-    font-size: 1.3em;
-    opacity: 0.8;
+  .cta-btn-secondary {
+    background: transparent;
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+  }
+
+  .cta-btn-secondary:hover {
+    border-color: white;
+    opacity: 1;
   }
 </style>
