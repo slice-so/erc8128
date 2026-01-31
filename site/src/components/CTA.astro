@@ -1,26 +1,26 @@
 <section class="cta">
   <div class="cta-dots"></div>
   <div class="cta-inner">
-    <h2>Authentication without the account</h2>
+    <h2>Integrate today</h2>
     <p>
       Install the library, sign your first request, and verify it on your server—takes 5 minutes.
     </p>
     <div class="cta-buttons">
       <a
         href="http://erc8128-docs.vercel.app/"
-        class="cta-btn cta-btn-primary"
+        class="cta-link cta-link-primary"
         target="_blank"
         rel="noopener noreferrer"
       >
-        Get Started
+        GET STARTED <span class="cta-arrow">→</span>
       </a>
       <a
         href="https://github.com/ethereum/ERCs/pull/1478"
-        class="cta-btn cta-btn-secondary"
+        class="cta-link cta-link-secondary"
         target="_blank"
         rel="noopener noreferrer"
       >
-        Read the Spec
+        VIEW SPECIFICATION <span class="cta-arrow">↗</span>
       </a>
     </div>
   </div>
@@ -57,7 +57,7 @@
     font-weight: 700;
     text-transform: uppercase;
     margin-bottom: 2rem;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
   }
 
   p {
@@ -70,47 +70,42 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
-  @media (min-width: 640px) {
-    .cta-buttons {
-      flex-direction: row;
-      justify-content: center;
-    }
-  }
-
-  .cta-btn {
-    display: inline-block;
-    padding: 1.25rem 2.5rem;
-    font-weight: 700;
-    font-size: 1.125rem;
+  .cta-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 800;
+    font-size: clamp(1rem, 2vw, 1.25rem);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    transition: all 0.3s ease;
+    letter-spacing: 0.06em;
     text-decoration: none;
+    transition: opacity 0.25s ease;
+    line-height: 1;
   }
 
-  .cta-btn-primary {
-    background: white;
-    color: black;
-    border: 2px solid white;
+  .cta-link:hover {
+    opacity: 0.7;
   }
 
-  .cta-btn-primary:hover {
-    background: transparent;
+  .cta-link-primary {
     color: white;
+  }
+
+  .cta-link-secondary {
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .cta-link-secondary:hover {
+    color: rgba(255, 255, 255, 0.7);
     opacity: 1;
   }
 
-  .cta-btn-secondary {
-    background: transparent;
-    color: white;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-  }
-
-  .cta-btn-secondary:hover {
-    border-color: white;
-    opacity: 1;
+  .cta-arrow {
+    font-weight: 300;
+    font-size: 1.3em;
+    opacity: 0.8;
   }
 </style>

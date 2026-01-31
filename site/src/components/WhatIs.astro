@@ -1,6 +1,6 @@
 <section class="what-is">
   <div class="what-is-inner">
-    <h1>ERC 8128: Ethereum HTTP Authentication Standard</h1>
+    <div class="what-is-marker"></div>
     <p class="what-is-body">
       ERC-8128 lets Ethereum accounts authenticate HTTP requests — API calls, webhooks, data
       fetches — across any web service. Your wallet becomes your identity. No signups, no API keys,
@@ -28,18 +28,17 @@
     text-align: center;
   }
 
-  h1 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: -0.03em;
-    margin-bottom: 2rem;
+  .what-is-marker {
+    width: 3rem;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 auto 2.5rem;
   }
 
   .what-is-body {
-    font-size: 1.25rem;
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
     line-height: 1.8;
-    opacity: 0.7;
+    opacity: 0.75;
     max-width: 40rem;
     margin: 0 auto;
   }

@@ -14,26 +14,26 @@
       <div class="hero-ctas">
         <a
           href="https://erc8128-docs.vercel.app/"
-          class="hero-btn hero-btn-primary"
+          class="hero-cta hero-cta-primary"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Get Started
+          GET STARTED <span class="cta-arrow">→</span>
         </a>
         <a
           href="https://github.com/ethereum/ERCs/pull/1478"
-          class="hero-btn hero-btn-secondary"
+          class="hero-cta hero-cta-secondary"
           target="_blank"
           rel="noopener noreferrer"
         >
-          Read the Spec
+          VIEW SPECIFICATION <span class="cta-arrow">↗</span>
         </a>
       </div>
       <div class="accent-bar accent-bar-bottom"></div>
     </div>
   </div>
 
-  <div class="hero-right">
+  <div class="hero-globe">
     <canvas id="dots"></canvas>
   </div>
 </header>
@@ -45,6 +45,12 @@
     border-bottom: 1px solid var(--border);
     min-height: 85vh;
     position: relative;
+  }
+
+  @media (min-width: 768px) {
+    .hero {
+      grid-template-columns: 1fr auto;
+    }
   }
 
   @media (min-width: 1024px) {
@@ -59,6 +65,7 @@
     flex-direction: column;
     justify-content: space-between;
     position: relative;
+    z-index: 2;
   }
 
   @media (min-width: 768px) {
@@ -93,56 +100,48 @@
     margin-bottom: 0;
   }
 
+  /* ── Hero CTAs (text-only style) ── */
   .hero-ctas {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-top: 2rem;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-top: 2.5rem;
   }
 
-  .hero-btn {
-    display: inline-block;
-    padding: 1rem 2rem;
-    font-weight: 700;
-    font-size: 0.9375rem;
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 800;
+    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    transition: all 0.3s ease;
+    letter-spacing: 0.06em;
     text-decoration: none;
-    text-align: center;
+    transition: opacity 0.25s ease;
+    line-height: 1;
   }
 
-  .hero-btn-primary {
-    background: white;
-    color: black;
-    border: 2px solid white;
+  .hero-cta:hover {
+    opacity: 0.7;
   }
 
-  .hero-btn-primary:hover {
-    background: transparent;
+  .hero-cta-primary {
     color: white;
+  }
+
+  .hero-cta-secondary {
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .hero-cta-secondary:hover {
+    color: rgba(255, 255, 255, 0.7);
     opacity: 1;
   }
 
-  .hero-btn-secondary {
-    background: transparent;
-    color: white;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-  }
-
-  .hero-btn-secondary:hover {
-    border-color: white;
-    opacity: 1;
-  }
-
-  @media (max-width: 639px) {
-    .hero-ctas {
-      flex-direction: column;
-    }
-
-    .hero-btn {
-      width: 100%;
-    }
+  .cta-arrow {
+    font-weight: 300;
+    font-size: 1.3em;
+    opacity: 0.8;
   }
 
   .hero-h1 {
@@ -171,21 +170,31 @@
     }
   }
 
-  .hero-right {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* ── Globe: stays at hero level, fades on narrow screens ── */
+  .hero-globe {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 55%;
     overflow: hidden;
-    background: var(--bg);
-    height: 400px;
-    border-top: 1px solid var(--border-subtle);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  @media (min-width: 768px) {
+    .hero-globe {
+      position: relative;
+      width: auto;
+      opacity: 0.4;
+      pointer-events: auto;
+    }
   }
 
   @media (min-width: 1024px) {
-    .hero-right {
-      height: auto;
-      border-top: none;
+    .hero-globe {
+      opacity: 1;
     }
   }
 
@@ -242,8 +251,8 @@
     });
   }
 
-  // Connection distance threshold (in unit sphere space)
-  const CONNECTION_THRESHOLD = 0.55;
+  // Connection distance threshold — tighter to reduce line count
+  const CONNECTION_THRESHOLD = 0.45;
 
   // Pre-compute neighbor pairs (unit sphere distance)
   const pairs: [number, number][] = [];
@@ -259,35 +268,41 @@
     }
   }
 
-  // Traveling "pulse" signals along connections
-  interface Pulse {
+  // ── Pulsing lines (replace traveling dot pulses) ──
+  // Each "pulse" lights up an entire connection line with accent color
+  interface LinePulse {
     pairIdx: number;
-    progress: number; // 0 to 1
+    phase: number;      // 0→1 lifecycle
     speed: number;
-    forward: boolean;
+    maxOpacity: number;
   }
 
-  const pulses: Pulse[] = [];
-  const MAX_PULSES = 12;
+  const linePulses: LinePulse[] = [];
+  const MAX_LINE_PULSES = 18;
 
-  function spawnPulse() {
-    if (pulses.length >= MAX_PULSES) return;
+  function spawnLinePulse() {
+    if (linePulses.length >= MAX_LINE_PULSES) return;
     const pairIdx = Math.floor(Math.random() * pairs.length);
-    pulses.push({
+    // Avoid duplicate on same pair
+    if (linePulses.some(p => p.pairIdx === pairIdx)) return;
+    linePulses.push({
       pairIdx,
-      progress: 0,
-      speed: 0.008 + Math.random() * 0.012,
-      forward: Math.random() > 0.5,
+      phase: 0,
+      speed: 0.006 + Math.random() * 0.01,
+      maxOpacity: 0.4 + Math.random() * 0.4,
     });
   }
 
-  // Spawn initial pulses
-  for (let i = 0; i < 6; i++) spawnPulse();
+  // Seed initial pulses
+  for (let i = 0; i < 8; i++) spawnLinePulse();
+
+  // Accent color for pulsing lines (deep blue-purple)
+  const ACCENT_R = 120, ACCENT_G = 100, ACCENT_B = 255;
 
   // Mouse / touch interaction
-  const heroRight = canvas.parentElement!;
+  const heroGlobe = canvas.parentElement!;
 
-  heroRight.addEventListener('mousedown', (e) => {
+  heroGlobe.addEventListener('mousedown', (e) => {
     isDragging = true;
     lastMouseX = e.clientX;
     lastMouseY = e.clientY;
@@ -296,17 +311,18 @@
   });
 
   window.addEventListener('mousemove', (e) => {
-    const rect = heroRight.getBoundingClientRect();
+    const rect = heroGlobe.getBoundingClientRect();
     mouseX = e.clientX - rect.left;
     mouseY = e.clientY - rect.top;
 
     if (isDragging) {
       const dx = e.clientX - lastMouseX;
       const dy = e.clientY - lastMouseY;
-      velocityY = dx * 0.005;
-      velocityX = dy * 0.005;
-      targetAngleY += dx * 0.005;
-      targetAngleX += dy * 0.005;
+      // ── Inverted drag direction (globe moves opposite to cursor) ──
+      velocityY = -dx * 0.005;
+      velocityX = -dy * 0.005;
+      targetAngleY -= dx * 0.005;
+      targetAngleX -= dy * 0.005;
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;
     }
@@ -316,13 +332,13 @@
     isDragging = false;
   });
 
-  heroRight.addEventListener('mouseleave', () => {
+  heroGlobe.addEventListener('mouseleave', () => {
     mouseX = -9999;
     mouseY = -9999;
   });
 
   // Touch support
-  heroRight.addEventListener('touchstart', (e) => {
+  heroGlobe.addEventListener('touchstart', (e) => {
     isDragging = true;
     const t = e.touches[0];
     lastMouseX = t.clientX;
@@ -331,32 +347,36 @@
     velocityY = 0;
   }, { passive: true });
 
-  heroRight.addEventListener('touchmove', (e) => {
+  heroGlobe.addEventListener('touchmove', (e) => {
     const t = e.touches[0];
-    const rect = heroRight.getBoundingClientRect();
+    const rect = heroGlobe.getBoundingClientRect();
     mouseX = t.clientX - rect.left;
     mouseY = t.clientY - rect.top;
 
     if (isDragging) {
       const dx = t.clientX - lastMouseX;
       const dy = t.clientY - lastMouseY;
-      velocityY = dx * 0.005;
-      velocityX = dy * 0.005;
-      targetAngleY += dx * 0.005;
-      targetAngleX += dy * 0.005;
+      // ── Inverted drag direction ──
+      velocityY = -dx * 0.005;
+      velocityX = -dy * 0.005;
+      targetAngleY -= dx * 0.005;
+      targetAngleX -= dy * 0.005;
       lastMouseX = t.clientX;
       lastMouseY = t.clientY;
     }
   }, { passive: true });
 
-  heroRight.addEventListener('touchend', () => {
+  heroGlobe.addEventListener('touchend', () => {
     isDragging = false;
     mouseX = -9999;
     mouseY = -9999;
   });
 
   // Cursor style
-  heroRight.style.cursor = 'grab';
+  heroGlobe.style.cursor = 'grab';
+
+  // Build a set of currently-pulsing pair indices for fast lookup
+  const pulsingPairs = new Set<number>();
 
   let lastTime = 0;
 
@@ -374,12 +394,11 @@
     const cx = width / 2;
     const cy = height / 2;
     const sphereRadius = Math.min(width, height) * 0.38;
-    const cursorRadius = sphereRadius * 0.35; // radius of cursor influence
+    const cursorRadius = sphereRadius * 0.35;
 
     // Auto-rotation (slow)
     if (!isDragging) {
       autoRotateY += 0.002 * dt;
-      // Decay velocity for momentum
       targetAngleY += velocityY * dt;
       targetAngleX += velocityX * dt;
       velocityX *= 0.96;
@@ -402,12 +421,9 @@
 
     for (let i = 0; i < spherePoints.length; i++) {
       const p = spherePoints[i];
-      // Rotate around Y axis
       const x1 = p.x * cosY - p.z * sinY;
       const z1 = p.x * sinY + p.z * cosY;
       const y1 = p.y;
-
-      // Rotate around X axis
       const y2 = y1 * cosX - z1 * sinX;
       const z2 = y1 * sinX + z1 * cosX;
 
@@ -419,15 +435,42 @@
       });
     }
 
-    // Draw connections (lines)
-    for (const [i, j] of pairs) {
+    // ── Update pulsing lines ──
+    pulsingPairs.clear();
+    for (let pi = linePulses.length - 1; pi >= 0; pi--) {
+      const lp = linePulses[pi];
+      lp.phase += lp.speed * dt;
+      if (lp.phase > 1) {
+        linePulses.splice(pi, 1);
+        continue;
+      }
+      pulsingPairs.add(lp.pairIdx);
+    }
+
+    // Spawn new line pulses periodically
+    if (Math.random() < 0.05 * dt) spawnLinePulse();
+
+    // ── Draw connections (lines) ──
+    for (let pIdx = 0; pIdx < pairs.length; pIdx++) {
+      const [i, j] = pairs[pIdx];
       const a = projected[i];
       const b = projected[j];
 
-      // Average depth for opacity
       const avgZ = (a.z + b.z) / 2;
       const depthFactor = (avgZ + 1) / 2;
-      const lineOpacity = 0.03 + depthFactor * 0.1;
+
+      // Check if this line is pulsing
+      let isPulsing = false;
+      let pulseIntensity = 0;
+      if (pulsingPairs.has(pIdx)) {
+        const lp = linePulses.find(p => p.pairIdx === pIdx)!;
+        isPulsing = true;
+        // Bell curve: sin(π * phase)
+        pulseIntensity = Math.sin(lp.phase * Math.PI) * lp.maxOpacity * depthFactor;
+      }
+
+      // Base line opacity — much lower than before
+      const baseOpacity = 0.015 + depthFactor * 0.04;
 
       // Cursor proximity boost
       let cursorBoost = 0;
@@ -437,58 +480,27 @@
         (midX - mouseX) ** 2 + (midY - mouseY) ** 2
       );
       if (distToCursor < cursorRadius) {
-        cursorBoost = (1 - distToCursor / cursorRadius) * 0.2;
+        cursorBoost = (1 - distToCursor / cursorRadius) * 0.1;
       }
 
-      const finalOpacity = Math.min(lineOpacity + cursorBoost, 0.4);
+      if (isPulsing && pulseIntensity > 0.01) {
+        // Draw accent-colored pulsing line
+        const r = Math.round(ACCENT_R + (255 - ACCENT_R) * 0.3);
+        const g = Math.round(ACCENT_G + (255 - ACCENT_G) * 0.15);
+        const b2 = ACCENT_B;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b2}, ${pulseIntensity})`;
+        ctx.lineWidth = 1 + depthFactor * 1.5;
+      } else {
+        const finalOpacity = Math.min(baseOpacity + cursorBoost, 0.15);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${finalOpacity})`;
+        ctx.lineWidth = 0.3 + depthFactor * 0.3;
+      }
 
-      ctx.strokeStyle = `rgba(255, 255, 255, ${finalOpacity})`;
-      ctx.lineWidth = 0.5 + depthFactor * 0.5;
       ctx.beginPath();
       ctx.moveTo(a.px, a.py);
       ctx.lineTo(b.px, b.py);
       ctx.stroke();
     }
-
-    // Update and draw pulses
-    for (let pi = pulses.length - 1; pi >= 0; pi--) {
-      const pulse = pulses[pi];
-      pulse.progress += pulse.speed * dt;
-
-      if (pulse.progress > 1) {
-        pulses.splice(pi, 1);
-        continue;
-      }
-
-      const [i, j] = pairs[pulse.pairIdx];
-      const a = projected[i];
-      const b = projected[j];
-      const t = pulse.forward ? pulse.progress : 1 - pulse.progress;
-
-      const px = a.px + (b.px - a.px) * t;
-      const py = a.py + (b.py - a.py) * t;
-      const avgZ = (a.z + b.z) / 2;
-      const depthFactor = (avgZ + 1) / 2;
-
-      // Pulse glow
-      const pulseAlpha = Math.sin(pulse.progress * Math.PI) * (0.3 + depthFactor * 0.7);
-      const pulseSize = 2 + depthFactor * 3;
-
-      ctx.fillStyle = `rgba(255, 255, 255, ${pulseAlpha})`;
-      ctx.beginPath();
-      ctx.arc(px, py, pulseSize, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Subtle glow ring
-      ctx.strokeStyle = `rgba(255, 255, 255, ${pulseAlpha * 0.3})`;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(px, py, pulseSize * 2, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // Spawn new pulses periodically
-    if (Math.random() < 0.03 * dt) spawnPulse();
 
     // Sort by z for depth ordering (back to front) for dots
     const sortedProjected = [...projected].sort((a, b) => a.z - b.z);
@@ -499,7 +511,7 @@
       let opacity = 0.15 + depthFactor * 0.7;
       let dotSize = 1.5 + depthFactor * 2.5;
 
-      // Cursor proximity effect — dots near cursor get larger and brighter
+      // Cursor proximity effect
       const distToCursor = Math.sqrt(
         (pt.px - mouseX) ** 2 + (pt.py - mouseY) ** 2
       );

@@ -1,4 +1,5 @@
 <section class="security-callout">
+  <div class="security-bg"></div>
   <div class="security-inner">
     <div class="security-icon">
       <svg
@@ -21,6 +22,22 @@
       ERC-8128 uses the same cryptographic signatures that secure Ethereum itself. Every request is
       tamper-proof, timestamped, and verifiable. No passwords to leak, no keys to rotate—just math.
     </p>
+    <div class="security-stats">
+      <div class="stat">
+        <span class="stat-value">RFC 9421</span>
+        <span class="stat-label">HTTP Signatures</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-value">ERC-1271</span>
+        <span class="stat-label">Smart Accounts</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-value">secp256k1</span>
+        <span class="stat-label">ECDSA Signing</span>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -30,6 +47,7 @@
     padding: 6rem 2rem;
     position: relative;
     background: var(--surface);
+    overflow: hidden;
   }
 
   @media (min-width: 768px) {
@@ -38,10 +56,23 @@
     }
   }
 
+  .security-bg {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
   .security-inner {
     max-width: 48rem;
     margin: 0 auto;
     text-align: center;
+    position: relative;
+    z-index: 1;
   }
 
   .security-icon {
@@ -56,7 +87,7 @@
     font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     margin-bottom: 2rem;
   }
 
@@ -66,5 +97,49 @@
     opacity: 0.7;
     max-width: 40rem;
     margin: 0 auto;
+  }
+
+  .security-stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 4rem;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .stat-value {
+    font-family: var(--mono);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .stat-label {
+    font-size: 0.8125rem;
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 2.5rem;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  @media (max-width: 639px) {
+    .stat-divider {
+      display: none;
+    }
+    .security-stats {
+      gap: 2rem;
+    }
   }
 </style>

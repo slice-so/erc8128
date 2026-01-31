@@ -57,6 +57,14 @@ p {
   line-height: 1.7;
 }
 
+/* ── Global heading letter-spacing reduction ── */
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.02em;
+}
+
 ::selection {
   background: #ffffff;
   color: #050505;
