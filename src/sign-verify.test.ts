@@ -51,7 +51,7 @@ async function sha256B64(bytes: Uint8Array): Promise<string> {
 }
 
 describe("EIP-8128 signRequest/verifyRequest", () => {
-  test("round-trips request-bound POST (auto content-digest, non-replayable nonce)", async () => {
+  test("round-trips request-bound POST (auto content-digest, non-replayable nonce), -- test", async () => {
     const signer = makeSigner({ chainId: 1 })
     const created = 1_700_000_000
     const expires = created + 60
