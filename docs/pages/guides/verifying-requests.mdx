@@ -40,7 +40,7 @@ For replay protection, you need a store that tracks consumed nonces.
 :::code-group
 
 ```typescript [Redis (Production)]
-import type { NonceStore } from '@slicekit/eip8128'
+import type { NonceStore } from '@slicekit/erc8128'
 import { Redis } from 'ioredis'
 
 const redis = new Redis()
@@ -54,7 +54,7 @@ export const nonceStore: NonceStore = {
 ```
 
 ```typescript [In-Memory (Development)]
-import type { NonceStore } from '@slicekit/eip8128'
+import type { NonceStore } from '@slicekit/erc8128'
 
 const seen = new Set<string>()
 
