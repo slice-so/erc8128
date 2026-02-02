@@ -39,6 +39,7 @@
   "devDependencies": {
     "@noble/secp256k1": "^1.7.2",
     "@slice/typescript-config": "workspace:*",
+    "bun-plugin-dts": "0.3.0",  
     "viem": "catalog:"
   },
   "peerDependencies": {},
