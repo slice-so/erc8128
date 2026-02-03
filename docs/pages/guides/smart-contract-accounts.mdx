@@ -12,6 +12,8 @@ ERC-8128 supports smart contract accounts through ERC-1271 signature verificatio
 
 ## Signing with an SCA
 
+To use ERC-8128 with a smart contract account, create an `EthHttpSigner` where the `address` is the contract address and `signMessage` produces a signature the contract will accept via ERC-1271.
+
 ### Session Keys
 
 Many SCAs support session keys — temporary EOAs authorized to sign on behalf of the contract:
@@ -39,7 +41,7 @@ const sessionKeySigner: EthHttpSigner = {
 
 ### Delegate Signing
 
-For SCAs that support delegation:
+Some SCAs allow a delegate key to sign on behalf of the contract without wrapping. The contract's `isValidSignature` implementation verifies the delegate internally:
 
 ```typescript
 const delegateSigner: EthHttpSigner = {
@@ -83,6 +85,8 @@ No extra configuration is needed. When the signer address is a contract, viem au
 
 ### Safe
 
+Safe accounts require collecting signatures from multiple owners before producing a combined signature that passes ERC-1271 validation. Use the Safe Protocol Kit to manage this:
+
 ```typescript
 import Safe from '@safe-global/protocol-kit'
 
@@ -112,6 +116,8 @@ const safeSigner: EthHttpSigner = {
 For multi-owner Safes, collect signatures from each owner via `protocolKit.signMessage()` before encoding. See the [Safe SDK docs](https://docs.safe.global/sdk/protocol-kit/guides/signatures/messages) for details.
 
 ### ERC-4337 Wallets
+
+Most ERC-4337 smart accounts expose a `signMessage` method through their SDK. The exact API varies by provider (ZeroDev, Alchemy, Biconomy, etc.):
 
 ```typescript
 const erc4337Signer: EthHttpSigner = {
