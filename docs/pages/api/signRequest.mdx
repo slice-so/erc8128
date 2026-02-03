@@ -4,6 +4,8 @@ Signs an HTTP Request and returns a new Request with [RFC 9421](https://www.rfc-
 
 ## Usage
 
+Sign a request by passing the URL (or `Request` object), an optional `RequestInit`, a signer, and optional sign options. The function returns a new `Request` with RFC 9421 signature headers attached.
+
 ```typescript
 import { signRequest } from '@slicekit/erc8128'
 
@@ -42,11 +44,15 @@ A new Request object with these headers added:
 
 ### Overload 1: Simple
 
+When no `RequestInit` is needed, pass the input and signer directly.
+
 ```typescript
 signRequest(input: RequestInfo, signer: EthHttpSigner, opts?: SignOptions): Promise<Request>
 ```
 
 ### Overload 2: With RequestInit
+
+When you need to specify method, headers, or body, pass a `RequestInit` as the second argument.
 
 ```typescript
 signRequest(input: RequestInfo, init: RequestInit | undefined, signer: EthHttpSigner, opts?: SignOptions): Promise<Request>
@@ -77,6 +83,8 @@ The signer that provides the Ethereum address and signing function.
 Options for customizing the signature.
 
 ## Examples
+
+Common signing patterns showing TTL customization, custom nonces, and replayable signatures.
 
 :::code-group
 

@@ -39,6 +39,8 @@ interface EthHttpSigner {
 
 ### Example
 
+Here's how to create an `EthHttpSigner` using viem's `privateKeyToAccount`:
+
 ```typescript
 import type { EthHttpSigner } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -389,6 +391,8 @@ type Eip8128ErrorCode =
 ```
 
 ### Example
+
+Catch `Eip8128Error` to handle specific error codes during signing or verification:
 
 ```typescript
 import { signRequest, Eip8128Error } from '@slicekit/erc8128'

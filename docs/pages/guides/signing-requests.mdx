@@ -32,6 +32,8 @@ This uses all defaults:
 
 ## Creating a Signer
 
+Implement the `EthHttpSigner` interface by providing a chain ID, address, and `signMessage` function. This example uses viem's `privateKeyToAccount`:
+
 ```typescript
 import type { EthHttpSigner } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -73,6 +75,8 @@ const response = await client.fetch(
 ```
 
 ## Signing Options
+
+Customize TTL, timestamps, nonce generation, and other signature parameters via `SignOptions`.
 
 :::code-group
 
@@ -121,6 +125,8 @@ const signedRequest = await signRequest(
 :::
 
 ## Binding Modes
+
+Request-bound (default) signs all applicable components for maximum security. Class-bound signs only the components you explicitly specify.
 
 :::code-group
 
@@ -173,6 +179,8 @@ const signedRequest = await signRequest(
 
 ## Replay Modes
 
+Non-replayable (default) includes a unique nonce per request. Replayable omits the nonce — use only for safe, idempotent operations.
+
 :::code-group
 
 ```typescript [Non-Replayable (Default)]
@@ -221,6 +229,8 @@ const signedRequest = await signRequest(
 
 ### Manual Control
 
+Disable automatic Content-Digest computation when you want to handle it yourself or skip it entirely.
+
 ```typescript
 const signedRequest = await signRequest(
   request,
@@ -230,6 +240,8 @@ const signedRequest = await signRequest(
 ```
 
 ## Error Handling
+
+Catch `Eip8128Error` to handle signing failures with structured error codes.
 
 ```typescript
 import { signRequest, Eip8128Error } from '@slicekit/erc8128'

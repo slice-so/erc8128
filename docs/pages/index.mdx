@@ -40,6 +40,8 @@ Built on HTTP Message Signatures (RFC 9421) — the IETF standard for cryptograp
 
 ## Quick Example
 
+Create a signer, wrap it in a client, and send an authenticated request in a few lines:
+
 ```typescript
 import { createClient } from '@slicekit/erc8128'
 import type { EthHttpSigner } from '@slicekit/erc8128'
@@ -72,6 +74,8 @@ const response = await client.fetch('https://api.example.com/orders', {
 - **Onchain Identity** — use smart contract policies for authorization
 
 ## Install
+
+Add the package using your preferred package manager:
 
 :::code-group
 

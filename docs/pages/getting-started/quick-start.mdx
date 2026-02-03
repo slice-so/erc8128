@@ -4,6 +4,8 @@ Learn to sign and verify HTTP requests with ERC-8128 in 5 minutes.
 
 ## 1. Install
 
+Add `@slicekit/erc8128` to your project:
+
 :::code-group
 
 ```bash [bun]
@@ -25,6 +27,8 @@ yarn add @slicekit/erc8128
 :::
 
 ## 2. Sign a Request
+
+Create a signer from an Ethereum account, wrap it in a client, and use `client.fetch` to sign and send requests.
 
 :::code-group
 
@@ -71,6 +75,8 @@ The signed request has these headers added:
 - `Content-Digest` — SHA-256 hash of body
 
 ## 3. Verify Request
+
+On the server, call `verifyRequest` with a nonce store and a message verification function. The result contains the authenticated address and chain ID.
 
 :::code-group
 

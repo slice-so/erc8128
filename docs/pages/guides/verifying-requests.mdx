@@ -141,6 +141,8 @@ const result = await verifyRequest(request, {
 
 ## Framework Integration
 
+Drop `verifyRequest` into middleware or route handlers. These examples show integration patterns for Hono, Next.js, and Express.
+
 :::code-group
 
 ```typescript [Hono]
@@ -225,6 +227,8 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
 :::
 
 ## Handling Failures
+
+When verification fails, inspect `result.reason` to return appropriate HTTP status codes and error messages.
 
 ```typescript
 const result = await verifyRequest(request, policy)

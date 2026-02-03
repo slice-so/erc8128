@@ -4,6 +4,8 @@ Verify an ERC-8128 signed HTTP request.
 
 ## Usage
 
+Pass a `Request` (or URL string) and a verification policy. The function returns a `VerifyResult` indicating success or failure.
+
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
@@ -52,11 +54,15 @@ if (result.ok) {
 
 ### Overload 1: Simple
 
+When you already have a `Request` object, pass it directly with an optional policy.
+
 ```typescript
 verifyRequest(input: RequestInfo, policy?: VerifyPolicy): Promise<VerifyResult>
 ```
 
 ### Overload 2: With RequestInit
+
+When you have separate input and init (e.g., from a framework), pass the `RequestInit` as the second argument.
 
 ```typescript
 verifyRequest(input: RequestInfo, init: RequestInit | undefined, policy?: VerifyPolicy): Promise<VerifyResult>
@@ -81,6 +87,8 @@ Optional RequestInit.
 Verification policy with rules for validation.
 
 ## Examples
+
+These examples show strict, relaxed, and custom-component verification policies.
 
 :::code-group
 

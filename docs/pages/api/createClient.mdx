@@ -6,6 +6,8 @@ The client provides `signRequest`, `signedFetch`, and `fetch` methods that autom
 
 ## Usage
 
+Create a client by passing a signer and optional default configuration. The returned client exposes `signRequest`, `signedFetch`, and `fetch` methods.
+
 ```typescript
 import { createClient } from '@slicekit/erc8128'
 

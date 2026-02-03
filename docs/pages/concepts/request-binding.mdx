@@ -88,6 +88,8 @@ The signature covers this header, and the server verifies that the header matche
 
 ### Automatic Handling
 
+When signing a request-bound request with a body, the `Content-Digest` header is computed and added automatically.
+
 ```typescript
 // Body present → Content-Digest added automatically
 const signedRequest = await signRequest(
@@ -99,6 +101,8 @@ const signedRequest = await signRequest(
 ```
 
 ### Verification
+
+During verification, the server checks that the `Content-Digest` header matches the actual body bytes. A mismatch indicates tampering.
 
 ```typescript
 const result = await verifyRequest(request, {

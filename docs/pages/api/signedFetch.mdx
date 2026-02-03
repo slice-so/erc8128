@@ -6,6 +6,8 @@ Internally, `signedFetch` uses [signRequest](/api/signRequest) to create the sig
 
 ## Usage
 
+Call `signedFetch` with the same arguments as `signRequest` — it signs the request and sends it in a single step, returning the `Response`.
+
 ```typescript
 import { signedFetch } from '@slicekit/erc8128'
 
@@ -43,11 +45,15 @@ The fetch Response.
 
 ### Overload 1: Simple
 
+When no `RequestInit` is needed, pass the input and signer directly.
+
 ```typescript
 signedFetch(input: RequestInfo, signer: EthHttpSigner, opts?: SignOptions & { fetch?: typeof fetch }): Promise<Response>
 ```
 
 ### Overload 2: With RequestInit
+
+When you need to specify method, headers, or body, pass a `RequestInit` as the second argument.
 
 ```typescript
 signedFetch(input: RequestInfo, init: RequestInit | undefined, signer: EthHttpSigner, opts?: SignOptions & { fetch?: typeof fetch }): Promise<Response>
