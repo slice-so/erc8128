@@ -394,7 +394,7 @@ type Eip8128ErrorCode =
 import { signRequest, Eip8128Error } from '@slicekit/erc8128'
 
 try {
-  const signed = await signRequest({ input, signer })
+  const signedRequest = await signRequest({ input, signer })
 } catch (error) {
   if (error instanceof Eip8128Error) {
     console.error(`Error (${error.code}): ${error.message}`)

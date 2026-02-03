@@ -90,7 +90,7 @@ The signature covers this header, and the server verifies that the header matche
 
 ```typescript
 // Body present → Content-Digest added automatically
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/data',
   { method: 'POST', body: '{"value": 42}' },
   signer
@@ -117,7 +117,7 @@ const result = await verifyRequest(request, {
 For special cases, you can sign only specific components:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   {
@@ -149,7 +149,7 @@ Class-bound signatures are less secure:
 Sign additional headers alongside the default set:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { components: ['x-idempotency-key', 'x-request-id'] }

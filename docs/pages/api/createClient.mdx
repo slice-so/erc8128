@@ -28,7 +28,7 @@ const response = await client.fetch(
 )
 
 // Sign without sending
-const signed = await client.signRequest('https://api.example.com/orders')
+const signedRequest = await client.signRequest('https://api.example.com/orders')
 ```
 
 ## Returns

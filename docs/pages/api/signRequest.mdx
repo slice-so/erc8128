@@ -8,20 +8,20 @@ Signs an HTTP Request and returns a new Request with [RFC 9421](https://www.rfc-
 import { signRequest } from '@slicekit/erc8128'
 
 // Simple: just input and signer
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer
 )
 
 // With RequestInit
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   { method: 'POST', body: '{"data": "value"}' },
   signer
 )
 
 // With options
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   { method: 'POST', body: '{"data": "value"}' },
   signer,
@@ -81,7 +81,7 @@ Options for customizing the signature.
 :::code-group
 
 ```typescript [Custom TTL]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { ttlSeconds: 300 } // Valid for 5 minutes
@@ -89,7 +89,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Custom Nonce]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { nonce: `request-${crypto.randomUUID()}` }
@@ -97,7 +97,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Replayable]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,

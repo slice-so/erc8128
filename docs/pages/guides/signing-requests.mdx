@@ -18,7 +18,7 @@ The simplest way to sign a request using [signRequest](/api/signRequest):
 ```typescript
 import { signRequest } from '@slicekit/erc8128'
 
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer
 )
@@ -77,7 +77,7 @@ const response = await client.fetch(
 :::code-group
 
 ```typescript [Custom TTL]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { ttlSeconds: 300 } // Valid for 5 minutes
@@ -87,7 +87,7 @@ const signed = await signRequest(
 ```typescript [Explicit Timestamps]
 const now = Math.floor(Date.now() / 1000)
 
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   {
@@ -98,7 +98,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Custom Nonce]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { nonce: `request-${crypto.randomUUID()}` }
@@ -106,7 +106,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Async Nonce Generator]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   {
@@ -126,7 +126,7 @@ const signed = await signRequest(
 
 ```typescript [Request-Bound (Default)]
 // Signs all applicable components for maximum security
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/search?q=test',
   { method: 'POST', body: '{"data": true}' },
   signer,
@@ -139,7 +139,7 @@ const signed = await signRequest(
 ```typescript [Class-Bound]
 // For signing only specific components
 // (e.g., authorization that works across multiple endpoints)
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/any-endpoint',
   signer,
   {
@@ -161,7 +161,7 @@ Class-bound signatures are less secure. Only use when you understand the trade-o
 Sign extra headers alongside the default request-bound set:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { components: ['x-idempotency-key', 'x-request-id'] }
@@ -177,7 +177,7 @@ const signed = await signRequest(
 
 ```typescript [Non-Replayable (Default)]
 // Every request gets a unique nonce
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { replay: 'non-replayable' }
@@ -186,7 +186,7 @@ const signed = await signRequest(
 
 ```typescript [Replayable]
 // No nonce — use only for safe, idempotent operations
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,
@@ -207,7 +207,7 @@ Replayable signatures can be replayed by anyone who intercepts them. Only use fo
 Content-Digest is computed automatically for request-bound requests with a body:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/data',
   {
     method: 'POST',
@@ -222,7 +222,7 @@ const signed = await signRequest(
 ### Manual Control
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { contentDigest: 'off' } // Don't add Content-Digest
@@ -235,7 +235,7 @@ const signed = await signRequest(
 import { signRequest, Eip8128Error } from '@slicekit/erc8128'
 
 try {
-  const signed = await signRequest(input, signer)
+  const signedRequest = await signRequest(input, signer)
 } catch (error) {
   if (error instanceof Eip8128Error) {
     console.error(`Signing failed: ${error.code} - ${error.message}`)

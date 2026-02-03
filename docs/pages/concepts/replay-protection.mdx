@@ -34,7 +34,7 @@ Signature-Input: eth=(...);created=1618884473;expires=1618884533;...
 :::code-group
 
 ```typescript [Client Side]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   {
@@ -76,7 +76,7 @@ Signature-Input: eth=(...);nonce="a1b2c3d4-e5f6-7890";...
 
 ```typescript [Client: Auto Nonce]
 // Auto-generated (default)
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { replay: 'non-replayable' }  // Default
@@ -85,7 +85,7 @@ const signed = await signRequest(
 
 ```typescript [Client: Custom Nonce]
 // Custom nonce
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { nonce: `${Date.now()}-${crypto.randomUUID()}` }
@@ -94,7 +94,7 @@ const signed = await signRequest(
 
 ```typescript [Client: Async Nonce]
 // Async nonce generator
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   {
@@ -167,7 +167,7 @@ For safe, idempotent operations, nonces can be omitted:
 :::code-group
 
 ```typescript [Client]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,
