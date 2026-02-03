@@ -1,6 +1,6 @@
 # Smart Contract Accounts
 
-How to use ERC-8128 with smart contract accounts (SCAs) like ERC-4337 wallets, Safe, and session keys.
+How to use ERC-8128 with smart contract accounts (SCAs) like ERC-4337 wallets and Safe.
 
 ## How It Works
 
@@ -70,30 +70,46 @@ const publicClient = createPublicClient({
   transport: http(),
 })
 
-// Use directly in policy
+// Use directly in policy — works for both EOA and SCA
 const result = await verifyRequest(request, {
   verifyMessage: publicClient.verifyMessage,
   nonceStore,
 })
 ```
 
+No extra configuration is needed. When the signer address is a contract, viem automatically calls `isValidSignature` on it instead of using ecrecover.
+
 ## Common SCA Patterns
 
-### Safe (Gnosis Safe)
+### Safe
 
 ```typescript
+import Safe from '@safe-global/protocol-kit'
+
+const protocolKit = await Safe.init({
+  provider: RPC_URL,
+  signer: OWNER_PRIVATE_KEY,
+  safeAddress: SAFE_ADDRESS,
+})
+
 const safeSigner: EthHttpSigner = {
-  address: safeAddress,
+  address: SAFE_ADDRESS,
   chainId: 1,
   
   signMessage: async (message) => {
-    // For Safe, you typically need multiple signatures
-    // collected through their SDK
-    const safeMessage = await safe.signMessage(message)
-    return safeMessage.signature
+    // Create and sign the message with the Protocol Kit
+    const safeMessage = protocolKit.createMessage(bytesToHex(message))
+    const signed = await protocolKit.signMessage(safeMessage)
+    
+    // Encode signatures for ERC-1271 verification
+    return buildSignatureBytes(
+      Array.from(signed.signatures.values())
+    )
   },
 }
 ```
+
+For multi-owner Safes, collect signatures from each owner via `protocolKit.signMessage()` before encoding. See the [Safe SDK docs](https://docs.safe.global/sdk/protocol-kit/guides/signatures/messages) for details.
 
 ### ERC-4337 Wallets
 
@@ -104,23 +120,8 @@ const erc4337Signer: EthHttpSigner = {
   
   signMessage: async (message) => {
     // Most 4337 wallets expose a signMessage method
-    return smartAccount.signMessage(message)
-  },
-}
-```
-
-### Privy Embedded Wallets
-
-```typescript
-const privySigner: EthHttpSigner = {
-  address: embeddedWalletAddress,
-  chainId: 1,
-  
-  signMessage: async (message) => {
-    const { signature } = await privy.signMessage(
-      bytesToHex(message)
-    )
-    return signature
+    // The exact API depends on the wallet provider
+    return smartAccount.signMessage({ message: { raw: message } })
   },
 }
 ```
@@ -131,23 +132,18 @@ When using SCAs, the `chainId` in the keyid matters:
 
 1. **Same chain verification** — If the verifier is on the same chain as the SCA, ERC-1271 calls work directly.
 
-2. **Cross-chain verification** — If verifying on a different chain:
-   - The verifier must have access to the SCA's chain
-   - Use a multi-chain client or RPC aggregator
-   - Consider chain-specific policies
+2. **Cross-chain verification** — If verifying on a different chain, the verifier must have an RPC client for the SCA's chain. Use `parseKeyId` to extract the chain and route to the right client:
 
 ```typescript
-// Multi-chain verifier
-const verifyMessage: VerifyMessageFn = async ({ address, message, signature }) => {
-  // Parse chainId from the keyid
-  // Use appropriate client for that chain
-  const publicClient = getClientForChain(chainId)
+import { parseKeyId } from '@slicekit/erc8128'
+
+// Multi-chain verifier using the keyid from the signed request
+function getVerifyMessage(keyid: string): VerifyMessageFn {
+  const parsed = parseKeyId(keyid)
+  if (!parsed) throw new Error('Invalid keyid')
   
-  return publicClient.verifyMessage({
-    address,
-    message: { raw: message.raw },
-    signature,
-  })
+  const publicClient = getClientForChain(parsed.chainId)
+  return publicClient.verifyMessage
 }
 ```
 
@@ -156,7 +152,7 @@ const verifyMessage: VerifyMessageFn = async ({ address, message, signature }) =
 1. **Session key expiry** — Ensure session keys have appropriate TTLs
 2. **Signature validity** — SCA signatures may have their own expiry
 3. **Contract state** — SCA authorization state can change (signers removed, thresholds changed)
-4. **Gas costs** — ERC-1271 verification requires an RPC call
+4. **RPC dependency** — ERC-1271 verification requires an RPC call (`eth_call`), adding latency compared to EOA ecrecover
 
 ## Best Practices
 
