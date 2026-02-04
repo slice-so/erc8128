@@ -124,7 +124,7 @@ type ReplayMode = "non-replayable" | "replayable"
 | Value | Description |
 |-------|-------------|
 | `non-replayable` | Include a nonce (auto-generated if not provided). Default. |
-| `replayable` | No nonce. Use only for idempotent, safe operations. |
+| `replayable` | No nonce. Signature can be reused within its validity window. Trades single-use guarantee for reduced overhead. |
 
 ---
 

@@ -203,7 +203,7 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Replayable]
-// No nonce — use only for safe, idempotent operations
+// Omits the nonce — reusable within validity window
 const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
@@ -214,9 +214,7 @@ const signedRequest = await signRequest(
 
 :::
 
-:::warning
-Replayable signatures can be replayed by anyone who intercepts them. Only use for safe, idempotent operations.
-:::
+Replayable signatures trade single-use guarantees for reduced overhead (no nonce generation, no server-side nonce state). They still provide authentication and request integrity (if request-bound), comparable to bearer credentials like JWTs — but without requiring server-issued tokens. The verifier must explicitly opt in to accepting replayable signatures and must implement [early invalidation](/concepts/replay-protection#early-invalidation) mechanisms. See [Replayable Signatures](/concepts/replay-protection#replayable-signatures) for the full tradeoff analysis.
 
 ## Content-Digest
 

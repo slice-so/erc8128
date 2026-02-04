@@ -127,14 +127,14 @@ Class-bound weakens request integrity. Only accept when the unsigned components 
 
 ## Replay Protection
 
-Two modes:
+Two modes, chosen by the signer:
 
-| Mode | Nonce | Use Case |
-|------|-------|----------|
-| `non-replayable` | Required | Mutations, payments |
-| `replayable` | None | Idempotent reads |
+| Mode | Nonce | Properties |
+|------|-------|------------|
+| `non-replayable` | Required | Single-use authorization. Verifier must track nonces. |
+| `replayable` | Omitted | Reusable within validity window. No nonce state needed. Verifier must implement [early invalidation](/concepts/replay-protection#early-invalidation). |
 
-The server tracks seen nonces and rejects duplicates.
+Non-replayable is the baseline — all compliant verifiers must accept it. Replayable acceptance is optional and up to the verifier. See [Replay Protection](/concepts/replay-protection) for the full tradeoff analysis.
 
 ## Account Types
 

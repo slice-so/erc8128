@@ -160,13 +160,52 @@ const result = await verifyRequest(request, {
 })
 ```
 
-## Replayable Mode
+## Replayable Signatures
 
-For safe, idempotent operations, nonces can be omitted:
+A **replayable** signature omits the `nonce` parameter, which means it can be reused within its validity window. This is a deliberate security tradeoff — the signer chooses a lower security posture, and the verifier decides whether to accept it.
+
+Like non-replayable signatures, replayable signatures are still time-bounded (`created`/`expires`) and can be request-bound. They provide authentication and integrity for every request — comparable to bearer credentials like JWTs or API keys, but with the additional benefit that the proof is cryptographically bound to the signer's Ethereum address and (if request-bound) to the specific request components.
+
+### Why Use Replayable Signatures
+
+**From the signer's perspective:**
+
+- **Reduced overhead** — No need to generate a unique nonce per request. In high-frequency scenarios, this avoids the cost of nonce generation and the dependency on nonce sources.
+- **Cacheable authorization** — The same signed proof can be reused across multiple identical requests within the validity window, avoiding repeated signing operations.
+
+**From the verifier's perspective:**
+
+- **No nonce state** — Verifiers do not need a nonce store (e.g., Redis), simplifying infrastructure. This is significant for stateless architectures or edge deployments where shared state is expensive.
+- **Verification caching** — Because the same signature may appear on multiple requests, verifiers can cache successful verification results (keyed by signature bytes) to avoid repeating expensive cryptographic checks. This is most relevant for high-frequency clients and large-scale gateways where repeated signature verification becomes a material CPU cost.
+
+### Security Properties
+
+Replayable signatures provide **authentication** (proof of signer identity) and **integrity** (if request-bound, tampering detection) but do not provide **single-use authorization**. Anyone who intercepts a valid replayable signature can reuse it until it expires.
+
+This is the same security model as bearer credentials (cookies, JWTs, API keys) — the credential is valid until it expires or is revoked. The key difference is that replayable ERC-8128 signatures are self-issued, tied to an Ethereum identity, and can be request-bound.
+
+| Property | Non-Replayable | Replayable | Bearer Token (JWT) |
+|----------|---------------|------------|-------------------|
+| Authentication | ✅ | ✅ | ✅ |
+| Request integrity | ✅ (if request-bound) | ✅ (if request-bound) | ❌ |
+| Single-use | ✅ | ❌ | ❌ |
+| Requires server state | Nonce store | No | Session/token store |
+| Self-issued | ✅ | ✅ | ❌ (server-issued) |
+
+### Early Invalidation
+
+Because replayable signatures lack cryptographic replay protection, verifiers that accept them **must** implement early invalidation mechanisms that the signer can trigger. This ensures signers can revoke authorization before the signature's natural expiration.
+
+Required mechanisms include at least one of:
+- **Per-`keyid` not-before timestamps** — Invalidate all signatures for an address created before a certain time
+- **Per-signature invalidation** — Invalidate a specific signature by its fingerprint
+
+Importantly, any request that triggers early invalidation must itself be authenticated with a **request-bound** signature. This prevents a single authorization proof from being used to revoke multiple, unrelated authorizations.
 
 :::code-group
 
 ```typescript [Client]
+// Omit nonce
 const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
@@ -176,25 +215,39 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Server]
+// Allow missing nonce, must implement early invalidation
 const result = await verifyRequest(request, {
-  nonce: 'optional',  // Allow missing nonce
+  nonce: 'optional',  // Accept with or without nonce
   verifyMessage,
 })
 ```
 
 :::
 
-### When Replayable Is Safe
+### Combining with Class-Bound
 
-- `GET` requests that don't modify state
-- Idempotent operations with idempotency keys
-- Read-only status checks
+Replayable and class-bound are orthogonal and can be combined. A replayable, class-bound signature covering only `@authority` provides the broadest authorization: any request to the domain, reusable within the validity window. This is the lowest security posture but can be useful in narrowly scoped, low-risk scenarios where performance is a priority.
 
-### When Replayable Is Dangerous
+```typescript
+const signedRequest = await signRequest(
+  request,
+  signer,
+  {
+    binding: 'class-bound',
+    components: ['@authority'],
+    replay: 'replayable',
+  }
+)
+```
 
-- Order creation
-- State mutations
-- Actions with side effects
+All four combinations are valid:
+
+| Binding | Replay | Security Level | Use Case |
+|---------|--------|---------------|----------|
+| Request-bound | Non-replayable | Strongest (baseline) | State changes, payments |
+| Request-bound | Replayable | Strong integrity, no single-use | High-frequency requests to specific endpoints |
+| Class-bound | Non-replayable | Single-use, broad scope | One-time authorization for a class of requests |
+| Class-bound | Replayable | Lowest | Broad, reusable access tokens |
 
 ## Nonce Policy Options
 
@@ -206,10 +259,12 @@ const result = await verifyRequest(request, {
 
 ## Best Practices
 
-1. **Use non-replayable by default** — Only use replayable when you're sure it's safe
+1. **Non-replayable is the default** — The baseline requires it, and all compliant verifiers must accept it
 
-2. **Keep TTLs short** — 60 seconds is usually enough; longer windows increase risk
+2. **Keep validity windows short** — 60 seconds is typical; shorter windows reduce the exposure of both replayable and non-replayable signatures
 
-3. **Set `maxNonceWindowSec`** — Limit how long nonces can be valid
+3. **Set `maxNonceWindowSec`** — For non-replayable signatures, limit how long nonces must be retained
 
-4. **Monitor replay attempts** — Log `replay` failures for security analysis
+4. **Implement early invalidation** — If accepting replayable signatures, provide signer-triggered revocation mechanisms
+
+5. **Monitor replay patterns** — Log verification results for security analysis
