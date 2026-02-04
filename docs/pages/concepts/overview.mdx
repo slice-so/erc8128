@@ -121,8 +121,8 @@ A class-bound signature authorizes a *class of requests* rather than a single co
 
 The signer chooses to produce a class-bound signature, but **the verifier decides whether to accept it**. By default, verifiers reject class-bound signatures — they must explicitly opt in via `requiredComponents`. See [Request Binding](/concepts/request-binding#class-bound-signatures) for details.
 
-:::warning
-Class-bound weakens request integrity. Only accept when the unsigned components don't affect authorization.
+:::info
+Class-bound signatures sign fewer components, which means the unsigned parts of the request are not integrity-protected. The verifier and signer decide together whether this tradeoff is appropriate for their use case.
 :::
 
 ## Replay Protection
@@ -134,7 +134,11 @@ Two modes, chosen by the signer:
 | `non-replayable` | Required | Single-use authorization. Verifier must track nonces. |
 | `replayable` | Omitted | Reusable within validity window. No nonce state needed. Verifier must implement [early invalidation](/concepts/replay-protection#early-invalidation). |
 
-Non-replayable is the baseline — all compliant verifiers must accept it. Replayable acceptance is optional and up to the verifier. See [Replay Protection](/concepts/replay-protection) for the full tradeoff analysis.
+Non-replayable is the baseline — all compliant verifiers must accept it. Replayable acceptance is optional and up to the verifier.
+
+The verifier can define different security profiles on a per-endpoint or per-request basis. For example, critical endpoints (like `/transfer` or `/admin`) may require request-bound, non-replayable signatures for maximum security, while read-only or low-risk endpoints (like `/balance` or `/profile`) could accept class-bound or replayable signatures for better performance.
+
+See [Replay Protection](/concepts/replay-protection) for the full tradeoff analysis.
 
 ## Account Types
 

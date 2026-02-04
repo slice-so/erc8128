@@ -261,7 +261,7 @@ All four combinations are valid:
 
 1. **Non-replayable is the default** — The baseline requires it, and all compliant verifiers must accept it
 
-2. **Keep validity windows short** — 60 seconds is typical; shorter windows reduce the exposure of both replayable and non-replayable signatures
+2. **Keep validity windows short** — For non-replayable signatures, 5–30 seconds is common (just enough for clock skew and network latency). For replayable signatures, the window depends on how long the signature should remain valid — minutes for session-like access, but keep it as short as practical. The library defaults to 60 seconds (`ttlSeconds`), but adjust based on your use case
 
 3. **Set `maxNonceWindowSec`** — For non-replayable signatures, limit how long nonces must be retained
 

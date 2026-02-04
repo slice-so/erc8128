@@ -215,9 +215,9 @@ const result = await verifyRequest(request, {
 
 ### Setting `requiredComponents`
 
-When `requiredComponents` is set, it **replaces** the default request-bound check entirely. The verifier only checks that the specified components appear as an ordered subsequence of the signed components.
+When `requiredComponents` is set, it **replaces** the default request-bound check with a custom one. The verifier checks that the specified components appear as an ordered subsequence of the signed components.
 
-This means setting `requiredComponents` is the mechanism for **accepting class-bound signatures**. By specifying a subset of the default components, you tell the verifier exactly which components you require and accept signatures that cover at least those.
+This is the mechanism for **accepting class-bound signatures alongside request-bound ones**. By specifying a subset of the default components, you tell the verifier the minimum components you require. Request-bound signatures still pass this check — since they include more components, they always satisfy the subsequence requirement. Class-bound signatures pass only if they cover at least the required components.
 
 ```typescript
 // Accept signatures that cover at least @authority and @method
@@ -235,7 +235,7 @@ const result = await verifyRequest(request, {
 **No.** There is a subtle but important difference:
 
 - **Not set**: The verifier dynamically derives the required components from the request shape (adds `@query` if query is present, adds `content-digest` if body is present). This is the request-bound check.
-- **Set to `['@authority', '@method', '@path', '@query', 'content-digest']`**: The verifier checks for this exact ordered subsequence regardless of the request shape. A `GET` request without a body would still require `content-digest` to be signed, which is unlikely to be present.
+- **Set to `['@authority', '@method', '@path', '@query', 'content-digest']`**: The verifier checks for this exact ordered subsequence regardless of the request shape. Ordering is enforced — the components must appear in the same relative order in the signature's component list (via `isOrderedSubsequence`). A `GET` request without a body would still require `content-digest` to be signed, which is unlikely to be present.
 
 In practice, if you want the default request-bound behavior, simply don't set `requiredComponents`.
 
@@ -256,7 +256,7 @@ This requires the signature to cover `@authority`, `@method`, `@path`, *and* the
 Custom components are useful when:
 - Your API versions are path-independent and you need the version header to be tamper-proof
 - You use idempotency keys that must be bound to the signature
-- You have application-specific headers (like a scope or authorization context) that should be cryptographically protected
+- You have application-specific headers (like a scope or authorization context) that the verifier wants to use to group requests — similar to granular permission scopes on API keys
 
 ```typescript
 // Require a custom scope header to be signed
@@ -279,7 +279,9 @@ const signed = await signRequest(
 
 ### Ordered Subsequence Check
 
-The required components must appear in the same relative order within the signed components, but don't need to be contiguous. Extra components in the signature are allowed.
+When `requiredComponents` is set, the required components must appear in the same relative order within the signed components, but don't need to be contiguous. Extra components in the signature are allowed. This means request-bound signatures always satisfy the check (they include more components), while class-bound signatures pass only if they cover at least the required set in order.
+
+When `requiredComponents` is **not** set, the default request-bound check runs instead — which always accepts request-bound signatures and rejects class-bound ones.
 
 ```typescript
 // Signed components: ['@authority', '@method', '@path', 'x-custom', 'content-digest']

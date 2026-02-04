@@ -131,7 +131,7 @@ const result = await verifyRequest(request, {
 
 By default, the verifier enforces that signatures are **request-bound** — covering `@authority`, `@method`, `@path`, plus `@query` and `content-digest` when the request has a query string or body. This rejects all class-bound signatures.
 
-Setting `requiredComponents` **replaces** this default check. The verifier only requires the specified components to appear in the signature, which is how you opt into accepting class-bound signatures:
+Setting `requiredComponents` **replaces** this default check with a custom one. The verifier checks that the specified components appear as an ordered subsequence of the signed components. This is how you opt into accepting class-bound signatures — while request-bound signatures continue to be accepted since they cover more components and always satisfy the subsequence requirement:
 
 ```typescript
 // Default: rejects class-bound signatures (full request-bound check)

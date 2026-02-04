@@ -174,9 +174,13 @@ type VerifyPolicy = {
   
   /** 
    * Override default required components. 
-   * When not set, enforces full request-bound check (rejects class-bound signatures).
-   * When set, replaces the request-bound check: only the listed components 
-   * must appear as an ordered subsequence. This is how you accept class-bound signatures.
+   * The signer decides whether to produce a request-bound or class-bound signature.
+   * When not set, the verifier enforces the default request-bound check 
+   * (derived from request shape), which rejects class-bound signatures.
+   * When set, only the listed components must appear as an ordered 
+   * subsequence — this allows the verifier to accept class-bound signatures 
+   * while still requiring specific components. Request-bound signatures 
+   * also pass this check since they include more components.
    * Can include custom headers (e.g., 'x-idempotency-key').
    */
   requiredComponents?: string[]
