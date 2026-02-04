@@ -2,21 +2,18 @@
 const steps = [
   {
     id: "sign",
-    number: "01",
     title: "Sign",
     description:
       "The client signs with their wallet the request details — method, URL, headers, body, etc."
   },
   {
     id: "send",
-    number: "02",
     title: "Send",
     description:
       "The signed request is sent to the server, with the Ethereum address and signature attached."
   },
   {
     id: "verify",
-    number: "03",
     title: "Verify",
     description:
       "The server validates the signature and authenticates the request."
@@ -27,7 +24,7 @@ const steps = [
 <section class="relative overflow-hidden border-b border-border px-4 py-24 md:px-12 md:py-32">
   <!-- Grid background -->
   <div class="absolute inset-0 opacity-10 pointer-events-none bg-grid"></div>
-  
+
   <div class="max-w-7xl mx-auto relative z-10">
     <div class="mb-16 md:mb-20">
       <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
@@ -37,123 +34,236 @@ const steps = [
     </div>
 
     <div class="relative grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-0" id="hiw-grid">
-      <!-- Connection line with traveling particle (desktop only) -->
-      <svg class="connection-flow hidden md:block absolute top-[120px] left-[16.67%] w-[66.67%] h-8 z-0" viewBox="0 0 800 32" preserveAspectRatio="none">
-        <line x1="0" y1="16" x2="800" y2="16" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-        <circle id="hiw-glow" cx="0" cy="16" r="14" fill="white" opacity="0"/>
-        <circle id="hiw-particle" cx="0" cy="16" r="4" fill="white" opacity="0"/>
+      <!-- Connection line fill (desktop only) -->
+      <svg
+        class="connection-flow hidden md:block absolute top-[120px] left-[16.67%] w-[66.67%] h-8 z-0"
+        viewBox="0 0 800 32"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <line x1="0" y1="16" x2="800" y2="16" stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+        <line
+          id="hiw-line-fill"
+          x1="0"
+          y1="16"
+          x2="800"
+          y2="16"
+          stroke="rgba(167, 139, 250, 0.9)"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          pathLength="1"
+        />
       </svg>
-      
+
       {
         steps.map((step, i) => (
-          <div class={`relative group z-10 ${i < steps.length - 1 ? 'md:border-r md:border-white/[0.05]' : ''}`}>
+          <div
+            class={`hiw-step relative group z-10 ${i < steps.length - 1 ? "md:border-r md:border-white/[0.05]" : ""}`}
+            data-step={step.id}
+          >
             <div class="md:px-8 lg:px-12">
-              <!-- Step number -->
-              <div class="mb-6 font-mono text-[11px] tracking-[0.2em] uppercase opacity-20">{step.number}</div>
-              
               <!-- Illustration container -->
               <div class="illustration-container relative h-48 md:h-52 mb-10 flex items-center justify-center">
-                
                 {/* ── SIGN ── */}
                 {step.id === "sign" && (
                   <div class="sign-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                       {/* Document outline */}
                       <g class="sign-doc">
-                        <rect x="56" y="24" width="104" height="136" rx="3" fill="#0a0a0a" stroke="none"/>
-                        <rect x="56" y="24" width="104" height="136" rx="3" fill="none" stroke="white" stroke-width="0.8" opacity="0.35"/>
-                        <path d="M132 24V46H156" stroke="white" stroke-width="0.5" opacity="0.15" fill="none"/>
+                        <rect x="56" y="24" width="104" height="136" rx="3" fill="#0a0a0a" stroke="none" />
+                        <rect
+                          x="56"
+                          y="24"
+                          width="104"
+                          height="136"
+                          rx="3"
+                          fill="none"
+                          stroke="white"
+                          stroke-width="0.8"
+                          opacity="0.35"
+                        />
+                        <!-- removed fold corner accent -->
                       </g>
 
-                      {/* Signing elements — fading text lines */}
-                      <text class="hiw-sign-el" data-idx="0" x="66" y="55" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="7" fill="white" opacity="0">POST /api/resource</text>
-                      <text class="hiw-sign-el" data-idx="1" x="66" y="70" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="6.5" fill="white" opacity="0">content-digest:</text>
-                      <text class="hiw-sign-el" data-idx="2" x="70" y="80" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="6" fill="white" opacity="0">sha-256=X48E9...</text>
-                      <text class="hiw-sign-el" data-idx="3" x="66" y="96" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="6.5" fill="white" opacity="0">@authority:</text>
-                      <text class="hiw-sign-el" data-idx="4" x="70" y="106" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="6" fill="white" opacity="0">api.example.com</text>
+                      {/* Signing elements — fade in, then hold */}
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="0"
+                        x="66"
+                        y="55"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="7"
+                        fill="white"
+                        opacity="0"
+                      >
+                        POST /api/resource
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="1"
+                        x="66"
+                        y="70"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6.5"
+                        fill="white"
+                        opacity="0"
+                      >
+                        content-digest:
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="2"
+                        x="70"
+                        y="80"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6"
+                        fill="white"
+                        opacity="0"
+                      >
+                        sha-256=X48E9...
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="3"
+                        x="66"
+                        y="96"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6.5"
+                        fill="white"
+                        opacity="0"
+                      >
+                        @authority:
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="4"
+                        x="70"
+                        y="106"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6"
+                        fill="white"
+                        opacity="0"
+                      >
+                        api.example.com
+                      </text>
 
                       {/* Divider */}
-                      <line x1="76" y1="118" x2="140" y2="118" stroke="white" stroke-width="0.3" opacity="0.06"/>
+                      <line x1="76" y1="118" x2="140" y2="118" stroke="white" stroke-width="0.3" opacity="0.06" />
 
                       {/* Signature stroke */}
-                      <path id="hiw-sig" d="M76 138 C88 124, 96 148, 108 134 C116 126, 124 142, 136 132" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0" stroke-dasharray="120" stroke-dashoffset="120"/>
-
-                      {/* Subtle wave accent */}
-                      <path id="hiw-wave" d="M44 176 C72 168, 96 184, 120 176 C144 168, 168 184, 196 176" stroke="white" stroke-width="0.4" stroke-linecap="round" fill="none" opacity="0" stroke-dasharray="200" stroke-dashoffset="200"/>
+                      <path
+                        id="hiw-sig"
+                        d="M76 138 C88 124, 96 148, 108 134 C116 126, 124 142, 136 132"
+                        stroke="white"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        fill="none"
+                        opacity="0"
+                        stroke-dasharray="120"
+                        stroke-dashoffset="120"
+                      />
                     </svg>
                   </div>
                 )}
-                
+
                 {/* ── SEND (Server) ── */}
                 {step.id === "send" && (
                   <div class="send-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      {/* Server chassis */}
-                      <rect x="44" y="28" width="152" height="144" rx="4" fill="#0a0a0a" stroke="none"/>
-                      <rect x="44" y="28" width="152" height="144" rx="4" fill="none" stroke="white" stroke-width="0.8" opacity="0.35"/>
+                      {/* Server — squared icon based on server-reference.png */}
+                      <rect x="64" y="40" width="112" height="112" rx="10" fill="#0a0a0a" stroke="none" />
+                      <rect x="64" y="40" width="112" height="112" rx="10" fill="none" stroke="white" stroke-width="0.9" opacity="0.35" />
 
-                      {/* Rack mount ears */}
-                      <rect x="34" y="38" width="10" height="8" rx="1.5" fill="none" stroke="white" stroke-width="0.4" opacity="0.1"/>
-                      <rect x="34" y="154" width="10" height="8" rx="1.5" fill="none" stroke="white" stroke-width="0.4" opacity="0.1"/>
-                      <rect x="196" y="38" width="10" height="8" rx="1.5" fill="none" stroke="white" stroke-width="0.4" opacity="0.1"/>
-                      <rect x="196" y="154" width="10" height="8" rx="1.5" fill="none" stroke="white" stroke-width="0.4" opacity="0.1"/>
+                      {/* Vents (left) */}
+                      <rect x="78" y="62" width="8" height="68" rx="4" fill="white" opacity="0.16" />
+                      <rect x="92" y="62" width="8" height="68" rx="4" fill="white" opacity="0.16" />
+                      <rect x="106" y="62" width="8" height="68" rx="4" fill="white" opacity="0.16" />
 
-                      {/* Top panel line */}
-                      <line x1="44" y1="58" x2="196" y2="58" stroke="white" stroke-width="0.3" opacity="0.08"/>
+                      {/* LEDs (center-right) */}
+                      <circle class="hiw-led" data-idx="0" cx="134" cy="66" r="4" fill="white" opacity="0.08" />
+                      <circle class="hiw-led" data-idx="1" cx="150" cy="66" r="4" fill="white" opacity="0.08" />
+                      <circle class="hiw-led" data-idx="2" cx="166" cy="66" r="4" fill="white" opacity="0.08" />
+                      <circle class="hiw-led" data-idx="3" cx="134" cy="86" r="4" fill="white" opacity="0.08" />
+                      <circle class="hiw-led" data-idx="4" cx="150" cy="86" r="4" fill="white" opacity="0.08" />
+                      <circle class="hiw-led" data-idx="5" cx="166" cy="86" r="4" fill="white" opacity="0.08" />
 
-                      {/* Status LEDs */}
-                      <circle class="hiw-led" data-idx="0" cx="60" cy="43" r="2.5" fill="white" opacity="0.06"/>
-                      <circle class="hiw-led" data-idx="1" cx="74" cy="43" r="2.5" fill="white" opacity="0.06"/>
-                      <circle class="hiw-led" data-idx="2" cx="88" cy="43" r="2.5" fill="white" opacity="0.06"/>
-
-                      {/* Ventilation slits */}
-                      <line x1="64" y1="72" x2="84" y2="72" stroke="white" stroke-width="0.3" opacity="0.06"/>
-                      <line x1="90" y1="72" x2="110" y2="72" stroke="white" stroke-width="0.3" opacity="0.06"/>
-                      <line x1="116" y1="72" x2="136" y2="72" stroke="white" stroke-width="0.3" opacity="0.06"/>
-                      <line x1="142" y1="72" x2="162" y2="72" stroke="white" stroke-width="0.3" opacity="0.06"/>
+                      {/* Bottom bar */}
+                      <rect x="124" y="122" width="44" height="8" rx="4" fill="white" opacity="0.16" />
 
                       {/* Processing indicator — dashed ring + glow + dot */}
-                      <circle id="hiw-proc-ring" cx="120" cy="112" r="18" stroke="white" stroke-width="0.5" fill="none" opacity="0.04" stroke-dasharray="4 4"/>
-                      <circle id="hiw-proc-glow" cx="120" cy="112" r="10" fill="white" opacity="0"/>
-                      <circle id="hiw-proc-dot" cx="120" cy="112" r="3" fill="white" opacity="0.06"/>
-
-                      {/* Drive bays at bottom */}
-                      <rect x="60" y="150" width="10" height="14" rx="1.5" fill="none" stroke="white" stroke-width="0.3" opacity="0.05"/>
-                      <rect x="76" y="150" width="10" height="14" rx="1.5" fill="none" stroke="white" stroke-width="0.3" opacity="0.05"/>
-                      <rect x="92" y="150" width="10" height="14" rx="1.5" fill="none" stroke="white" stroke-width="0.3" opacity="0.05"/>
-                      <rect x="108" y="150" width="10" height="14" rx="1.5" fill="none" stroke="white" stroke-width="0.3" opacity="0.05"/>
+                      <g class="hiw-proc">
+                        <circle
+                          id="hiw-proc-ring"
+                          cx="156"
+                          cy="122"
+                          r="18"
+                          stroke="white"
+                          stroke-width="0.6"
+                          fill="none"
+                          opacity="0.06"
+                          stroke-dasharray="4 4"
+                        />
+                        <circle id="hiw-proc-glow" cx="156" cy="122" r="10" fill="white" opacity="0" />
+                        <circle id="hiw-proc-dot" cx="156" cy="122" r="3" fill="white" opacity="0.12" />
+                      </g>
                     </svg>
                   </div>
                 )}
-                
+
                 {/* ── VERIFY ── */}
                 {step.id === "verify" && (
                   <div class="verify-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      {/* Verification ring — expands outward */}
-                      <circle id="hiw-v-ring" cx="120" cy="84" r="56" stroke="white" stroke-width="0.4" fill="none" opacity="0"/>
+                      {/* Verification pulse ring — expands outward */}
+                      <circle id="hiw-v-ring" cx="120" cy="84" r="56" stroke="white" stroke-width="0.4" fill="none" opacity="0" />
 
                       {/* Shield */}
-                      <path d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z" fill="#0a0a0a" stroke="none"/>
-                      <path d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z" stroke="white" stroke-width="0.8" fill="none" opacity="0.3"/>
-
-                      {/* Verification glow behind checkmark */}
-                      <circle id="hiw-v-glow" cx="120" cy="82" r="24" fill="white" opacity="0"/>
+                      <path d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z" fill="#0a0a0a" stroke="none" />
+                      <path
+                        d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z"
+                        stroke="white"
+                        stroke-width="0.8"
+                        fill="none"
+                        opacity="0.3"
+                      />
 
                       {/* Checkmark */}
-                      <path id="hiw-v-check" d="M104 84L114 96L140 66" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0" stroke-dasharray="60" stroke-dashoffset="60"/>
+                      <path
+                        id="hiw-v-check"
+                        d="M104 84L114 96L140 66"
+                        stroke="white"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        fill="none"
+                        opacity="0"
+                        stroke-dasharray="60"
+                        stroke-dashoffset="60"
+                      />
 
-                      {/* Address pill — ALWAYS visible */}
-                      <rect id="hiw-addr-pill" x="52" y="166" width="136" height="24" rx="12" stroke="white" stroke-width="0.5" fill="none" opacity="0.08"/>
-                      <text id="hiw-addr-text" x="120" y="182" font-family="'SF Mono','Fira Code','Cascadia Code',monospace" font-size="10" fill="white" text-anchor="middle" letter-spacing="0.5" opacity="0.15">0x71C7...d93A</text>
+                      {/* Address pill */}
+                      <rect id="hiw-addr-pill" x="52" y="166" width="136" height="24" rx="12" stroke="white" stroke-width="0.5" fill="none" opacity="0.10" />
+                      <text
+                        id="hiw-addr-text"
+                        x="120"
+                        y="182"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="10"
+                        fill="white"
+                        text-anchor="middle"
+                        letter-spacing="0.5"
+                        opacity="0.18"
+                      >
+                        0x0000…0000
+                      </text>
                     </svg>
                   </div>
                 )}
               </div>
-              
-              <div class="md:text-left">
+
+              <div class="text-center">
                 <h3 class="text-lg font-bold uppercase mb-3 tracking-wide">{step.title}</h3>
-                <p class="text-[15px] opacity-50 leading-[1.75] max-w-xs">{step.description}</p>
+                <p class="text-[15px] opacity-50 leading-[1.75] max-w-xs mx-auto">{step.description}</p>
               </div>
             </div>
           </div>
@@ -169,21 +279,6 @@ const steps = [
       linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
     background-size: 40px 40px;
-  }
-
-  /* Processing ring transform origin */
-  #hiw-proc-ring {
-    transform-origin: 120px 112px;
-  }
-
-  /* Checkmark transform origin */
-  #hiw-v-check {
-    transform-origin: 120px 82px;
-  }
-
-  /* Ring transform origin */
-  #hiw-v-ring {
-    transform-origin: 120px 84px;
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -203,13 +298,248 @@ const steps = [
   }
 
   .group:hover .illustration-container svg {
-    filter: drop-shadow(0 0 20px rgba(255,255,255,0.04));
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.04));
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CONNECTION LINE FILL (desktop)
+     ═══════════════════════════════════════════════════════════ */
+
+  #hiw-line-fill {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  .hiw-grid-active #hiw-line-fill {
+    animation: hiwLineFill 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  @keyframes hiwLineFill {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    55% {
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+    85% {
+      stroke-dashoffset: 0;
+      opacity: 0.85;
+    }
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SIGN (fade-in + hold)
+     ═══════════════════════════════════════════════════════════ */
+
+  .hiw-sign-el,
+  #hiw-sig {
+    opacity: 0;
+  }
+
+  .hiw-step.hiw-active .hiw-sign-el {
+    animation: hiwSignFadeInHold 5.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-sig {
+    animation: hiwSigDrawHold 5.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="0"] {
+    animation-delay: 0.10s;
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="1"] {
+    animation-delay: 0.22s;
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="2"] {
+    animation-delay: 0.34s;
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="3"] {
+    animation-delay: 0.46s;
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="4"] {
+    animation-delay: 0.58s;
+  }
+
+  @keyframes hiwSignFadeInHold {
+    0% {
+      opacity: 0;
+    }
+    14% {
+      opacity: 0.55;
+    }
+    86% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes hiwSigDrawHold {
+    0% {
+      opacity: 0;
+      stroke-dashoffset: 120;
+    }
+    22% {
+      opacity: 0;
+      stroke-dashoffset: 120;
+    }
+    42% {
+      opacity: 0.65;
+      stroke-dashoffset: 0;
+    }
+    86% {
+      opacity: 0.65;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SEND (processing)
+     ═══════════════════════════════════════════════════════════ */
+
+  #hiw-proc-ring {
+    transform-origin: 156px 122px;
+  }
+
+  .hiw-step.hiw-active #hiw-proc-ring {
+    animation: hiwProcSpin 1s linear infinite;
+  }
+
+  .hiw-step.hiw-active #hiw-proc-glow {
+    animation: hiwProcPulse 1s ease-in-out infinite;
+  }
+
+  /* On mobile the processing animation always runs */
+  @media (max-width: 767px) {
+    #hiw-proc-ring {
+      animation: hiwProcSpin 1s linear infinite;
+    }
+
+    #hiw-proc-glow {
+      animation: hiwProcPulse 1s ease-in-out infinite;
+    }
+
+    #hiw-proc-dot {
+      opacity: 0.22;
+    }
+  }
+
+  @keyframes hiwProcSpin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes hiwProcPulse {
+    0% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.08;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     VERIFY (pulse + check)
+     ═══════════════════════════════════════════════════════════ */
+
+  #hiw-v-check {
+    transform-origin: 120px 82px;
+  }
+
+  #hiw-v-ring {
+    transform-origin: 120px 84px;
+  }
+
+  .hiw-step.hiw-active #hiw-v-check {
+    animation: hiwCheckDraw 6.0s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-v-ring {
+    animation: hiwVerifyRing 6.0s ease-out infinite;
+  }
+
+  @keyframes hiwCheckDraw {
+    0% {
+      opacity: 0;
+      stroke-dashoffset: 60;
+      transform: scale(1);
+    }
+    14% {
+      opacity: 0;
+      stroke-dashoffset: 60;
+      transform: scale(1);
+    }
+    24% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+      transform: scale(1.06);
+    }
+    34% {
+      opacity: 0.88;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+    86% {
+      opacity: 0.88;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes hiwVerifyRing {
+    0% {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    18% {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    34% {
+      opacity: 0.12;
+      transform: scale(1.02);
+    }
+    48% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
   }
 
   /* ═══════════════════════════════════════════════════════════
      RESPONSIVE
      ═══════════════════════════════════════════════════════════ */
-  
+
   @media (max-width: 767px) {
     .illustration-container {
       height: 11rem;
@@ -218,268 +548,140 @@ const steps = [
 </style>
 
 <script>
-  /**
-   * HowItWorks — Synchronized Animation Controller
-   * 
-   * A single requestAnimationFrame loop drives the traveling particle
-   * and coordinates all three phase animations (Sign → Send → Verify).
-   * 
-   * Timeline (9s cycle):
-   *   0.00–0.28  Sign phase (particle dwells at Sign)
-   *   0.28–0.36  Particle travels Sign → Send
-   *   0.36–0.60  Send phase (particle dwells at Send)
-   *   0.60–0.68  Particle travels Send → Verify
-   *   0.68–0.96  Verify phase (particle dwells at Verify)
-   *   0.96–1.00  Fade out / reset
-   */
   (function () {
-    const CYCLE = 9000;
     const FINAL_ADDR = '0x71C7...d93A';
+    const PLACEHOLDER = '0x0000…0000';
     const HEX = '0123456789abcdefABCDEF';
 
-    function init() {
-      // ── Cache DOM elements ──
-      const particle = document.getElementById('hiw-particle');
-      const glowEl = document.getElementById('hiw-glow');
-      const signEls = Array.from(document.querySelectorAll('.hiw-sign-el'));
-      const sig = document.getElementById('hiw-sig');
-      const wave = document.getElementById('hiw-wave');
-      const leds = Array.from(document.querySelectorAll('.hiw-led'));
-      const procRing = document.getElementById('hiw-proc-ring');
-      const procGlow = document.getElementById('hiw-proc-glow');
-      const procDot = document.getElementById('hiw-proc-dot');
-      const vCheck = document.getElementById('hiw-v-check');
-      const vGlow = document.getElementById('hiw-v-glow');
-      const vRing = document.getElementById('hiw-v-ring');
-      const addrPill = document.getElementById('hiw-addr-pill');
-      const addrText = document.getElementById('hiw-addr-text');
-
-      if (!addrText) return; // safety check
-
-      let startTime: number | null = null;
-      let lastScrambleUpdate = 0;
-
-      // ── Helpers ──
-      function easeInOutCubic(t: number) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      }
-
-      function clamp(v: number, lo = 0, hi = 1) {
-        return Math.max(lo, Math.min(hi, v));
-      }
-
-      /** Produce scrambled address text. progress=0 fully scrambled, progress=1 fully resolved. */
-      function scramble(progress: number): string {
-        return FINAL_ADDR.split('').map((ch, i) => {
-          // Keep structural characters fixed
-          if (ch === '.' || (ch === 'x' && i === 1) || (ch === '0' && i === 0)) return ch;
-          const threshold = (progress * (FINAL_ADDR.length + 6) - i) / 5;
-          if (threshold >= 1) return ch;
-          return HEX[Math.floor(Math.random() * HEX.length)];
-        }).join('');
-      }
-
-      // ── Animation loop ──
-      function tick(ts: number) {
-        if (startTime === null) startTime = ts;
-        const t = ((ts - startTime) % CYCLE) / CYCLE; // 0→1
-
-        // ════════════════════════════════════════════
-        //  PARTICLE POSITION
-        // ════════════════════════════════════════════
-        let cx: number;
-        if (t < 0.28) {
-          cx = 0;
-        } else if (t < 0.36) {
-          cx = easeInOutCubic((t - 0.28) / 0.08) * 400;
-        } else if (t < 0.60) {
-          cx = 400;
-        } else if (t < 0.68) {
-          cx = 400 + easeInOutCubic((t - 0.60) / 0.08) * 400;
-        } else {
-          cx = 800;
-        }
-
-        if (particle && glowEl) {
-          particle.setAttribute('cx', String(cx));
-          glowEl.setAttribute('cx', String(cx));
-          // Fade in / fade out at cycle edges
-          const pVis = t < 0.02 ? t / 0.02 : t > 0.96 ? (1 - t) / 0.04 : 1;
-          particle.setAttribute('opacity', String(pVis * 0.7));
-          glowEl.setAttribute('opacity', String(pVis * 0.06));
-        }
-
-        // ════════════════════════════════════════════
-        //  SIGN PHASE  (0.02 → 0.28)
-        // ════════════════════════════════════════════
-        const signT = clamp((t - 0.02) / 0.26);       // 0→1 through sign
-        const signFade = t > 0.28 ? clamp(1 - (t - 0.28) / 0.06) : 1;
-
-        // Text elements fade in with stagger
-        signEls.forEach((el, i) => {
-          const stagger = i * 0.12;
-          const elT = clamp((signT - stagger) / 0.18);
-          el.setAttribute('opacity', String(elT * 0.55 * signFade));
-        });
-
-        // Signature draw
-        if (sig) {
-          const sigDraw = clamp((signT - 0.55) / 0.30);
-          sig.setAttribute('stroke-dashoffset', String(120 - sigDraw * 120));
-          sig.setAttribute('opacity', String(sigDraw * 0.65 * signFade));
-        }
-
-        // Wave accent
-        if (wave) {
-          const waveT = clamp((signT - 0.70) / 0.25);
-          wave.setAttribute('stroke-dashoffset', String(200 - waveT * 200));
-          wave.setAttribute('opacity', String(waveT * 0.10 * signFade));
-        }
-
-        // ════════════════════════════════════════════
-        //  SEND PHASE  (0.36 → 0.60)
-        // ════════════════════════════════════════════
-        const sendActive = t >= 0.34 && t <= 0.64;
-        const sendFade = t > 0.60 ? clamp(1 - (t - 0.60) / 0.04) : 1;
-
-        // LEDs — sequential pulse when active
-        leds.forEach((led, i) => {
-          if (!sendActive) {
-            led.setAttribute('opacity', '0.06');
-            return;
-          }
-          const phase = (ts / 350 + i * 2.1) % (Math.PI * 2);
-          const v = 0.06 + Math.pow(Math.sin(phase), 2) * 0.4 * sendFade;
-          led.setAttribute('opacity', String(v));
-        });
-
-        // Processing ring — slow rotation
-        if (procRing) {
-          if (sendActive) {
-            const rot = (ts / 18) % 360;
-            procRing.style.transform = `rotate(${rot}deg)`;
-            procRing.setAttribute('opacity', String(0.04 + 0.12 * sendFade));
-          } else {
-            procRing.setAttribute('opacity', '0.04');
-          }
-        }
-
-        // Processing glow — breathing pulse
-        if (procGlow) {
-          const pulse = sendActive
-            ? Math.max(0, Math.sin(ts / 280) * 0.05 * sendFade)
-            : 0;
-          procGlow.setAttribute('opacity', String(pulse));
-        }
-
-        // Processing dot — brightens when active
-        if (procDot) {
-          procDot.setAttribute('opacity', sendActive ? String(0.06 + 0.30 * sendFade) : '0.06');
-        }
-
-        // ════════════════════════════════════════════
-        //  VERIFY PHASE  (0.68 → 0.96)
-        // ════════════════════════════════════════════
-        const verifyT = clamp((t - 0.68) / 0.28); // 0→1 through verify
-
-        // ── Checkmark draw (crisp + spring bounce) ──
-        if (vCheck) {
-          const drawEnd = 0.28;
-          const drawT = clamp(verifyT / drawEnd);
-          const eased = 1 - Math.pow(1 - drawT, 4); // ease-out quartic — snappy
-          vCheck.setAttribute('stroke-dashoffset', String(60 - eased * 60));
-
-          // Opacity: appear fast, slight flash at completion
-          let checkOp: number;
-          if (verifyT <= 0) {
-            checkOp = 0;
-          } else if (verifyT < drawEnd) {
-            checkOp = clamp(verifyT / 0.04); // fast fade in
-          } else if (verifyT < drawEnd + 0.06) {
-            checkOp = 1; // brief bright flash
-          } else {
-            checkOp = 0.85; // settle
-          }
-          vCheck.setAttribute('opacity', String(checkOp));
-
-          // Spring bounce after draw completes
-          let scale = 1;
-          const bounceStart = drawEnd;
-          const bounceDur = 0.18;
-          const bT = clamp((verifyT - bounceStart) / bounceDur);
-          if (bT > 0 && bT < 1) {
-            // Damped spring: overshoot → settle
-            scale = 1 + 0.18 * Math.sin(bT * Math.PI * 1.2) * Math.exp(-bT * 3.5);
-          }
-          vCheck.style.transform = `scale(${scale})`;
-        }
-
-        // ── Glow flash ──
-        if (vGlow) {
-          const glowT = clamp((verifyT - 0.24) / 0.22);
-          const intensity = glowT > 0 && glowT < 1
-            ? 0.15 * Math.sin(glowT * Math.PI)
-            : 0;
-          vGlow.setAttribute('opacity', String(intensity));
-        }
-
-        // ── Ring expand ──
-        if (vRing) {
-          const ringT = clamp((verifyT - 0.26) / 0.38);
-          const ringOp = ringT > 0 && ringT < 1
-            ? 0.12 * Math.sin(ringT * Math.PI)
-            : 0;
-          vRing.setAttribute('opacity', String(ringOp));
-          const s = 0.85 + ringT * 0.30;
-          vRing.style.transform = `scale(${s})`;
-        }
-
-        // ── Address scramble/decode ──
-        if (addrText && addrPill) {
-          const scrambleBegin = 0.38;
-          const scrambleResolve = 0.82;
-
-          if (verifyT <= 0) {
-            // Before verify: encrypted-looking, low opacity
-            if (ts - lastScrambleUpdate > 80) {
-              addrText.textContent = scramble(0);
-              lastScrambleUpdate = ts;
-            }
-            addrText.setAttribute('opacity', '0.15');
-            addrPill.setAttribute('opacity', '0.08');
-          } else if (verifyT < scrambleBegin) {
-            // Verify started, scramble still cycling
-            if (ts - lastScrambleUpdate > 55) {
-              addrText.textContent = scramble(0);
-              lastScrambleUpdate = ts;
-            }
-            const ramp = verifyT / scrambleBegin;
-            addrText.setAttribute('opacity', String(0.15 + ramp * 0.15));
-            addrPill.setAttribute('opacity', String(0.08 + ramp * 0.12));
-          } else if (verifyT < scrambleResolve) {
-            // Resolving — characters settle left to right
-            const sp = (verifyT - scrambleBegin) / (scrambleResolve - scrambleBegin);
-            if (ts - lastScrambleUpdate > 35) {
-              addrText.textContent = scramble(sp);
-              lastScrambleUpdate = ts;
-            }
-            addrText.setAttribute('opacity', String(0.30 + sp * 0.35));
-            addrPill.setAttribute('opacity', String(0.20 + sp * 0.20));
-          } else {
-            // Fully resolved — stays
-            addrText.textContent = FINAL_ADDR;
-            addrText.setAttribute('opacity', '0.65');
-            addrPill.setAttribute('opacity', '0.40');
-          }
-        }
-
-        requestAnimationFrame(tick);
-      }
-
-      requestAnimationFrame(tick);
+    function clamp(v, lo = 0, hi = 1) {
+      return Math.max(lo, Math.min(hi, v));
     }
 
-    // Start when DOM is ready
+    /** progress=0 fully scrambled, progress=1 fully resolved. */
+    function scramble(finalAddr, progress) {
+      return finalAddr
+        .split('')
+        .map((ch, i) => {
+          if (ch === '.' || ch === '…' || (ch === 'x' && i === 1) || (ch === '0' && i === 0)) return ch;
+          const threshold = (progress * (finalAddr.length + 6) - i) / 5;
+          if (threshold >= 1) return ch;
+          return HEX[Math.floor(Math.random() * HEX.length)];
+        })
+        .join('');
+    }
+
+    function isMobile() {
+      return window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+    }
+
+    function init() {
+      const grid = document.getElementById('hiw-grid');
+      if (!grid) return;
+
+      const steps = Array.from(grid.querySelectorAll('.hiw-step'));
+
+      // ── Desktop: trigger the connection line when the grid enters viewport ──
+      const gridObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) grid.classList.add('hiw-grid-active');
+            else grid.classList.remove('hiw-grid-active');
+          });
+        },
+        { threshold: 0.35 }
+      );
+
+      gridObserver.observe(grid);
+
+      // ── Per-step activation: when each step enters viewport (mobile + desktop) ──
+      const stepObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            const el = e.target;
+            if (e.isIntersecting) el.classList.add('hiw-active');
+            else el.classList.remove('hiw-active');
+          });
+        },
+        { threshold: 0.4 }
+      );
+
+      steps.forEach((s) => stepObserver.observe(s));
+
+      // ── VERIFY address: sequence per request ──
+      // 1) Placeholder low opacity
+      // 2) On signal received: high opacity + scramble
+      // 3) After ~1s: resolve and stay
+      steps
+        .filter((s) => s.getAttribute('data-step') === 'verify')
+        .forEach((verifyStep) => {
+          const addrText = verifyStep.querySelector('#hiw-addr-text');
+          const addrPill = verifyStep.querySelector('#hiw-addr-pill');
+          if (!addrText || !addrPill) return;
+
+          let rafId = null;
+          let cycleStart = null;
+
+          const CYCLE = 6000; // match CSS verify cadence
+          const SIGNAL_AT = 500; // ms
+          const RESOLVE_AFTER = 1000; // ms after signal
+
+          function frame(ts) {
+            if (!verifyStep.classList.contains('hiw-active')) {
+              rafId = null;
+              cycleStart = null;
+              return;
+            }
+
+            if (cycleStart === null) cycleStart = ts;
+            const t = (ts - cycleStart) % CYCLE;
+
+            // Phase 1
+            if (t < SIGNAL_AT) {
+              addrText.textContent = PLACEHOLDER;
+              addrText.setAttribute('opacity', '0.18');
+              addrPill.setAttribute('opacity', '0.10');
+            }
+            // Phase 2
+            else if (t < SIGNAL_AT + RESOLVE_AFTER) {
+              const sp = clamp((t - SIGNAL_AT) / RESOLVE_AFTER);
+              addrText.textContent = scramble(FINAL_ADDR, sp * 0.35);
+              addrText.setAttribute('opacity', '0.62');
+              addrPill.setAttribute('opacity', '0.38');
+            }
+            // Phase 3
+            else {
+              addrText.textContent = FINAL_ADDR;
+              addrText.setAttribute('opacity', '0.65');
+              addrPill.setAttribute('opacity', '0.40');
+            }
+
+            rafId = requestAnimationFrame(frame);
+          }
+
+          const start = () => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(frame);
+          };
+
+          // Always run on mobile once mounted (but still only animates when step is in view)
+          // Desktop: start when active
+          const obs = new MutationObserver(() => {
+            if (verifyStep.classList.contains('hiw-active')) start();
+          });
+
+          obs.observe(verifyStep, { attributes: true, attributeFilter: ['class'] });
+
+          // If already active
+          if (verifyStep.classList.contains('hiw-active')) start();
+        });
+
+      // Ensure SEND processing is always animated on mobile, even before scroll triggers
+      if (isMobile()) {
+        const sendStep = steps.find((s) => s.getAttribute('data-step') === 'send');
+        if (sendStep) sendStep.classList.add('hiw-active');
+      }
+    }
+
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', init);
     } else {
