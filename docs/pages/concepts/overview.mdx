@@ -114,13 +114,15 @@ Request-bound provides full request integrity. The request sender can always cho
 
 ### Class-Bound (Optional)
 
-Implementations may additionally support class-bound signatures for performance optimization. This mode signs only specified components:
-- Signatures that work across endpoints
-- Reduced signature overhead for high-frequency requests
-- Delegation patterns
+A class-bound signature authorizes a *class of requests* rather than a single concrete request. It signs only specified components, so a single signature can apply to any request matching those components:
+- A signature covering only `@authority` works for any endpoint on that domain
+- Reduces signing and verification overhead for high-frequency, low-risk operations
+- Enables broad authorization patterns (e.g., "any GET on this API")
+
+The signer chooses to produce a class-bound signature, but **the verifier decides whether to accept it**. By default, verifiers reject class-bound signatures — they must explicitly opt in via `requiredComponents`. See [Request Binding](/concepts/request-binding#class-bound-signatures) for details.
 
 :::warning
-Class-bound is less secure and optional. Request-bound should be the default.
+Class-bound weakens request integrity. Only accept when the unsigned components don't affect authorization.
 :::
 
 ## Replay Protection

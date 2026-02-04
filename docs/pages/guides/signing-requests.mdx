@@ -143,23 +143,33 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Class-Bound]
-// For signing only specific components
-// (e.g., authorization that works across multiple endpoints)
+// Signs only specified components — authorizes a class of requests
 const signedRequest = await signRequest(
   'https://api.example.com/any-endpoint',
   signer,
   {
     binding: 'class-bound',
     components: ['@authority'],  // Only sign the domain
-    replay: 'replayable',        // Often combined
+    replay: 'replayable',        // Often combined for performance
   }
 )
 ```
 
 :::
 
+### Class-Bound
+
+Class-bound signatures authorize a *class of requests* rather than a single concrete request. By signing only specific components, a single signature can apply to multiple requests that match the signed components.
+
+This is useful when:
+- You want a single signature to work across multiple endpoints on the same domain
+- You're optimizing for performance in high-frequency scenarios
+- You're building delegation or session-like patterns
+
+When using `binding: 'class-bound'`, you must provide the `components` array explicitly. The library always includes `@authority` (required by the spec).
+
 :::warning
-Class-bound signatures are less secure. Only use when you understand the trade-offs.
+Class-bound signatures weaken request integrity — the verifier must explicitly opt in to accepting them. A server that only accepts request-bound signatures (the default) will reject class-bound signatures. See [Server Enforcement](/concepts/request-binding#server-enforcement-with-requiredcomponents) for how verifiers control this.
 :::
 
 ### Additional Components

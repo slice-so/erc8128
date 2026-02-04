@@ -127,17 +127,35 @@ const result = await verifyRequest(request, {
 
 :::
 
-### Custom Component Requirements
+### Required Components
 
-Require specific headers to be signed:
+By default, the verifier enforces that signatures are **request-bound** — covering `@authority`, `@method`, `@path`, plus `@query` and `content-digest` when the request has a query string or body. This rejects all class-bound signatures.
+
+Setting `requiredComponents` **replaces** this default check. The verifier only requires the specified components to appear in the signature, which is how you opt into accepting class-bound signatures:
 
 ```typescript
+// Default: rejects class-bound signatures (full request-bound check)
+const result = await verifyRequest(request, {
+  nonceStore,
+  verifyMessage: verifyMessageFn,
+})
+
+// Accept class-bound: only require @authority and @method
+const result = await verifyRequest(request, {
+  requiredComponents: ['@authority', '@method'],
+  nonceStore,
+  verifyMessage: verifyMessageFn,
+})
+
+// Require custom headers to be signed alongside standard components
 const result = await verifyRequest(request, {
   requiredComponents: ['@authority', '@method', '@path', 'x-idempotency-key'],
   nonceStore,
   verifyMessage: verifyMessageFn,
 })
 ```
+
+See [Server Enforcement](/concepts/request-binding#server-enforcement-with-requiredcomponents) for details on default behavior, custom components, and the difference between setting and not setting `requiredComponents`.
 
 ## Framework Integration
 
