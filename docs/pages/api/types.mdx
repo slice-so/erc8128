@@ -173,15 +173,10 @@ type VerifyPolicy = {
   strictLabel?: boolean
   
   /** 
-   * Override default required components. 
-   * The signer decides whether to produce a request-bound or class-bound signature.
-   * When not set, the verifier enforces the default request-bound check 
-   * (derived from request shape), which rejects class-bound signatures.
-   * When set, only the listed components must appear as an ordered 
-   * subsequence — this allows the verifier to accept class-bound signatures 
-   * while still requiring specific components. Request-bound signatures 
-   * also pass this check since they include more components.
-   * Can include custom headers (e.g., 'x-idempotency-key').
+   * Override default required components.
+   * When set, accepts class-bound signatures covering at least 
+   * these components (as an ordered subsequence), in addition to 
+   * request-bound ones. Can include custom headers (e.g., 'x-idempotency-key').
    */
   requiredComponents?: string[]
   

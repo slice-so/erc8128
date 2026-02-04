@@ -215,9 +215,7 @@ const result = await verifyRequest(request, {
 
 ### Setting `requiredComponents`
 
-When `requiredComponents` is set, it **replaces** the default request-bound check with a custom one. The verifier checks that the specified components appear as an ordered subsequence of the signed components.
-
-This is the mechanism for **accepting class-bound signatures alongside request-bound ones**. By specifying a subset of the default components, you tell the verifier the minimum components you require. Request-bound signatures still pass this check — since they include more components, they always satisfy the subsequence requirement. Class-bound signatures pass only if they cover at least the required components.
+When `requiredComponents` is set, it allows class-bound requests with the specified components, in addition to the default request-bound behaviour. The verifier checks that the specified components appear as an ordered subsequence of the signed components.
 
 ```typescript
 // Accept signatures that cover at least @authority and @method
