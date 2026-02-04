@@ -1,19 +1,19 @@
 ---
 const steps = [
   {
-    num: "01",
+    id: "sign",
     title: "Sign",
     description:
       "The client signs with their wallet the request details — method, URL, headers, body, etc."
   },
   {
-    num: "02",
+    id: "send",
     title: "Send",
     description:
       "The signed request is sent to the server, with the Ethereum address and signature attached."
   },
   {
-    num: "03",
+    id: "verify",
     title: "Verify",
     description:
       "The server validates the signature and authenticates the request."
@@ -21,31 +21,122 @@ const steps = [
 ]
 ---
 
-<section class="relative overflow-hidden border-b border-border px-4 py-20 md:px-12 md:py-20">
+
+
+<section class="relative overflow-hidden border-b border-border px-4 py-24 md:px-12 md:py-32">
   <!-- Grid background -->
   <div class="absolute inset-0 opacity-10 pointer-events-none bg-grid"></div>
   
   <div class="max-w-7xl mx-auto relative z-10">
-    <div class="mb-12">
+    <div class="mb-16 md:mb-20">
       <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
         <span class="block w-4 h-4 bg-white"></span>
         Request Lifecycle
       </div>
     </div>
 
-    <div class="relative grid grid-cols-1 md:grid-cols-3 gap-12 stagger-children">
-      <!-- Connecting line (desktop only) -->
-      <div class="hidden md:block absolute top-8 left-0 w-full h-px bg-white/30 -z-10"></div>
+    <div class="relative grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-8 stagger-children">
+      <!-- Flowing connection line (desktop only) -->
+      <svg class="connection-line hidden md:block absolute top-[70px] left-[16.67%] w-[66.67%] h-12 -z-10" viewBox="0 0 600 40" preserveAspectRatio="none">
+        <path class="flow-path" d="M0 20 Q150 20, 150 20 T300 20 T450 20 T600 20" stroke="rgba(255,255,255,0.2)" stroke-width="1" fill="none"/>
+        <circle class="flow-dot flow-dot-1" r="3" fill="white">
+          <animateMotion dur="3s" repeatCount="indefinite" path="M0 20 Q150 20, 150 20 T300 20 T450 20 T600 20"/>
+        </circle>
+        <circle class="flow-dot flow-dot-2" r="2" fill="white" opacity="0.5">
+          <animateMotion dur="3s" repeatCount="indefinite" begin="1s" path="M0 20 Q150 20, 150 20 T300 20 T450 20 T600 20"/>
+        </circle>
+      </svg>
       
       {
         steps.map((step) => (
           <div class="relative animate-in group">
-            <div class="relative z-10 mb-8 flex h-16 w-16 items-center justify-center rounded-full border border-border bg-bg transition-all duration-300 group-hover:bg-white group-hover:text-black">
-              <span class="font-mono text-xl font-bold">{step.num}</span>
+            <!-- Illustration container -->
+            <div class="illustration-container relative h-36 md:h-40 mb-8 flex items-center justify-center">
+              
+              {step.id === "sign" && (
+                <div class="sign-illustration relative w-full h-full">
+                  <svg class="w-full h-full" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Document -->
+                    <g class="signed-doc">
+                      <rect x="20" y="28" width="76" height="104" rx="10" stroke="white" stroke-width="1.5" fill="none"/>
+                      <path d="M38 48H78M38 60H72M38 72H76" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+                      <path class="signature-stroke" d="M38 94 Q52 84, 66 92 T92 88" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                      <rect class="signed-badge" x="32" y="108" width="52" height="14" rx="7" stroke="white" stroke-width="1" fill="none" opacity="0.7"/>
+                      <text x="58" y="118" font-family="monospace" font-size="7" fill="white" text-anchor="middle" opacity="0.7">SIGNED</text>
+                    </g>
+
+                    <!-- ECDSA hint curve -->
+                    <path class="ecdsa-curve" d="M104 36C136 8 176 40 166 80C160 112 120 120 112 88C108 68 140 60 158 72" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                    <circle class="curve-dot" r="3" fill="white">
+                      <animateMotion dur="3.2s" repeatCount="indefinite" path="M104 36C136 8 176 40 166 80C160 112 120 120 112 88C108 68 140 60 158 72"/>
+                    </circle>
+                    <path class="doc-flow" d="M96 122H168" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="6 10" opacity="0.35"/>
+                  </svg>
+                </div>
+              )}
+              
+              {step.id === "send" && (
+                <div class="send-illustration relative w-full h-full">
+                  <svg class="w-full h-full" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Incoming signed element -->
+                    <g class="inbound-doc">
+                      <rect x="22" y="52" width="40" height="50" rx="6" stroke="white" stroke-width="1.5" fill="none"/>
+                      <path d="M48 52L62 66H48V52Z" stroke="white" stroke-width="1.2" fill="none"/>
+                      <path d="M28 70H54M28 78H50" stroke="white" stroke-width="1.1" stroke-linecap="round" opacity="0.6"/>
+                      <path class="doc-seal" d="M30 92L36 98L48 84" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </g>
+
+                    <path class="transfer-line" d="M62 78H112" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="6 10" opacity="0.35"/>
+
+                    <!-- Machine / server -->
+                    <g class="server-machine">
+                      <rect x="112" y="40" width="70" height="80" rx="10" stroke="white" stroke-width="1.5" fill="none"/>
+                      <rect x="122" y="52" width="50" height="10" rx="5" stroke="white" stroke-width="1" fill="none" opacity="0.5"/>
+                      <rect x="122" y="70" width="50" height="10" rx="5" stroke="white" stroke-width="1" fill="none" opacity="0.5"/>
+                      <rect x="122" y="88" width="34" height="10" rx="5" stroke="white" stroke-width="1" fill="none" opacity="0.5"/>
+                      <circle class="machine-light" cx="168" cy="98" r="3" fill="white" opacity="0.6"/>
+                      <path class="machine-port" d="M168 70H176" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+                    </g>
+
+                    <!-- Signal to security -->
+                    <path class="signal-path" d="M146 120H186" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="6 10" opacity="0.35"/>
+                    <circle class="signal-dot" r="2.2" fill="white">
+                      <animateMotion dur="2.4s" repeatCount="indefinite" path="M146 120H186"/>
+                    </circle>
+                  </svg>
+                </div>
+              )}
+              
+              {step.id === "verify" && (
+                <div class="verify-illustration relative w-full h-full">
+                  <svg class="w-full h-full" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Shield -->
+                    <g class="verify-core">
+                      <path class="shield-outer" d="M96 26L54 44V76C54 102 72 124 96 134C120 124 138 102 138 76V44L96 26Z" stroke="white" stroke-width="1.6" fill="none"/>
+                      <path class="shield-inner" d="M96 40L70 52V76C70 94 82 110 96 116C110 110 122 94 122 76V52L96 40Z" stroke="white" stroke-width="0.8" fill="none" opacity="0.35"/>
+                      <path class="check-mark" d="M82 78L94 90L116 64" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </g>
+
+                    <!-- Identity line -->
+                    <rect class="identity-pill" x="28" y="128" width="120" height="18" rx="9" stroke="white" stroke-width="1.2" fill="none" opacity="0.7"/>
+                    <text class="identity-text" x="88" y="140" font-family="monospace" font-size="9" fill="white" text-anchor="middle" opacity="0">0x71C...3A</text>
+
+                    <!-- Verified badge -->
+                    <g class="identity-badge">
+                      <circle cx="160" cy="137" r="10" stroke="white" stroke-width="1.2" fill="none"/>
+                      <path d="M156 137L159 140L165 132" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </g>
+
+                    <!-- Subtle check halo -->
+                    <circle class="verify-halo" cx="96" cy="78" r="44" stroke="white" stroke-width="0.6" fill="none" opacity="0.12"/>
+                  </svg>
+                </div>
+              )}
             </div>
-            <div class="border-l-2 border-white pl-4 md:border-l-0 md:pl-0">
-              <h3 class="text-lg font-bold uppercase mb-3">{step.title}</h3>
-              <p class="text-base opacity-70 leading-[1.7]">{step.description}</p>
+            
+            <div class="border-l-2 border-white/50 pl-4 md:border-l-0 md:pl-0 md:text-center">
+              <h3 class="text-lg font-bold uppercase mb-3 tracking-wide">{step.title}</h3>
+              <p class="text-base opacity-60 leading-[1.7] max-w-xs md:mx-auto">{step.description}</p>
             </div>
           </div>
         ))
@@ -60,5 +151,197 @@ const steps = [
       linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
     background-size: 40px 40px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SIGN ILLUSTRATION
+     ═══════════════════════════════════════════════════════════ */
+  
+  .sign-illustration .signature-stroke {
+    stroke-dasharray: 90;
+    stroke-dashoffset: 90;
+    animation: sign-stroke 3.2s ease-in-out infinite;
+  }
+
+  @keyframes sign-stroke {
+    0% { stroke-dashoffset: 90; opacity: 0; }
+    20% { opacity: 1; }
+    60% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0.3; }
+  }
+
+  .sign-illustration .curve-dot {
+    animation: dot-pulse 3.2s ease-in-out infinite;
+  }
+
+  @keyframes dot-pulse {
+    0%, 40% { opacity: 0.4; }
+    60% { opacity: 1; }
+    100% { opacity: 0.2; }
+  }
+
+  .sign-illustration .ecdsa-curve {
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    animation: curve-draw 3.2s ease-in-out infinite;
+  }
+
+  @keyframes curve-draw {
+    0% { stroke-dashoffset: 220; opacity: 0; }
+    25% { opacity: 0.9; }
+    70% { stroke-dashoffset: 0; opacity: 0.9; }
+    100% { stroke-dashoffset: 0; opacity: 0.2; }
+  }
+
+  .sign-illustration .signed-doc {
+    animation: doc-breathe 3.6s ease-in-out infinite;
+  }
+
+  @keyframes doc-breathe {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+  }
+
+  .sign-illustration .doc-flow {
+    animation: flow-dash 1.8s linear infinite;
+  }
+
+  @keyframes flow-dash {
+    to { stroke-dashoffset: -28; }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     SEND ILLUSTRATION
+     ═══════════════════════════════════════════════════════════ */
+  
+  .send-illustration .inbound-doc {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: inbound-slide 3.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  @keyframes inbound-slide {
+    0% { transform: translateX(0); opacity: 0.1; }
+    25% { opacity: 1; }
+    60% { transform: translateX(14px); opacity: 1; }
+    100% { transform: translateX(14px); opacity: 0; }
+  }
+
+  .send-illustration .transfer-line {
+    animation: transfer-dash 1.8s linear infinite;
+  }
+
+  @keyframes transfer-dash {
+    to { stroke-dashoffset: -28; }
+  }
+
+  .send-illustration .machine-light {
+    animation: machine-light 2.6s ease-in-out infinite;
+  }
+
+  @keyframes machine-light {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.9; }
+  }
+
+  .send-illustration .server-machine {
+    animation: machine-glow 3.2s ease-in-out infinite;
+  }
+
+  @keyframes machine-glow {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
+    50% { filter: drop-shadow(0 0 10px rgba(255,255,255,0.25)); }
+  }
+
+  .send-illustration .signal-path {
+    animation: signal-dash 1.6s linear infinite;
+  }
+
+  @keyframes signal-dash {
+    to { stroke-dashoffset: -24; }
+  }
+
+  .send-illustration .signal-dot {
+    animation: signal-fade 2.4s ease-in-out infinite;
+  }
+
+  @keyframes signal-fade {
+    0%, 20% { opacity: 0.2; }
+    50% { opacity: 1; }
+    100% { opacity: 0.2; }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     VERIFY ILLUSTRATION
+     ═══════════════════════════════════════════════════════════ */
+  
+  .verify-illustration .check-mark {
+    stroke-dasharray: 70;
+    stroke-dashoffset: 70;
+    animation: verify-check 3.2s ease-out infinite;
+  }
+
+  @keyframes verify-check {
+    0%, 45% { stroke-dashoffset: 70; opacity: 0; }
+    65% { opacity: 1; }
+    90%, 100% { stroke-dashoffset: 0; opacity: 1; }
+  }
+
+  .verify-illustration .identity-text {
+    animation: identity-show 3.2s ease-out infinite;
+  }
+
+  @keyframes identity-show {
+    0%, 55% { opacity: 0; transform: translateY(4px); }
+    75%, 95% { opacity: 0.85; transform: translateY(0); }
+    100% { opacity: 0; }
+  }
+
+  .verify-illustration .identity-pill {
+    animation: pill-glow 3.2s ease-out infinite;
+  }
+
+  @keyframes pill-glow {
+    0%, 55% { opacity: 0.2; }
+    75% { opacity: 0.7; }
+    100% { opacity: 0.2; }
+  }
+
+  .verify-illustration .identity-badge {
+    animation: badge-pop 3.2s ease-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @keyframes badge-pop {
+    0%, 60% { transform: scale(0.9); opacity: 0; }
+    75% { transform: scale(1); opacity: 0.9; }
+    100% { transform: scale(1); opacity: 0.2; }
+  }
+
+  .verify-illustration .verify-halo {
+    animation: halo-fade 3.2s ease-out infinite;
+  }
+
+  @keyframes halo-fade {
+    0%, 55% { opacity: 0; }
+    75% { opacity: 0.12; }
+    100% { opacity: 0; }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     HOVER STATES
+     ═══════════════════════════════════════════════════════════ */
+  
+  .illustration-container {
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .group:hover .illustration-container {
+    transform: scale(1.05);
+  }
+
+  .group:hover .illustration-container svg {
+    filter: drop-shadow(0 0 20px rgba(255,255,255,0.15));
   }
 </style>
