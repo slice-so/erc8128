@@ -4,24 +4,24 @@ const steps = [
     num: "01",
     title: "Sign",
     description:
-      "The client signs the request details—method, URL, headers, body—with their Ethereum identity."
+      "The client signs with their wallet the request details — method, URL, headers, body, etc."
   },
   {
     num: "02",
     title: "Send",
     description:
-      "The signed request is sent with the Ethereum address and signature attached. No prior registration required."
+      "The signed request is sent to the server, with the Ethereum address and signature attached."
   },
   {
     num: "03",
     title: "Verify",
     description:
-      "The server recovers the signer's address and authenticates the request. Identity verified, zero handshake."
+      "The server validates the signature and authenticates the request."
   }
 ]
 ---
 
-<section class="border-b border-border py-20 px-4 md:py-20 md:px-12 relative overflow-hidden">
+<section class="relative overflow-hidden border-b border-border px-4 py-20 md:px-12 md:py-20">
   <!-- Grid background -->
   <div class="absolute inset-0 opacity-10 pointer-events-none bg-grid"></div>
   
@@ -40,7 +40,7 @@ const steps = [
       {
         steps.map((step) => (
           <div class="relative animate-in group">
-            <div class="w-16 h-16 bg-bg border border-border rounded-full flex items-center justify-center mb-8 z-10 relative transition-all duration-300 group-hover:bg-white group-hover:text-black">
+            <div class="relative z-10 mb-8 flex h-16 w-16 items-center justify-center rounded-full border border-border bg-bg transition-all duration-300 group-hover:bg-white group-hover:text-black">
               <span class="font-mono text-xl font-bold">{step.num}</span>
             </div>
             <div class="border-l-2 border-white pl-4 md:border-l-0 md:pl-0">

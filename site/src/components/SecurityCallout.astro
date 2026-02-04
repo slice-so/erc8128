@@ -7,7 +7,7 @@
       <h2 class="text-[clamp(2rem,5vw,3.5rem)] font-bold uppercase -tracking-[0.02em] mb-6">
         Secure by Design
       </h2>
-      <p class="text-xl leading-[1.8] opacity-70 max-w-[44rem] mx-auto">
+      <p class="text-xl leading-[1.8] opacity-70 max-w-176 mx-auto">
         Traditional authentication places security policy on the server. ERC-8128 inverts that model: 
         the signer chooses the exact cryptographic guarantees attached to each request.
       </p>
@@ -16,7 +16,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
       <!-- Request Binding -->
       <div class="border border-border-subtle p-8 bg-bg/50">
-        <div class="font-mono text-sm opacity-50 uppercase tracking-[0.1em] mb-4">Dimension 1</div>
+        <div class="font-mono text-sm opacity-50 uppercase tracking-widest mb-4">Dimension 1</div>
         <h3 class="text-2xl font-bold uppercase mb-4">Request Binding</h3>
         <p class="text-base opacity-70 leading-[1.7] mb-6">
           How tightly a signature is bound to a specific request.
@@ -41,7 +41,7 @@
 
       <!-- Replay Protection -->
       <div class="border border-border-subtle p-8 bg-bg/50">
-        <div class="font-mono text-sm opacity-50 uppercase tracking-[0.1em] mb-4">Dimension 2</div>
+        <div class="font-mono text-sm opacity-50 uppercase tracking-widest mb-4">Dimension 2</div>
         <h3 class="text-2xl font-bold uppercase mb-4">Replay Protection</h3>
         <p class="text-base opacity-70 leading-[1.7] mb-6">
           Whether a signature can be validly reused.
@@ -66,7 +66,7 @@
     </div>
 
     <div class="text-center border-t border-border-subtle pt-12">
-      <p class="text-lg opacity-70 max-w-[36rem] mx-auto mb-8">
+      <p class="text-lg opacity-70 max-w-xl mx-auto mb-8">
         The baseline requirement enforces both <span class="text-white font-semibold">Request-Bound</span> and <span class="text-white font-semibold">Non-Replayable</span> for maximum security. 
         Any compliant verifier must accept this posture.
       </p>

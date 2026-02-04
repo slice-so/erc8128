@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v4 theme tokens */
+@theme {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-text-dimmer: var(--text-dimmer);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-code-bg: var(--code-bg);
+  --color-code-border: var(--code-border);
+  --color-accent-v2: var(--accent-v2);
+  --color-accent-border-v2: var(--accent-border-v2);
+  --color-accent-dim-v2: var(--accent-dim-v2);
+  --color-border-v2: var(--border-v2);
+  --color-surface-v2: var(--surface-v2);
+  --color-surface-elevated-v2: var(--surface-elevated-v2);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+}
+
 /* ── Base layer overrides ───────────────────────────── */
 @layer base {
   :root {

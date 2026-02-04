@@ -1,10 +1,16 @@
 ---
 const features = [
   {
-    title: "Identity-Native Auth",
+    title: "Request Integrity",
+    description:
+      "Signatures cryptographically bind to the HTTP request itself. Any tampering with method, path, query, or body causes verification to fail immediately.",
+    icon: "shield"
+  },
+  {
+    title: "Universal Identity",
     description:
       "Your Ethereum address is your identity. ERC-8128 turns it into a web-native credential—no middleware, no token exchange, no enrollment. If you have a wallet, you can authenticate.",
-    icon: "identity"
+    icon: "ethereum"
   },
   {
     title: "No Bearer Credentials",
@@ -13,15 +19,9 @@ const features = [
     icon: "key-off"
   },
   {
-    title: "Composable Protocol Layer",
-    description:
-      "ERC-8128 handles authentication. What you build on top is up to you—authorization, rate limiting, reputation, payments. A minimal, unopinionated foundation for any HTTP-based protocol.",
-    icon: "layers"
-  },
-  {
     title: "Agent-Ready",
     description:
-      "Purpose-built for autonomous systems. AI agents, bots, and services authenticate with on-chain identities. Pairs naturally with identity registries like ERC-8004 (Trustless Agents) for verifiable agent-to-agent communication.",
+      "Purpose-built for machine-to-machine communication, including autonomous systems. AI agents, bots, and services authenticate with onchain identities. Pairs naturally with identity registries like ERC-8004 (Trustless Agents) for verifiable agent-to-agent communication.",
     icon: "bot"
   }
 ]
@@ -32,12 +32,10 @@ const features = [
     features.map((feature, i) => (
       <div class={`p-10 flex flex-col h-full border-b border-border transition-colors duration-300 hover:bg-surface-elevated lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-border' : ''} ${i % 2 === 0 ? 'md:border-r md:border-border md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
         <div class="mb-8 opacity-35 text-white transition-opacity duration-300 group-hover:opacity-100 feature-icon">
-          {feature.icon === "identity" && (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Identity-native authentication">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-              <path d="M12 14l-1.5 1.5"/>
-              <path d="M12 14l1.5 1.5"/>
+          {feature.icon === "shield" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Cryptographic signature verification shield">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12l2 2 4-4"/>
             </svg>
           )}
           {feature.icon === "key-off" && (
@@ -46,11 +44,11 @@ const features = [
               <line x1="2" y1="2" x2="22" y2="22" stroke-width="2"/>
             </svg>
           )}
-          {feature.icon === "layers" && (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Composable protocol layer">
-              <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-              <polyline points="2 17 12 22 22 17"/>
-              <polyline points="2 12 12 17 22 12"/>
+          {feature.icon === "ethereum" && (
+             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Ethereum wallet-based authentication">
+              <polygon points="12,2 4,12 12,16 20,12"/>
+              <polygon points="4,12 12,22 20,12 12,16"/>
+              <line x1="12" y1="2" x2="12" y2="16"/>
             </svg>
           )}
           {feature.icon === "bot" && (

@@ -1,4 +1,4 @@
-<section class="border-b border-border py-20 px-8 md:py-20 md:px-12">
+<section class="border-b border-border px-8 py-20 md:px-12 md:py-20">
   <div class="max-w-4xl mx-auto">
     <div class="mb-12">
       <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
@@ -9,12 +9,12 @@
 
     <div class="relative">
       <div class="flex gap-0 -mb-px relative z-10">
-        <button class="code-tab active px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-[250ms] tracking-[0.02em] hover:text-text data-[active]:text-text data-[active]:bg-code-bg data-[active]:border-code-border" data-tab="sign">Sign (Client)</button>
-        <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-[250ms] tracking-[0.02em] hover:text-text data-[active]:text-text data-[active]:bg-code-bg data-[active]:border-code-border" data-tab="verify">Verify (Server)</button>
+        <button class="code-tab active px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text data-active:text-text data-active:bg-code-bg data-active:border-code-border" data-tab="sign">Sign (Client)</button>
+        <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text data-active:text-text data-active:bg-code-bg data-active:border-code-border" data-tab="verify">Verify (Server)</button>
       </div>
 
       <div class="code-block active bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto hidden animate-fade-in relative" data-tab="sign">
-        <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-[250ms] flex items-center z-10 hover:text-white hover:bg-white/10" data-code="sign" title="Copy code" aria-label="Copy code">
+        <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center z-10 hover:text-white hover:bg-white/10" data-code="sign" title="Copy code" aria-label="Copy code">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2"></rect>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
@@ -38,7 +38,7 @@
       </div>
 
       <div class="code-block bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto hidden animate-fade-in relative" data-tab="verify">
-        <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-[250ms] flex items-center z-10 hover:text-white hover:bg-white/10" data-code="verify" title="Copy code" aria-label="Copy code">
+        <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center z-10 hover:text-white hover:bg-white/10" data-code="verify" title="Copy code" aria-label="Copy code">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2"></rect>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
@@ -65,7 +65,7 @@
     <!-- Install bar -->
     <div class="flex items-center justify-between bg-code-bg border border-code-border rounded-xl px-6 py-4.5 mt-5 font-mono text-sm transition-colors duration-300 hover:border-white/40">
       <code class="text-white/60"><span class="text-accent-v2 mr-2">$</span> npm install @slicekit/erc8128</code>
-      <button class="copy-btn bg-transparent border-none text-white/50 cursor-pointer p-1.5 rounded-md transition-all duration-[250ms] flex items-center hover:text-accent-v2 hover:bg-accent-v2/10" title="Copy install command" aria-label="Copy install command">
+      <button class="copy-btn bg-transparent border-none text-white/50 cursor-pointer p-1.5 rounded-md transition-all duration-250 flex items-center hover:text-accent-v2 hover:bg-accent-v2/10" title="Copy install command" aria-label="Copy install command">
         <svg
           width="16"
           height="16"
