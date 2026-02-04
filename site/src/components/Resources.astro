@@ -27,110 +27,27 @@ const resources = [
 ]
 ---
 
-<section class="resources">
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-border text-sm">
   {
     resources.map((r, i) => (
       <a
         href={r.href}
-        class={`resource-cell ${i < resources.length - 1 ? 'resource-cell-border' : ''}`}
+        class={`block p-10 text-text border-b border-border transition-colors duration-300 no-underline hover:bg-surface-elevated hover:opacity-100 lg:border-b-0 last:border-b-0 ${i < resources.length - 1 ? 'lg:border-r lg:border-border' : ''} ${i % 2 === 0 ? 'md:border-r md:border-border md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}
         target="_blank"
         rel="noopener noreferrer"
       >
-        <div class="resource-label">{r.label}</div>
-        <div class="resource-title">{r.title}</div>
-        <p>{r.desc}</p>
-        <div class="resource-arrow">→</div>
+        <div class="font-mono text-xs opacity-50 mb-6 transition-all duration-300 hover:text-white hover:opacity-100 resource-label">{r.label}</div>
+        <div class="text-xl font-bold mb-3">{r.title}</div>
+        <p class="text-base opacity-60 leading-[1.7]">{r.desc}</p>
+        <div class="mt-8 text-lg">→</div>
       </a>
     ))
   }
 </section>
 
 <style>
-  .resources {
-    display: grid;
-    grid-template-columns: 1fr;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.875rem;
-  }
-
-  @media (min-width: 768px) {
-    .resources {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .resources {
-      grid-template-columns: repeat(4, 1fr);
-    }
-  }
-
-  .resource-cell {
-    display: block;
-    padding: 2.5rem;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    transition: background 0.3s ease;
-    text-decoration: none;
-  }
-
-  @media (min-width: 768px) and (max-width: 1023px) {
-    .resource-cell:nth-child(odd) {
-      border-right: 1px solid var(--border);
-    }
-    .resource-cell:nth-child(3),
-    .resource-cell:nth-child(4) {
-      border-bottom: none;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .resource-cell {
-      border-bottom: none;
-    }
-
-    .resource-cell-border {
-      border-right: 1px solid var(--border);
-    }
-  }
-
-  .resource-cell:last-child {
-    border-bottom: none;
-  }
-
-  .resource-cell:hover {
-    background: var(--surface-elevated);
-    opacity: 1;
-  }
-
-  .resource-label {
-    font-family: var(--mono);
-    font-size: 0.75rem;
-    opacity: 0.5;
-    margin-bottom: 1.5rem;
-    transition: color 0.3s ease;
-  }
-
-  .resource-cell:hover .resource-label {
+  a:hover .resource-label {
     color: white;
-    opacity: 1;
-  }
-
-  .resource-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin-bottom: 0.75rem;
-  }
-
-  p {
-    font-size: 1rem;
-    opacity: 0.6;
-    line-height: 1.7;
-  }
-
-  .resource-arrow {
-    margin-top: 2rem;
-    font-size: 1.125rem;
     opacity: 1;
   }
 </style>

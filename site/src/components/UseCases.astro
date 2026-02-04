@@ -1,0 +1,52 @@
+---
+const useCases = [
+  {
+    title: "AI Agents Calling APIs",
+    description:
+      "Agents authenticate to any ERC-8128 endpoint using their on-chain identity. No API keys to provision, rotate, or revoke. The agent's address is the credential."
+  },
+  {
+    title: "Keyless API Access",
+    description:
+      "Replace API key management with wallet-based auth. Consumers sign requests directly—servers verify the signature and look up permissions by address."
+  },
+  {
+    title: "Cross-Service Auth Without Signups",
+    description:
+      "One identity, every service. Users authenticate to new APIs and platforms without creating accounts. The server sees a verified Ethereum address on every request."
+  },
+  {
+    title: "Machine-to-Machine Auth",
+    description:
+      "Autonomous services, bots, and infrastructure authenticate to each other with cryptographic identity. No shared secrets, no certificate authorities, no manual key distribution."
+  }
+]
+---
+
+<section class="border-b border-border py-20 px-4 md:py-20 md:px-12 relative overflow-hidden">
+  <div class="max-w-7xl mx-auto relative z-10">
+    <div class="mb-12">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
+        Use Cases
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
+      {
+        useCases.map((useCase, i) => (
+          <div class={`p-10 flex flex-col transition-colors duration-300 hover:bg-surface-elevated ${
+            i % 2 === 0 ? 'md:border-r border-border' : ''
+          } ${
+            i < 2 ? 'border-b border-border' : ''
+          } ${
+            i < useCases.length - 1 ? 'max-md:border-b max-md:border-border' : ''
+          }`}>
+            <h3 class="text-xl font-bold uppercase mb-4">{useCase.title}</h3>
+            <p class="text-base opacity-70 leading-[1.7]">{useCase.description}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

@@ -1,71 +1,71 @@
-<section class="code-section">
-  <div class="code-container">
-    <div class="code-header">
-      <div class="code-label">
-        <span class="label-marker"></span>
+<section class="border-b border-border py-20 px-8 md:py-20 md:px-12">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-12">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
         Quick Start
       </div>
     </div>
 
-    <div class="code-wrapper">
-      <div class="code-tabs">
-        <button class="code-tab active" data-tab="sign">Sign (Client)</button>
-        <button class="code-tab" data-tab="verify">Verify (Server)</button>
+    <div class="relative">
+      <div class="flex gap-0 -mb-px relative z-10">
+        <button class="code-tab active px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-[250ms] tracking-[0.02em] hover:text-text data-[active]:text-text data-[active]:bg-code-bg data-[active]:border-code-border" data-tab="sign">Sign (Client)</button>
+        <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-[250ms] tracking-[0.02em] hover:text-text data-[active]:text-text data-[active]:bg-code-bg data-[active]:border-code-border" data-tab="verify">Verify (Server)</button>
       </div>
 
-      <div class="code-block active" data-tab="sign">
-        <button class="copy-code-btn" data-code="sign" title="Copy code" aria-label="Copy code">
+      <div class="code-block active bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto hidden animate-fade-in relative" data-tab="sign">
+        <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-[250ms] flex items-center z-10 hover:text-white hover:bg-white/10" data-code="sign" title="Copy code" aria-label="Copy code">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2"></rect>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
           </svg>
         </button>
-        <pre><code><span class="cm">// Create a client and sign requests</span>
-<span class="kw">import</span> {"{"} <span class="fn">createClient</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
-<span class="kw">import</span> {"{"} <span class="fn">privateKeyToAccount</span> {"}"} <span class="kw">from</span> <span class="str">'viem/accounts'</span>
+        <pre class="font-mono text-[13px] leading-[1.75] text-white/60"><code><span class="code-cm">// Create a client and sign requests</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createClient</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">privateKeyToAccount</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'viem/accounts'</span>
 
-<span class="kw">const</span> account = <span class="fn">privateKeyToAccount</span>(<span class="str">'0x...'</span>)
-<span class="kw">const</span> client = <span class="fn">createClient</span>({"{"}
-  chainId: <span class="num">1</span>,
+<span class="code-kw">const</span> account = <span class="code-fn">privateKeyToAccount</span>(<span class="code-str">'0x...'</span>)
+<span class="code-kw">const</span> client = <span class="code-fn">createClient</span>({"{"}
+  chainId: <span class="code-num">1</span>,
   address: account.address,
-  signMessage: (msg) =&gt; account.<span class="fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
+  signMessage: (msg) =&gt; account.<span class="code-fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
 {"}"})
 
-<span class="kw">const</span> response = <span class="kw">await</span> client.<span class="fn">fetch</span>(
-  <span class="str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="str">'POST'</span>,
-  body: <span class="fn">JSON.stringify</span>({"{"} amount: <span class="str">'100'</span> {"}"}),
+<span class="code-kw">const</span> response = <span class="code-kw">await</span> client.<span class="code-fn">fetch</span>(
+  <span class="code-str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="code-str">'POST'</span>,
+  body: <span class="code-fn">JSON.stringify</span>({"{"} amount: <span class="code-str">'100'</span> {"}"}),
 {"}"})</code></pre>
       </div>
 
-      <div class="code-block" data-tab="verify">
-        <button class="copy-code-btn" data-code="verify" title="Copy code" aria-label="Copy code">
+      <div class="code-block bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto hidden animate-fade-in relative" data-tab="verify">
+        <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-[250ms] flex items-center z-10 hover:text-white hover:bg-white/10" data-code="verify" title="Copy code" aria-label="Copy code">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2"></rect>
             <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
           </svg>
         </button>
-        <pre><code><span class="cm">// Verify incoming signed requests</span>
-<span class="kw">import</span> {"{"} <span class="fn">verifyRequest</span> {"}"} <span class="kw">from</span> <span class="str">'@slicekit/erc8128'</span>
-<span class="kw">import</span> {"{"} <span class="fn">createPublicClient</span>, <span class="fn">http</span> {"}"} <span class="kw">from</span> <span class="str">'viem'</span>
-<span class="kw">import</span> {"{"} mainnet {"}"} <span class="kw">from</span> <span class="str">'viem/chains'</span>
+        <pre class="font-mono text-[13px] leading-[1.75] text-white/60"><code><span class="code-cm">// Verify incoming signed requests</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">verifyRequest</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createPublicClient</span>, <span class="code-fn">http</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'viem'</span>
+<span class="code-kw">import</span> {"{"} mainnet {"}"} <span class="code-kw">from</span> <span class="code-str">'viem/chains'</span>
 
-<span class="kw">const</span> viemClient = <span class="fn">createPublicClient</span>({"{"}<br />  chain: mainnet,
-  transport: <span class="fn">http</span>(),
+<span class="code-kw">const</span> viemClient = <span class="code-fn">createPublicClient</span>({"{"}<br />  chain: mainnet,
+  transport: <span class="code-fn">http</span>(),
 {"}"})
 
-<span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">verifyRequest</span>(request, {"{"}<br />  nonceStore,
+<span class="code-kw">const</span> result = <span class="code-kw">await</span> <span class="code-fn">verifyRequest</span>(request, {"{"}<br />  nonceStore,
   verifyMessage: viemClient.verifyMessage,
 {"}"})
 
-<span class="kw">if</span> (result.ok) {"{"}<br />  console.<span class="fn">log</span>(<span class="str">`Authenticated: <span class="kw">${"{"}</span>result.address<span class="kw">{"}"}</span>`</span>)
+<span class="code-kw">if</span> (result.ok) {"{"}<br />  console.<span class="code-fn">log</span>(<span class="code-str">`Authenticated: <span class="code-kw">${"{"}</span>result.address<span class="code-kw">{"}"}</span>`</span>)
 {"}"}</code></pre>
       </div>
     </div>
 
     <!-- Install bar -->
-    <div class="install-bar">
-      <code><span class="install-prefix">$</span> npm install @slicekit/erc8128</code>
-      <button class="copy-btn" title="Copy install command" aria-label="Copy install command">
+    <div class="flex items-center justify-between bg-code-bg border border-code-border rounded-xl px-6 py-4.5 mt-5 font-mono text-sm transition-colors duration-300 hover:border-white/40">
+      <code class="text-white/60"><span class="text-accent-v2 mr-2">$</span> npm install @slicekit/erc8128</code>
+      <button class="copy-btn bg-transparent border-none text-white/50 cursor-pointer p-1.5 rounded-md transition-all duration-[250ms] flex items-center hover:text-accent-v2 hover:bg-accent-v2/10" title="Copy install command" aria-label="Copy install command">
         <svg
           width="16"
           height="16"
@@ -83,176 +83,23 @@
 </section>
 
 <style>
-  .code-section {
-    border-bottom: 1px solid var(--border);
-    padding: 5rem 2rem;
-  }
-
-  @media (min-width: 768px) {
-    .code-section {
-      padding: 5rem 3rem;
-    }
-  }
-
-  .code-container {
-    max-width: 56rem;
-    margin: 0 auto;
-  }
-
-  .code-header {
-    margin-bottom: 3rem;
-  }
-
-  .code-label {
-    font-size: 1.25rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .label-marker {
+  .code-block.active {
     display: block;
-    width: 1rem;
-    height: 1rem;
-    background: white;
   }
-
-  .code-wrapper {
-    position: relative;
-  }
-
-  .code-tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: -1px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .code-tab {
-    padding: 0.75rem 1.5rem;
-    font-family: var(--mono);
-    font-size: 0.8125rem;
-    color: rgba(255, 255, 255, 0.5);
-    background: transparent;
-    border: 1px solid transparent;
-    border-bottom: none;
-    border-radius: var(--radius) var(--radius) 0 0;
-    cursor: pointer;
-    transition: all 0.25s var(--ease);
-    letter-spacing: 0.02em;
-  }
-
-  .code-tab:hover {
-    color: var(--text);
-  }
-
+  
   .code-tab.active {
     color: var(--text);
     background: var(--code-bg);
     border-color: var(--code-border);
   }
 
-  .code-block {
-    background: var(--code-bg);
-    border: 1px solid var(--code-border);
-    border-radius: 0 var(--radius) var(--radius) var(--radius);
-    padding: 2rem;
-    overflow-x: auto;
-    display: none;
-    animation: fadeIn 0.3s var(--ease);
-    position: relative;
-  }
-
-  .code-block.active {
-    display: block;
-  }
-
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
-
-  .code-block pre {
-    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-    font-size: 13px;
-    line-height: 1.75;
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  .code-block :global(.kw) { color: #c084fc; }
-  .code-block :global(.fn) { color: #60a5fa; }
-  .code-block :global(.str) { color: #34d399; }
-  .code-block :global(.cm) { color: #4a4a50; }
-  .code-block :global(.ty) { color: #f472b6; }
-  .code-block :global(.num) { color: #fbbf24; }
-
-  .copy-code-btn {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.3);
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 6px;
-    transition: all 0.25s var(--ease);
-    display: flex;
-    align-items: center;
-    z-index: 2;
-  }
-
-  .copy-code-btn:hover {
-    color: white;
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .install-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--code-bg);
-    border: 1px solid var(--code-border);
-    border-radius: var(--radius);
-    padding: 1.125rem 1.5rem;
-    margin-top: 1.25rem;
-    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-    font-size: 0.875rem;
-    transition: border-color 0.3s var(--ease);
-  }
-
-  .install-bar:hover {
-    border-color: rgba(255, 255, 255, 0.4);
-  }
-
-  .install-bar code {
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  .install-prefix {
-    color: #858aff;
-    margin-right: 0.5rem;
-  }
-
-  .copy-btn {
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.5);
-    cursor: pointer;
-    padding: 0.375rem;
-    border-radius: 6px;
-    transition: all 0.25s ease;
-    display: flex;
-    align-items: center;
-  }
-
-  .copy-btn:hover {
-    color: #858aff;
-    background: rgba(133, 138, 255, 0.1);
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s var(--ease);
   }
 </style>
 

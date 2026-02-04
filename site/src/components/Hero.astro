@@ -1,208 +1,53 @@
-<header class="hero">
-  <div class="hero-left">
+<header class="border-b border-border min-h-[85vh] relative overflow-hidden">
+  <div class="px-8 md:px-12 lg:px-16 py-16 flex flex-col justify-between relative z-[2] min-h-[85vh] lg:max-w-[45%] lg:border-r lg:border-border gap-6">
     <div>
-      <div class="accent-bar"></div>
-      <div class="hero-h1" aria-hidden="true">ERC<br />8128</div>
+      <div class="w-[clamp(120px,15vw,180px)] h-2.5 bg-white mb-8 mt-10"></div>
+      <div class="text-[clamp(4rem,8vw,8rem)] font-bold leading-[0.9] -tracking-[0.04em] uppercase" aria-hidden="true">ERC<br />8128</div>
     </div>
 
-    <div class="hero-bottom">
-      <p class="hero-subtitle">
-        Ethereum HTTP<br />
-        Authentication<br />
-        Standard
+    <div class="mt-12 lg:mt-0">
+      <p class="text-[clamp(1.75rem,3.5vw,2.25rem)] font-normal leading-[1.25] opacity-90 max-w-[28rem]">
+        Ethereum Identity<br />
+        for the Web
       </p>
-      <div class="hero-ctas">
+      <div class="flex flex-col gap-6 mt-8">
         <a
           href="https://erc8128-docs.vercel.app/"
-          class="hero-cta hero-cta-primary"
+          class="inline-flex items-center gap-2 font-extrabold text-base uppercase tracking-[0.06em] transition-opacity duration-[250ms] leading-none text-white opacity-90 hover:opacity-100"
           target="_blank"
           rel="noopener noreferrer"
         >
-          GET STARTED <span class="cta-arrow">→</span>
+          GET STARTED <span class="font-light">→</span>
         </a>
         <a
           href="https://github.com/ethereum/ERCs/pull/1478"
-          class="hero-cta hero-cta-secondary"
+          class="inline-flex items-center gap-2 font-extrabold text-base uppercase tracking-[0.06em] transition-all duration-[250ms] leading-none text-white/45 hover:text-white/80 hover:opacity-100"
           target="_blank"
           rel="noopener noreferrer"
         >
-          VIEW SPECIFICATION <span class="cta-arrow">↗</span>
+          VIEW SPECIFICATION <span class="font-light opacity-80">↗</span>
         </a>
       </div>
-      <div class="accent-bar accent-bar-bottom"></div>
     </div>
   </div>
 
   <div class="hero-globe">
-    <canvas id="dots"></canvas>
+    <canvas id="dots" class="absolute inset-0 w-full h-full opacity-70 lg:opacity-100 transition-opacity duration-300"></canvas>
   </div>
 </header>
 
 <style>
-  .hero {
-    display: grid;
-    grid-template-columns: 1fr;
-    border-bottom: 1px solid var(--border);
-    min-height: 85vh;
-    position: relative;
-  }
-
-  @media (min-width: 768px) {
-    .hero {
-      grid-template-columns: 1fr auto;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .hero {
-      grid-template-columns: 40% 60%;
-    }
-  }
-
-  .hero-left {
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    position: relative;
-    z-index: 2;
-  }
-
-  @media (min-width: 768px) {
-    .hero-left {
-      padding: 3rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .hero-left {
-      padding: 4rem;
-      border-right: 1px solid var(--border);
-    }
-  }
-
-  .accent-bar {
-    width: 120px;
-    height: 6px;
-    background: white;
-    margin-bottom: 2rem;
-    margin-top: 1rem;
-  }
-
-  @media (max-width: 767px) {
-    .accent-bar {
-      margin-top: 1.5rem;
-    }
-  }
-
-  .accent-bar-bottom {
-    margin-top: 2rem;
-    margin-bottom: 0;
-  }
-
-  /* ── Hero CTAs (text-only style) ── */
-  .hero-ctas {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    margin-top: 2.5rem;
-  }
-
-  .hero-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-weight: 800;
-    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    text-decoration: none;
-    transition: opacity 0.25s ease;
-    line-height: 1;
-  }
-
-  .hero-cta:hover {
-    opacity: 0.7;
-  }
-
-  .hero-cta-primary {
-    color: white;
-  }
-
-  .hero-cta-secondary {
-    color: rgba(255, 255, 255, 0.45);
-  }
-
-  .hero-cta-secondary:hover {
-    color: rgba(255, 255, 255, 0.7);
-    opacity: 1;
-  }
-
-  .cta-arrow {
-    font-weight: 300;
-    font-size: 1.3em;
-    opacity: 0.8;
-  }
-
-  .hero-h1 {
-    font-size: clamp(4rem, 10vw, 9rem);
-    font-weight: 700;
-    line-height: 0.9;
-    letter-spacing: -0.04em;
-    text-transform: uppercase;
-  }
-
-  .hero-subtitle {
-    font-size: clamp(1.5rem, 3.5vw, 2.25rem);
-    font-weight: 400;
-    line-height: 1.25;
-    opacity: 0.9;
-    max-width: 28rem;
-  }
-
-  .hero-bottom {
-    margin-top: 3rem;
-  }
-
-  @media (min-width: 1024px) {
-    .hero-bottom {
-      margin-top: 0;
-    }
-  }
-
-  /* ── Globe: stays at hero level, fades on narrow screens ── */
   .hero-globe {
+    cursor: grab;
+    pointer-events: auto;
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 55%;
-    overflow: hidden;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  @media (min-width: 768px) {
-    .hero-globe {
-      position: relative;
-      width: auto;
-      opacity: 0.4;
-      pointer-events: auto;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .hero-globe {
-      opacity: 1;
-    }
-  }
-
-  #dots {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    top: 50%;
+    --globe-size: clamp(400px, 70vh, 580px);
+    width: var(--globe-size);
+    height: var(--globe-size);
+    /* Small screens: right edge aligned; large: centered in right panel */
+    left: min(72.5%, calc(100% - (var(--globe-size) / 2)));
+    transform: translate(-50%, -50%);
   }
 </style>
 
@@ -236,7 +81,6 @@
   }
 
   // ── Generate points on a sphere — Fibonacci distribution ──
-  // More points = tighter spacing, denser network
   const NUM_POINTS = 280;
   const spherePoints: { x: number; y: number; z: number }[] = [];
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
@@ -252,10 +96,8 @@
     });
   }
 
-  // Connection threshold — balanced: visible network without becoming a blob
   const CONNECTION_THRESHOLD = 0.38;
 
-  // Pre-compute neighbor pairs (unit sphere distance)
   const pairs: [number, number][] = [];
   for (let i = 0; i < NUM_POINTS; i++) {
     for (let j = i + 1; j < NUM_POINTS; j++) {
@@ -269,9 +111,8 @@
     }
   }
 
-  // ── Build adjacency list for multi-hop signal paths ──
   const adjacency: number[][] = Array.from({ length: NUM_POINTS }, () => []);
-  const pairByEdge = new Map<string, number>();  // "i-j" → pair index
+  const pairByEdge = new Map<string, number>();
   for (let pIdx = 0; pIdx < pairs.length; pIdx++) {
     const [i, j] = pairs[pIdx];
     adjacency[i].push(j);
@@ -280,22 +121,19 @@
     pairByEdge.set(`${j}-${i}`, pIdx);
   }
 
-  // ── Traveling signal animation ──
-  // A signal travels along a multi-hop path from node A to node B
   interface TravelingSignal {
-    path: number[];           // node indices forming the path
-    edgeIndices: number[];    // pair indices for each edge in path
-    currentEdge: number;      // which edge we're on (0-based)
-    t: number;                // 0→1 progress along current edge
-    speed: number;            // how fast t increases per frame
-    tailLength: number;       // how many edges the glowing tail extends back
-    opacity: number;          // max opacity of the signal head
+    path: number[];
+    edgeIndices: number[];
+    currentEdge: number;
+    t: number;
+    speed: number;
+    tailLength: number;
+    opacity: number;
   }
 
   const signals: TravelingSignal[] = [];
   const MAX_SIGNALS = 6;
 
-  // Find a random multi-hop path using BFS with random walk
   function findRandomPath(minHops: number, maxHops: number): number[] | null {
     const start = Math.floor(Math.random() * NUM_POINTS);
     const path = [start];
@@ -322,13 +160,12 @@
     const path = findRandomPath(3, 7);
     if (!path) return;
 
-    // Build edge indices for the path
     const edgeIndices: number[] = [];
     for (let i = 0; i < path.length - 1; i++) {
       const key = `${path[i]}-${path[i + 1]}`;
       const altKey = `${path[i + 1]}-${path[i]}`;
       const pIdx = pairByEdge.get(key) ?? pairByEdge.get(altKey);
-      if (pIdx === undefined) return; // shouldn't happen
+      if (pIdx === undefined) return;
       edgeIndices.push(pIdx);
     }
 
@@ -343,10 +180,8 @@
     });
   }
 
-  // Seed initial signals with staggered starts
   for (let i = 0; i < 4; i++) {
     spawnSignal();
-    // Stagger: advance some signals partway through their path
     if (signals.length > 0) {
       const s = signals[signals.length - 1];
       const advanceEdges = Math.floor(Math.random() * Math.min(3, s.edgeIndices.length));
@@ -355,19 +190,16 @@
     }
   }
 
-  // ── Build a lookup: for each pair index, what signal data applies? ──
-  // We'll rebuild this each frame
   interface EdgeGlow {
-    intensity: number;  // 0-1, how bright this edge should glow
-    isHead: boolean;    // is the signal head on this edge?
-    headT: number;      // if isHead, where along the edge (0-1)
-    fromNode: number;   // direction: signal travels from → to
+    intensity: number;
+    isHead: boolean;
+    headT: number;
+    fromNode: number;
     toNode: number;
   }
 
   const edgeGlowMap = new Map<number, EdgeGlow>();
 
-  // Mouse / touch interaction
   const heroGlobe = canvas.parentElement!;
 
   heroGlobe.addEventListener('mousedown', (e) => {
@@ -404,7 +236,6 @@
     mouseY = -9999;
   });
 
-  // Touch support
   heroGlobe.addEventListener('touchstart', (e) => {
     isDragging = true;
     const t = e.touches[0];
@@ -438,9 +269,6 @@
     mouseY = -9999;
   });
 
-  heroGlobe.style.cursor = 'grab';
-
-  // Easing function for smooth signal motion
   function easeInOutCubic(t: number): number {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
@@ -463,7 +291,6 @@
     const sphereRadius = Math.min(width, height) * 0.38;
     const cursorRadius = sphereRadius * 0.35;
 
-    // Auto-rotation
     if (!isDragging) {
       autoRotateY += 0.0015 * dt;
       targetAngleY += velocityY * dt;
@@ -481,7 +308,6 @@
     const cosX = Math.cos(angleX);
     const sinX = Math.sin(angleX);
 
-    // Project all points
     const projected: { px: number; py: number; z: number; idx: number }[] = [];
 
     for (let i = 0; i < spherePoints.length; i++) {
@@ -500,38 +326,31 @@
       });
     }
 
-    // ── Update traveling signals ──
     edgeGlowMap.clear();
 
     for (let si = signals.length - 1; si >= 0; si--) {
       const sig = signals[si];
       sig.t += sig.speed * dt;
 
-      // Advance to next edge when t >= 1
       while (sig.t >= 1 && sig.currentEdge < sig.edgeIndices.length - 1) {
         sig.t -= 1;
         sig.currentEdge++;
       }
 
-      // Signal finished its path
       if (sig.t >= 1 && sig.currentEdge >= sig.edgeIndices.length - 1) {
         signals.splice(si, 1);
         continue;
       }
 
-      // Apply glow to current edge (head) and trailing edges (tail)
       for (let tailOffset = 0; tailOffset <= sig.tailLength; tailOffset++) {
         const edgeIdx = sig.currentEdge - tailOffset;
         if (edgeIdx < 0) break;
 
         const pairIdx = sig.edgeIndices[edgeIdx];
-        // Intensity: head is brightest, tail fades out
         let intensity: number;
         if (tailOffset === 0) {
-          // Head edge: full intensity modulated by eased position
           intensity = sig.opacity;
         } else {
-          // Tail: fade based on distance from head
           const falloff = 1 - (tailOffset / (sig.tailLength + 1));
           intensity = sig.opacity * falloff * 0.6;
         }
@@ -549,10 +368,8 @@
       }
     }
 
-    // Spawn new signals at staggered intervals
     if (Math.random() < 0.02 * dt) spawnSignal();
 
-    // ── Draw connections (lines) ──
     for (let pIdx = 0; pIdx < pairs.length; pIdx++) {
       const [i, j] = pairs[pIdx];
       const a = projected[i];
@@ -561,10 +378,8 @@
       const avgZ = (a.z + b.z) / 2;
       const depthFactor = (avgZ + 1) / 2;
 
-      // Base line: visible wireframe
       const baseOpacity = 0.04 + depthFactor * 0.08;
 
-      // Cursor proximity boost
       let cursorBoost = 0;
       const midX = (a.px + b.px) / 2;
       const midY = (a.py + b.py) / 2;
@@ -578,7 +393,6 @@
       const glow = edgeGlowMap.get(pIdx);
 
       if (glow && glow.intensity > 0.01) {
-        // Draw the base line first (dim)
         const dimOpacity = Math.min(baseOpacity + cursorBoost, 0.2);
         ctx.strokeStyle = `rgba(255, 255, 255, ${dimOpacity})`;
         ctx.lineWidth = 0.5 + depthFactor * 0.5;
@@ -587,22 +401,18 @@
         ctx.lineTo(b.px, b.py);
         ctx.stroke();
 
-        // Determine direction: which projected point is "from" and which is "to"
         const fromPt = projected[glow.fromNode] || a;
         const toPt = projected[glow.toNode] || b;
 
         if (glow.isHead && glow.headT >= 0) {
-          // ── Draw traveling signal as a gradient along the edge ──
           const glowIntensity = glow.intensity * depthFactor;
           const headX = fromPt.px + (toPt.px - fromPt.px) * glow.headT;
           const headY = fromPt.py + (toPt.py - fromPt.py) * glow.headT;
 
-          // Signal trail: from slightly behind head to head position
           const trailStart = Math.max(0, glow.headT - 0.4);
           const trailX = fromPt.px + (toPt.px - fromPt.px) * trailStart;
           const trailY = fromPt.py + (toPt.py - fromPt.py) * trailStart;
 
-          // Gradient from trail to head
           const grad = ctx.createLinearGradient(trailX, trailY, headX, headY);
           grad.addColorStop(0, `rgba(255, 255, 255, 0)`);
           grad.addColorStop(0.7, `rgba(255, 255, 255, ${glowIntensity * 0.5})`);
@@ -615,14 +425,12 @@
           ctx.lineTo(headX, headY);
           ctx.stroke();
 
-          // Small bright dot at signal head
           const dotRadius = 1.5 + depthFactor * 2;
           ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(glowIntensity * 1.2, 1)})`;
           ctx.beginPath();
           ctx.arc(headX, headY, dotRadius, 0, Math.PI * 2);
           ctx.fill();
 
-          // Subtle glow halo around head
           const haloGrad = ctx.createRadialGradient(headX, headY, 0, headX, headY, dotRadius * 4);
           haloGrad.addColorStop(0, `rgba(255, 255, 255, ${glowIntensity * 0.3})`);
           haloGrad.addColorStop(1, `rgba(255, 255, 255, 0)`);
@@ -632,7 +440,6 @@
           ctx.fill();
 
         } else {
-          // Tail edge: uniform glow fading out
           const tailIntensity = glow.intensity * depthFactor;
           ctx.strokeStyle = `rgba(255, 255, 255, ${tailIntensity})`;
           ctx.lineWidth = 0.8 + depthFactor * 1.2;
@@ -643,7 +450,6 @@
         }
 
       } else {
-        // No glow — just draw base line
         const finalOpacity = Math.min(baseOpacity + cursorBoost, 0.2);
         ctx.strokeStyle = `rgba(255, 255, 255, ${finalOpacity})`;
         ctx.lineWidth = 0.5 + depthFactor * 0.5;
@@ -654,16 +460,13 @@
       }
     }
 
-    // Sort by z for depth ordering (back to front)
     const sortedProjected = [...projected].sort((a, b) => a.z - b.z);
 
-    // ── Draw nodes ──
     for (const pt of sortedProjected) {
       const depthFactor = (pt.z + 1) / 2;
       let opacity = 0.15 + depthFactor * 0.7;
       let dotSize = 1.2 + depthFactor * 2;
 
-      // Cursor proximity effect
       const distToCursor = Math.sqrt(
         (pt.px - mouseX) ** 2 + (pt.py - mouseY) ** 2
       );

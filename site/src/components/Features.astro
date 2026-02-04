@@ -1,155 +1,80 @@
 ---
 const features = [
   {
-    title: "Request Integrity",
+    title: "Identity-Native Auth",
     description:
-      "Signatures cryptographically bind to the HTTP request itself. Any tampering with method, path, query, or body causes verification to fail immediately.",
-    icon: "shield"
+      "Your Ethereum address is your identity. ERC-8128 turns it into a web-native credential—no middleware, no token exchange, no enrollment. If you have a wallet, you can authenticate.",
+    icon: "identity"
   },
   {
-    title: "Eliminate API Keys",
+    title: "No Bearer Credentials",
     description:
-      "Stop issuing, rotating, and securing API keys. Clients sign requests directly with EOAs or Smart Contract Accounts—no server-issued credentials required.",
+      "Eliminate API keys, sessions, and shared secrets. Every request is self-authenticating: signed by the sender, verified by the receiver. Nothing to store, nothing to rotate, nothing to leak.",
     icon: "key-off"
   },
   {
-    title: "Onchain Identity",
+    title: "Composable Protocol Layer",
     description:
-      "Use ERC-1271 for smart contract authorization. Enable delegation, session modules, and composable access policies without changing your authentication layer.",
-    icon: "ethereum"
+      "ERC-8128 handles authentication. What you build on top is up to you—authorization, rate limiting, reputation, payments. A minimal, unopinionated foundation for any HTTP-based protocol.",
+    icon: "layers"
   },
   {
-    title: "Standards Based",
+    title: "Agent-Ready",
     description:
-      "Built on RFC 9421 (HTTP Message Signatures) with replay protection. Every compliant client can authenticate with every compliant server.",
-    icon: "document"
+      "Purpose-built for autonomous systems. AI agents, bots, and services authenticate with on-chain identities. Pairs naturally with identity registries like ERC-8004 (Trustless Agents) for verifiable agent-to-agent communication.",
+    icon: "bot"
   }
 ]
 ---
 
-<section class="features">
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-border">
   {
     features.map((feature, i) => (
-      <div class={`feature-cell ${i < features.length - 1 ? 'feature-cell-border' : ''}`}>
-        <div class="feature-icon">
-          {feature.icon === "shield" && (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Cryptographic signature verification shield">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <path d="M9 12l2 2 4-4"/>
+      <div class={`p-10 flex flex-col h-full border-b border-border transition-colors duration-300 hover:bg-surface-elevated lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-border' : ''} ${i % 2 === 0 ? 'md:border-r md:border-border md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
+        <div class="mb-8 opacity-35 text-white transition-opacity duration-300 group-hover:opacity-100 feature-icon">
+          {feature.icon === "identity" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Identity-native authentication">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+              <path d="M12 14l-1.5 1.5"/>
+              <path d="M12 14l1.5 1.5"/>
             </svg>
           )}
           {feature.icon === "key-off" && (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="No API keys or tokens required">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="No bearer credentials required">
               <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
               <line x1="2" y1="2" x2="22" y2="22" stroke-width="2"/>
             </svg>
           )}
-          {feature.icon === "ethereum" && (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Ethereum wallet-based authentication">
-              <polygon points="12,2 4,12 12,16 20,12"/>
-              <polygon points="4,12 12,22 20,12 12,16"/>
-              <line x1="12" y1="2" x2="12" y2="16"/>
+          {feature.icon === "layers" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Composable protocol layer">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+              <polyline points="2 17 12 22 22 17"/>
+              <polyline points="2 12 12 17 22 12"/>
             </svg>
           )}
-          {feature.icon === "document" && (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Built on RFC 9421 and ERC-1271 standards">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
+          {feature.icon === "bot" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Agent-ready authentication">
+              <rect x="3" y="11" width="18" height="10" rx="2"/>
+              <circle cx="12" cy="5" r="2"/>
+              <path d="M12 7v4"/>
+              <line x1="8" y1="16" x2="8" y2="16"/>
+              <line x1="16" y1="16" x2="16" y2="16"/>
+              <circle cx="8" cy="16" r="1" fill="currentColor"/>
+              <circle cx="16" cy="16" r="1" fill="currentColor"/>
+              <path d="M9 20h6"/>
             </svg>
           )}
         </div>
-        <h3>{feature.title}</h3>
-        <p>{feature.description}</p>
+        <h3 class="text-xl font-bold uppercase mb-4">{feature.title}</h3>
+        <p class="text-base opacity-70 leading-[1.7]">{feature.description}</p>
       </div>
     ))
   }
 </section>
 
 <style>
-  .features {
-    display: grid;
-    grid-template-columns: 1fr;
-    border-bottom: 1px solid var(--border);
-  }
-
-  @media (min-width: 768px) {
-    .features {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .features {
-      grid-template-columns: repeat(4, 1fr);
-    }
-  }
-
-  .feature-cell {
-    padding: 2.5rem 2rem;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.3s ease;
-  }
-
-  @media (min-width: 1024px) {
-    .feature-cell {
-      padding: 3.5rem 3rem;
-      border-bottom: none;
-    }
-
-    .feature-cell-border {
-      border-right: 1px solid var(--border);
-    }
-  }
-
-  @media (min-width: 768px) and (max-width: 1023px) {
-    .feature-cell:nth-child(odd) {
-      border-right: 1px solid var(--border);
-    }
-    .feature-cell:nth-child(3),
-    .feature-cell:nth-child(4) {
-      border-bottom: none;
-    }
-  }
-
-  .feature-cell:last-child {
-    border-bottom: none;
-  }
-
-  .feature-cell:hover {
-    background: var(--surface-elevated);
-  }
-
-  .feature-icon {
-    margin-bottom: 2rem;
-    opacity: 0.35;
-    transition: opacity 0.3s ease;
-    color: white;
-  }
-
-  .feature-icon svg {
-    display: block;
-  }
-
-  .feature-cell:hover .feature-icon {
+  div:hover .feature-icon {
     opacity: 1;
-  }
-
-  h3 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-bottom: 1rem;
-  }
-
-  p {
-    font-size: 1rem;
-    opacity: 0.7;
-    line-height: 1.7;
   }
 </style>

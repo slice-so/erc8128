@@ -1,145 +1,100 @@
-<section class="security-callout">
-  <div class="security-bg"></div>
-  <div class="security-inner">
-    <div class="security-icon">
-      <svg
-        width="48"
-        height="48"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-      </svg>
+<section class="border-b border-border py-24 px-8 md:py-32 md:px-12 relative bg-surface overflow-hidden">
+  <!-- Grid background -->
+  <div class="absolute inset-0 opacity-[0.04] pointer-events-none bg-grid-lg"></div>
+  
+  <div class="max-w-4xl mx-auto relative z-10">
+    <div class="text-center mb-16">
+      <h2 class="text-[clamp(2rem,5vw,3.5rem)] font-bold uppercase -tracking-[0.02em] mb-6">
+        Secure by Design
+      </h2>
+      <p class="text-xl leading-[1.8] opacity-70 max-w-[44rem] mx-auto">
+        Traditional authentication places security policy on the server. ERC-8128 inverts that model: 
+        the signer chooses the exact cryptographic guarantees attached to each request.
+      </p>
     </div>
-    <h2>Built on Cryptographic Standards</h2>
-    <p>
-      ERC-8128 uses the same cryptographic signatures that secure Ethereum itself. Every request is
-      tamper-proof, timestamped, and verifiable. No passwords to leak, no keys to rotate—just math.
-    </p>
-    <div class="security-stats">
-      <div class="stat">
-        <span class="stat-value">RFC 9421</span>
-        <span class="stat-label">HTTP Signatures</span>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
+      <!-- Request Binding -->
+      <div class="border border-border-subtle p-8 bg-bg/50">
+        <div class="font-mono text-sm opacity-50 uppercase tracking-[0.1em] mb-4">Dimension 1</div>
+        <h3 class="text-2xl font-bold uppercase mb-4">Request Binding</h3>
+        <p class="text-base opacity-70 leading-[1.7] mb-6">
+          How tightly a signature is bound to a specific request.
+        </p>
+        <div class="space-y-4">
+          <div class="flex gap-3">
+            <div class="w-2 h-2 bg-white rounded-full mt-2 shrink-0"></div>
+            <div>
+              <span class="font-bold">Request-Bound</span>
+              <span class="opacity-70"> — authorizes exactly one concrete HTTP request. Any change to method, path, query, or body fails verification.</span>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 bg-white/40 rounded-full mt-2 shrink-0"></div>
+            <div>
+              <span class="font-bold">Class-Bound</span>
+              <span class="opacity-70"> — authorizes a class of requests defined by the covered components. Optional for specific use cases.</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat">
-        <span class="stat-value">ERC-1271</span>
-        <span class="stat-label">Smart Accounts</span>
+
+      <!-- Replay Protection -->
+      <div class="border border-border-subtle p-8 bg-bg/50">
+        <div class="font-mono text-sm opacity-50 uppercase tracking-[0.1em] mb-4">Dimension 2</div>
+        <h3 class="text-2xl font-bold uppercase mb-4">Replay Protection</h3>
+        <p class="text-base opacity-70 leading-[1.7] mb-6">
+          Whether a signature can be validly reused.
+        </p>
+        <div class="space-y-4">
+          <div class="flex gap-3">
+            <div class="w-2 h-2 bg-white rounded-full mt-2 shrink-0"></div>
+            <div>
+              <span class="font-bold">Non-Replayable</span>
+              <span class="opacity-70"> — includes a nonce. Verifiers enforce uniqueness. Single-use authorization.</span>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 bg-white/40 rounded-full mt-2 shrink-0"></div>
+            <div>
+              <span class="font-bold">Replayable</span>
+              <span class="opacity-70"> — omits nonce. May be reused within validity window. Requires early invalidation mechanisms.</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat">
-        <span class="stat-value">secp256k1</span>
-        <span class="stat-label">ECDSA Signing</span>
+    </div>
+
+    <div class="text-center border-t border-border-subtle pt-12">
+      <p class="text-lg opacity-70 max-w-[36rem] mx-auto mb-8">
+        The baseline requirement enforces both <span class="text-white font-semibold">Request-Bound</span> and <span class="text-white font-semibold">Non-Replayable</span> for maximum security. 
+        Any compliant verifier must accept this posture.
+      </p>
+      <div class="flex items-center justify-center gap-8 flex-wrap">
+        <div class="flex flex-col gap-1.5">
+          <span class="font-mono text-lg font-bold tracking-[0.02em]">RFC 9421</span>
+          <span class="text-[0.8125rem] opacity-50 uppercase tracking-[0.08em]">HTTP Signatures</span>
+        </div>
+        <div class="w-px h-10 bg-white/20 max-sm:hidden"></div>
+        <div class="flex flex-col gap-1.5">
+          <span class="font-mono text-lg font-bold tracking-[0.02em]">ERC-191</span>
+          <span class="text-[0.8125rem] opacity-50 uppercase tracking-[0.08em]">Signed Messages</span>
+        </div>
+        <div class="w-px h-10 bg-white/20 max-sm:hidden"></div>
+        <div class="flex flex-col gap-1.5">
+          <span class="font-mono text-lg font-bold tracking-[0.02em]">ERC-1271</span>
+          <span class="text-[0.8125rem] opacity-50 uppercase tracking-[0.08em]">Smart Accounts</span>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
 <style>
-  .security-callout {
-    border-bottom: 1px solid var(--border);
-    padding: 6rem 2rem;
-    position: relative;
-    background: var(--surface);
-    overflow: hidden;
-  }
-
-  @media (min-width: 768px) {
-    .security-callout {
-      padding: 8rem 3rem;
-    }
-  }
-
-  .security-bg {
-    position: absolute;
-    inset: 0;
-    opacity: 0.04;
-    pointer-events: none;
+  .bg-grid-lg {
     background-image:
       linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
     background-size: 60px 60px;
-  }
-
-  .security-inner {
-    max-width: 48rem;
-    margin: 0 auto;
-    text-align: center;
-    position: relative;
-    z-index: 1;
-  }
-
-  .security-icon {
-    margin-bottom: 2rem;
-    opacity: 0.4;
-    color: white;
-    display: flex;
-    justify-content: center;
-  }
-
-  h2 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: -0.02em;
-    margin-bottom: 2rem;
-  }
-
-  p {
-    font-size: 1.25rem;
-    line-height: 1.8;
-    opacity: 0.7;
-    max-width: 40rem;
-    margin: 0 auto;
-  }
-
-  .security-stats {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2rem;
-    margin-top: 4rem;
-    flex-wrap: wrap;
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-
-  .stat-value {
-    font-family: var(--mono);
-    font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-  }
-
-  .stat-label {
-    font-size: 0.8125rem;
-    opacity: 0.5;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .stat-divider {
-    width: 1px;
-    height: 2.5rem;
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  @media (max-width: 639px) {
-    .stat-divider {
-      display: none;
-    }
-    .security-stats {
-      gap: 2rem;
-    }
   }
 </style>

@@ -1,45 +1,15 @@
-<section class="what-is">
-  <div class="what-is-inner">
-    <div class="what-is-marker"></div>
-    <p class="what-is-body">
-      ERC-8128 lets Ethereum accounts authenticate HTTP requests — API calls, webhooks, data
-      fetches — across any web service. Your wallet becomes your identity. No signups, no API keys,
-      no friction.
+<section class="border-b border-border py-20 px-8 md:py-24 md:px-12 relative">
+  <div class="prose max-w-3xl mx-auto text-center space-y-8">
+    <!-- <div class="w-12 h-[3px] bg-white/30 mx-auto mb-10"></div> -->
+    <p class="text-[clamp(1.25rem,2.25vw,1.5rem)] opacity-90 max-w-[40rem] mx-auto">
+      Ethereum accounts are identities. ERC-8128 lets those identities authenticate HTTP requests across the open web.
+    </p>
+    <p class="text-[clamp(1.25rem,2.25vw,1.5rem)] opacity-90 max-w-[40rem] mx-auto">
+      No API keys. No signups. No shared secrets.<br/>
+      Your address is your credential.
+    </p>
+    <p class="text-[clamp(1rem,1.75vw,1.125rem)] opacity-60 max-w-[40rem] mx-auto">
+      A composable authentication layer that identity standards, agent frameworks, and application protocols can build on top of.
     </p>
   </div>
 </section>
-
-<style>
-  .what-is {
-    border-bottom: 1px solid var(--border);
-    padding: 5rem 2rem;
-    position: relative;
-  }
-
-  @media (min-width: 768px) {
-    .what-is {
-      padding: 6rem 3rem;
-    }
-  }
-
-  .what-is-inner {
-    max-width: 48rem;
-    margin: 0 auto;
-    text-align: center;
-  }
-
-  .what-is-marker {
-    width: 3rem;
-    height: 3px;
-    background: rgba(255, 255, 255, 0.3);
-    margin: 0 auto 2.5rem;
-  }
-
-  .what-is-body {
-    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
-    line-height: 1.8;
-    opacity: 0.75;
-    max-width: 40rem;
-    margin: 0 auto;
-  }
-</style>

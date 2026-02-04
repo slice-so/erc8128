@@ -6,13 +6,20 @@ const links = [
 ]
 ---
 
-<nav>
-  <div class="nav-inner">
-    <a href="/" class="logo">ERC-<span>8128</span></a>
-    <div class="nav-links">
+<nav class="fixed top-0 left-0 right-0 z-[100] px-5 py-3.5 sm:px-8 sm:py-4 bg-bg/80 backdrop-blur-xl backdrop-saturate-[180%] border-b border-border-subtle">
+  <div class="flex items-center justify-between max-w-7xl mx-auto">
+    <a href="/" class="font-bold text-[0.9375rem] text-text font-mono -tracking-[0.5px] transition-opacity duration-200 hover:opacity-80">
+      ERC-<span class="opacity-60">8128</span>
+    </a>
+    <div class="flex gap-4.5 sm:gap-7">
       {
         links.map((link) => (
-          <a href={link.href} target="_blank" rel="noopener noreferrer">
+          <a
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-sm text-text-dim transition-colors duration-200 hover:text-text hover:opacity-100"
+          >
             {link.label}
           </a>
         ))
@@ -20,72 +27,3 @@ const links = [
     </div>
   </div>
 </nav>
-
-<style>
-  nav {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    padding: 1rem 2rem;
-    background: rgba(5, 5, 5, 0.8);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .nav-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    max-width: 80rem;
-    margin: 0 auto;
-  }
-
-  .logo {
-    font-weight: 700;
-    font-size: 0.9375rem;
-    color: var(--text);
-    font-family: var(--mono);
-    letter-spacing: -0.5px;
-    transition: opacity 0.2s;
-    text-decoration: none;
-  }
-
-  .logo:hover {
-    opacity: 0.8;
-  }
-
-  .logo span {
-    color: var(--text);
-    opacity: 0.6;
-  }
-
-  .nav-links {
-    display: flex;
-    gap: 1.75rem;
-  }
-
-  .nav-links a {
-    font-size: 0.875rem;
-    color: var(--text-dim);
-    transition: color 0.2s ease;
-    text-decoration: none;
-  }
-
-  .nav-links a:hover {
-    color: var(--text);
-    opacity: 1;
-  }
-
-  @media (max-width: 640px) {
-    nav {
-      padding: 0.875rem 1.25rem;
-    }
-
-    .nav-links {
-      gap: 1.125rem;
-    }
-  }
-</style>
