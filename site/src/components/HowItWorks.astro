@@ -39,15 +39,14 @@ const steps = [
     <div class="relative grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-0">
       <!-- Flowing connection line (desktop only) -->
       <svg class="connection-flow hidden md:block absolute top-[120px] left-[16.67%] w-[66.67%] h-8 z-0" viewBox="0 0 800 32" preserveAspectRatio="none">
-        <line x1="0" y1="16" x2="800" y2="16" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-        <circle class="flow-particle flow-particle-1" cx="0" cy="16" r="1.5" fill="white" opacity="0"/>
+        <line x1="0" y1="16" x2="800" y2="16" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+        <circle class="flow-particle flow-particle-1" cx="0" cy="16" r="1" fill="white" opacity="0"/>
         <circle class="flow-particle flow-particle-2" cx="0" cy="16" r="1" fill="white" opacity="0"/>
-        <circle class="flow-particle flow-particle-3" cx="0" cy="16" r="1.5" fill="white" opacity="0"/>
       </svg>
       
       {
         steps.map((step, i) => (
-          <div class={`relative group z-10 ${i < steps.length - 1 ? 'md:border-r md:border-white/[0.06]' : ''}`}>
+          <div class={`relative group z-10 ${i < steps.length - 1 ? 'md:border-r md:border-white/[0.05]' : ''}`}>
             <div class="md:px-8 lg:px-12">
               <!-- Step number -->
               <div class="mb-6 font-mono text-[11px] tracking-[0.2em] uppercase opacity-20">{step.number}</div>
@@ -58,53 +57,24 @@ const steps = [
                 {step.id === "sign" && (
                   <div class="sign-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <!-- Ambient glow behind curve -->
-                      <circle class="sign-ambient" cx="176" cy="100" r="56" fill="white" opacity="0.015"/>
-                      
-                      <!-- Document -->
+                      <!-- Document — centered, refined -->
                       <g class="sign-doc">
-                        <rect x="16" y="20" width="96" height="128" rx="3" stroke="white" stroke-width="1.2" opacity="0.45"/>
+                        <rect x="56" y="24" width="104" height="136" rx="3" stroke="white" stroke-width="0.8" opacity="0.35"/>
                         <!-- Page fold -->
-                        <path d="M88 20V44H112" stroke="white" stroke-width="0.8" opacity="0.2" fill="none"/>
-                        <path d="M88 20L112 44" stroke="white" stroke-width="0.4" opacity="0.08" fill="none"/>
+                        <path d="M132 24V46H156" stroke="white" stroke-width="0.5" opacity="0.15" fill="none"/>
                         <!-- Content lines -->
-                        <line x1="32" y1="56" x2="96" y2="56" stroke="white" stroke-width="0.8" opacity="0.18" stroke-linecap="round"/>
-                        <line x1="32" y1="68" x2="84" y2="68" stroke="white" stroke-width="0.8" opacity="0.14" stroke-linecap="round"/>
-                        <line x1="32" y1="80" x2="92" y2="80" stroke="white" stroke-width="0.8" opacity="0.18" stroke-linecap="round"/>
-                        <line x1="32" y1="92" x2="72" y2="92" stroke="white" stroke-width="0.8" opacity="0.11" stroke-linecap="round"/>
+                        <line x1="76" y1="60" x2="140" y2="60" stroke="white" stroke-width="0.5" opacity="0.12" stroke-linecap="round"/>
+                        <line x1="76" y1="72" x2="128" y2="72" stroke="white" stroke-width="0.5" opacity="0.09" stroke-linecap="round"/>
+                        <line x1="76" y1="84" x2="136" y2="84" stroke="white" stroke-width="0.5" opacity="0.12" stroke-linecap="round"/>
+                        <line x1="76" y1="96" x2="116" y2="96" stroke="white" stroke-width="0.5" opacity="0.07" stroke-linecap="round"/>
                         <!-- Divider -->
-                        <line x1="32" y1="110" x2="96" y2="110" stroke="white" stroke-width="0.4" opacity="0.08"/>
+                        <line x1="76" y1="118" x2="140" y2="118" stroke="white" stroke-width="0.3" opacity="0.06"/>
                         <!-- Signature -->
-                        <path class="sign-signature" d="M32 128 C42 116, 50 136, 60 124 C66 118, 72 134, 80 126 C86 120, 90 128, 96 122" stroke="white" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+                        <path class="sign-signature" d="M76 138 C88 124, 96 148, 108 134 C116 126, 124 142, 136 132" stroke="white" stroke-width="1.2" stroke-linecap="round" fill="none"/>
                       </g>
 
-                      <!-- ECDSA elliptic curve: y² = x³ + ax + b -->
-                      <g class="ecdsa-group">
-                        <!-- Subtle axis cross -->
-                        <line x1="136" y1="28" x2="136" y2="172" stroke="white" stroke-width="0.4" opacity="0.08"/>
-                        <line x1="124" y1="100" x2="232" y2="100" stroke="white" stroke-width="0.4" opacity="0.08"/>
-                        <!-- Grid dots on axes -->
-                        <circle cx="156" cy="100" r="0.8" fill="white" opacity="0.1"/>
-                        <circle cx="176" cy="100" r="0.8" fill="white" opacity="0.1"/>
-                        <circle cx="196" cy="100" r="0.8" fill="white" opacity="0.1"/>
-                        <circle cx="136" cy="60" r="0.8" fill="white" opacity="0.1"/>
-                        <circle cx="136" cy="140" r="0.8" fill="white" opacity="0.1"/>
-                        <!-- Upper half of elliptic curve -->
-                        <path class="ec-curve-top" d="M148 100 C148 80, 152 56, 164 42 C176 28, 196 28, 212 44 C224 56, 228 76, 226 92 C224 100, 218 100, 212 100" stroke="white" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.5"/>
-                        <!-- Lower half of elliptic curve (symmetric) -->
-                        <path class="ec-curve-bottom" d="M148 100 C148 120, 152 144, 164 158 C176 172, 196 172, 212 156 C224 144, 228 124, 226 108 C224 100, 218 100, 212 100" stroke="white" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.5"/>
-                        <!-- Tangent line through point (animated) -->
-                        <line class="ec-tangent" x1="152" y1="72" x2="220" y2="52" stroke="white" stroke-width="0.5" opacity="0" stroke-dasharray="4 4"/>
-                      </g>
-
-                      <!-- Point tracing the curve -->
-                      <circle class="ec-tracer" r="3" fill="white" opacity="0">
-                        <animateMotion dur="5s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.25 0.1 0.25 1" path="M148 100 C148 80, 152 56, 164 42 C176 28, 196 28, 212 44 C224 56, 228 76, 226 92 C224 100, 218 100, 212 100"/>
-                      </circle>
-                      <!-- Tracer glow -->
-                      <circle class="ec-tracer-glow" r="10" fill="white" opacity="0">
-                        <animateMotion dur="5s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines="0.25 0.1 0.25 1" path="M148 100 C148 80, 152 56, 164 42 C176 28, 196 28, 212 44 C224 56, 228 76, 226 92 C224 100, 218 100, 212 100"/>
-                      </circle>
+                      <!-- Subtle wave accent — just a hint of cryptography -->
+                      <path class="sign-wave" d="M44 176 C72 168, 96 184, 120 176 C144 168, 168 184, 196 176" stroke="white" stroke-width="0.4" stroke-linecap="round" fill="none" opacity="0"/>
                     </svg>
                   </div>
                 )}
@@ -112,67 +82,40 @@ const steps = [
                 {step.id === "send" && (
                   <div class="send-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <!-- Ambient glow behind server -->
-                      <circle class="send-ambient" cx="180" cy="100" r="56" fill="white" opacity="0.01"/>
-
-                      <!-- Signed document -->
+                      <!-- Signed document (compact) -->
                       <g class="send-doc">
-                        <rect x="8" y="52" width="60" height="80" rx="3" stroke="white" stroke-width="1" opacity="0.4"/>
+                        <rect x="12" y="52" width="56" height="76" rx="3" stroke="white" stroke-width="0.7" opacity="0.3"/>
                         <!-- Content lines -->
-                        <line x1="18" y1="70" x2="58" y2="70" stroke="white" stroke-width="0.6" opacity="0.15" stroke-linecap="round"/>
-                        <line x1="18" y1="80" x2="50" y2="80" stroke="white" stroke-width="0.6" opacity="0.12" stroke-linecap="round"/>
-                        <line x1="18" y1="90" x2="54" y2="90" stroke="white" stroke-width="0.6" opacity="0.15" stroke-linecap="round"/>
+                        <line x1="24" y1="70" x2="56" y2="70" stroke="white" stroke-width="0.4" opacity="0.1" stroke-linecap="round"/>
+                        <line x1="24" y1="80" x2="48" y2="80" stroke="white" stroke-width="0.4" opacity="0.08" stroke-linecap="round"/>
+                        <line x1="24" y1="90" x2="52" y2="90" stroke="white" stroke-width="0.4" opacity="0.1" stroke-linecap="round"/>
                         <!-- Mini signature -->
-                        <path d="M18 110 C24 104, 30 114, 36 108 C42 102, 48 112, 54 106" stroke="white" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.3"/>
-                        <!-- Signed badge -->
-                        <circle cx="62" cy="56" r="8" fill="#0a0a0a" stroke="white" stroke-width="0.8" opacity="0.5"/>
-                        <path d="M57.5 56L60.5 59L66.5 53" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.5"/>
+                        <path d="M24 108 C30 102, 36 112, 42 106 C48 100, 54 110, 60 104" stroke="white" stroke-width="0.7" stroke-linecap="round" fill="none" opacity="0.2"/>
                       </g>
 
-                      <!-- Data transmission path -->
+                      <!-- Transmission path -->
                       <g class="send-path">
-                        <!-- Base line -->
-                        <line x1="76" y1="92" x2="148" y2="92" stroke="white" stroke-width="0.5" opacity="0.06"/>
-                        <!-- Data packets as circles with SMIL motion -->
-                        <circle class="pkt pkt-1" r="3.5" fill="white" opacity="0">
-                          <animateMotion dur="2.8s" repeatCount="indefinite" path="M76 92 L148 92"/>
+                        <line x1="80" y1="90" x2="152" y2="90" stroke="white" stroke-width="0.3" opacity="0.05"/>
+                        <!-- Two data packets -->
+                        <circle class="pkt pkt-1" r="2.5" fill="white" opacity="0">
+                          <animateMotion dur="3s" repeatCount="indefinite" path="M80 90 L152 90"/>
                         </circle>
-                        <circle class="pkt pkt-2" r="2.5" fill="white" opacity="0">
-                          <animateMotion dur="2.8s" repeatCount="indefinite" begin="0.9s" path="M76 92 L148 92"/>
-                        </circle>
-                        <circle class="pkt pkt-3" r="3" fill="white" opacity="0">
-                          <animateMotion dur="2.8s" repeatCount="indefinite" begin="1.8s" path="M76 92 L148 92"/>
-                        </circle>
-                        <!-- Trailing glow for lead packet -->
-                        <circle class="pkt-glow" r="8" fill="white" opacity="0">
-                          <animateMotion dur="2.8s" repeatCount="indefinite" path="M76 92 L148 92"/>
+                        <circle class="pkt pkt-2" r="2" fill="white" opacity="0">
+                          <animateMotion dur="3s" repeatCount="indefinite" begin="1.2s" path="M80 90 L152 90"/>
                         </circle>
                       </g>
 
-                      <!-- Server rack -->
+                      <!-- Server (simplified) -->
                       <g class="send-server">
-                        <rect x="152" y="28" width="76" height="128" rx="4" stroke="white" stroke-width="1.2" opacity="0.45"/>
-                        <!-- Horizontal dividers -->
-                        <line x1="152" y1="68" x2="228" y2="68" stroke="white" stroke-width="0.4" opacity="0.08"/>
-                        <line x1="152" y1="108" x2="228" y2="108" stroke="white" stroke-width="0.4" opacity="0.08"/>
-                        <!-- Rack modules -->
-                        <rect x="162" y="40" width="46" height="16" rx="2" stroke="white" stroke-width="0.7" opacity="0.2"/>
-                        <rect x="162" y="80" width="46" height="16" rx="2" stroke="white" stroke-width="0.7" opacity="0.2"/>
-                        <rect x="162" y="120" width="46" height="16" rx="2" stroke="white" stroke-width="0.7" opacity="0.2"/>
+                        <rect x="160" y="36" width="64" height="108" rx="3" stroke="white" stroke-width="0.8" opacity="0.35"/>
+                        <!-- Dividers -->
+                        <line x1="160" y1="72" x2="224" y2="72" stroke="white" stroke-width="0.3" opacity="0.06"/>
+                        <line x1="160" y1="108" x2="224" y2="108" stroke="white" stroke-width="0.3" opacity="0.06"/>
                         <!-- Status LEDs -->
-                        <circle class="led led-1" cx="218" cy="48" r="2.5" fill="white" opacity="0.1"/>
-                        <circle class="led led-2" cx="218" cy="88" r="2.5" fill="white" opacity="0.1"/>
-                        <circle class="led led-3" cx="218" cy="128" r="2.5" fill="white" opacity="0.1"/>
-                        <!-- Vent dots -->
-                        <circle cx="168" cy="148" r="1" fill="white" opacity="0.06"/>
-                        <circle cx="175" cy="148" r="1" fill="white" opacity="0.06"/>
-                        <circle cx="182" cy="148" r="1" fill="white" opacity="0.06"/>
-                        <circle cx="189" cy="148" r="1" fill="white" opacity="0.06"/>
-                        <circle cx="196" cy="148" r="1" fill="white" opacity="0.06"/>
+                        <circle class="led led-1" cx="212" cy="54" r="2" fill="white" opacity="0.08"/>
+                        <circle class="led led-2" cx="212" cy="90" r="2" fill="white" opacity="0.08"/>
+                        <circle class="led led-3" cx="212" cy="126" r="2" fill="white" opacity="0.08"/>
                       </g>
-
-                      <!-- Receive chevron -->
-                      <path class="recv-chevron" d="M148 86L156 92L148 98" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0"/>
                     </svg>
                   </div>
                 )}
@@ -180,33 +123,21 @@ const steps = [
                 {step.id === "verify" && (
                   <div class="verify-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <!-- Verification pulse rings -->
-                      <circle class="v-ring v-ring-1" cx="120" cy="82" r="52" stroke="white" stroke-width="0.6" fill="none" opacity="0"/>
-                      <circle class="v-ring v-ring-2" cx="120" cy="82" r="64" stroke="white" stroke-width="0.4" fill="none" opacity="0"/>
-                      <circle class="v-ring v-ring-3" cx="120" cy="82" r="76" stroke="white" stroke-width="0.3" fill="none" opacity="0"/>
+                      <!-- Single verification ring -->
+                      <circle class="v-ring" cx="120" cy="84" r="56" stroke="white" stroke-width="0.4" fill="none" opacity="0"/>
                       
                       <!-- Shield -->
                       <g class="v-shield">
-                        <!-- Outer shield -->
-                        <path class="shield-draw" d="M120 18L72 40V82C72 114 92 140 120 152C148 140 168 114 168 82V40L120 18Z" stroke="white" stroke-width="1.4" fill="none"/>
-                        <!-- Inner shield (subtle double) -->
-                        <path class="shield-inner" d="M120 32L84 48V82C84 108 100 128 120 138C140 128 156 108 156 82V48L120 32Z" stroke="white" stroke-width="0.4" fill="none" opacity="0"/>
+                        <path class="shield-draw" d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z" stroke="white" stroke-width="0.8" fill="none"/>
                       </g>
 
                       <!-- Checkmark -->
-                      <path class="v-check" d="M102 82L114 96L142 64" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                      <path class="v-check" d="M104 84L114 96L140 66" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
-                      <!-- Address verification -->
+                      <!-- Address -->
                       <g class="v-address">
-                        <!-- Pill background -->
-                        <rect class="addr-pill" x="40" y="164" width="160" height="26" rx="13" stroke="white" stroke-width="0.8" fill="none" opacity="0"/>
-                        <!-- Address text -->
-                        <text class="addr-text" x="112" y="181" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="11" fill="white" text-anchor="middle" letter-spacing="0.6" opacity="0">0x71C7...d93A</text>
-                        <!-- Verified badge -->
-                        <g class="addr-badge" opacity="0">
-                          <circle cx="204" cy="177" r="7" stroke="white" stroke-width="0.8" fill="none"/>
-                          <path d="M200.5 177L203 179.5L208 174" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                        </g>
+                        <rect class="addr-pill" x="52" y="166" width="136" height="24" rx="12" stroke="white" stroke-width="0.5" fill="none" opacity="0"/>
+                        <text class="addr-text" x="120" y="182" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="10" fill="white" text-anchor="middle" letter-spacing="0.5" opacity="0">0x71C7...d93A</text>
                       </g>
                     </svg>
                   </div>
@@ -237,301 +168,151 @@ const steps = [
      CONNECTION PARTICLES
      ═══════════════════════════════════════════════════════════ */
   
-  .flow-particle-1 { animation: flow-drift 5s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-  .flow-particle-2 { animation: flow-drift 5s cubic-bezier(0.4, 0, 0.2, 1) infinite 1.8s; }
-  .flow-particle-3 { animation: flow-drift 5s cubic-bezier(0.4, 0, 0.2, 1) infinite 3.4s; }
+  .flow-particle-1 { animation: flow-drift 6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+  .flow-particle-2 { animation: flow-drift 6s cubic-bezier(0.4, 0, 0.2, 1) infinite 2.5s; }
 
   @keyframes flow-drift {
     0%   { cx: 0; opacity: 0; }
-    4%   { opacity: 0.45; }
-    96%  { opacity: 0.45; }
+    5%   { opacity: 0.3; }
+    95%  { opacity: 0.3; }
     100% { cx: 800; opacity: 0; }
   }
 
   /* ═══════════════════════════════════════════════════════════
-     SIGN – Document + ECDSA curve
+     SIGN – Document + subtle wave
      ═══════════════════════════════════════════════════════════ */
 
-  /* Signature draw-on */
   .sign-illustration .sign-signature {
-    stroke-dasharray: 140;
-    stroke-dashoffset: 140;
-    animation: sig-write 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    stroke-dasharray: 120;
+    stroke-dashoffset: 120;
+    animation: sig-write 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
   @keyframes sig-write {
-    0%, 8%  { stroke-dashoffset: 140; opacity: 0; }
-    14%     { opacity: 0.85; }
-    48%     { stroke-dashoffset: 0; opacity: 0.85; }
-    72%     { stroke-dashoffset: 0; opacity: 0.6; }
-    100%    { stroke-dashoffset: 0; opacity: 0.25; }
+    0%, 10% { stroke-dashoffset: 120; opacity: 0; }
+    18%     { opacity: 0.7; }
+    50%     { stroke-dashoffset: 0; opacity: 0.7; }
+    80%     { stroke-dashoffset: 0; opacity: 0.45; }
+    100%    { stroke-dashoffset: 0; opacity: 0.15; }
   }
 
-  /* Elliptic curve draw-on */
-  .sign-illustration .ec-curve-top {
-    stroke-dasharray: 220;
-    stroke-dashoffset: 220;
-    animation: ec-reveal 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-  .sign-illustration .ec-curve-bottom {
-    stroke-dasharray: 220;
-    stroke-dashoffset: 220;
-    animation: ec-reveal 5s cubic-bezier(0.4, 0, 0.2, 1) infinite 0.25s;
+  .sign-illustration .sign-wave {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: wave-draw 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
-  @keyframes ec-reveal {
-    0%, 4%  { stroke-dashoffset: 220; }
-    45%     { stroke-dashoffset: 0; }
-    82%     { stroke-dashoffset: 0; }
-    100%    { stroke-dashoffset: 220; }
+  @keyframes wave-draw {
+    0%, 40%  { stroke-dashoffset: 200; opacity: 0; }
+    50%      { opacity: 0.12; }
+    70%      { stroke-dashoffset: 0; opacity: 0.12; }
+    90%      { stroke-dashoffset: 0; opacity: 0; }
+    100%     { stroke-dashoffset: 0; opacity: 0; }
   }
 
-  /* Tracer dot */
-  .sign-illustration .ec-tracer {
-    animation: tracer-vis 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-  @keyframes tracer-vis {
-    0%, 6%  { opacity: 0; }
-    14%     { opacity: 0.9; }
-    82%     { opacity: 0.9; }
-    100%    { opacity: 0; }
-  }
-
-  .sign-illustration .ec-tracer-glow {
-    animation: tracer-glow 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-  @keyframes tracer-glow {
-    0%, 6%  { opacity: 0; }
-    14%     { opacity: 0.04; }
-    82%     { opacity: 0.04; }
-    100%    { opacity: 0; }
-  }
-
-  /* Tangent line flickers in sync */
-  .sign-illustration .ec-tangent {
-    animation: tangent-show 5s ease-in-out infinite;
-  }
-  @keyframes tangent-show {
-    0%, 20%  { opacity: 0; }
-    40%      { opacity: 0.15; }
-    60%      { opacity: 0.15; }
-    80%, 100% { opacity: 0; }
-  }
-
-  /* Ambient glow */
-  .sign-illustration .sign-ambient {
-    animation: ambient-breathe 5s ease-in-out infinite;
-  }
-
-  /* Document float */
   .sign-illustration .sign-doc {
-    animation: gentle-float 7s ease-in-out infinite;
-  }
-
-  /* ECDSA group opacity */
-  .sign-illustration .ecdsa-group {
-    animation: ecdsa-presence 5s ease-in-out infinite;
-  }
-  @keyframes ecdsa-presence {
-    0%, 2%  { opacity: 0.7; }
-    50%     { opacity: 1; }
-    100%    { opacity: 0.7; }
+    animation: gentle-float 8s ease-in-out infinite;
   }
 
   /* ═══════════════════════════════════════════════════════════
      SEND – Document → Server
      ═══════════════════════════════════════════════════════════ */
 
-  /* Data packet visibility (motion handled by SMIL) */
-  .send-illustration .pkt-1 { animation: pkt-fade 2.8s ease-in-out infinite; }
-  .send-illustration .pkt-2 { animation: pkt-fade 2.8s ease-in-out infinite 0.9s; }
-  .send-illustration .pkt-3 { animation: pkt-fade 2.8s ease-in-out infinite 1.8s; }
-  .send-illustration .pkt-glow { animation: pkt-glow-fade 2.8s ease-in-out infinite; }
+  .send-illustration .pkt-1 { animation: pkt-fade 3s ease-in-out infinite; }
+  .send-illustration .pkt-2 { animation: pkt-fade 3s ease-in-out infinite 1.2s; }
 
   @keyframes pkt-fade {
     0%   { opacity: 0; }
-    8%   { opacity: 0.3; }
-    88%  { opacity: 0.3; }
-    100% { opacity: 0; }
-  }
-  @keyframes pkt-glow-fade {
-    0%   { opacity: 0; }
-    8%   { opacity: 0.03; }
-    88%  { opacity: 0.03; }
+    10%  { opacity: 0.2; }
+    85%  { opacity: 0.2; }
     100% { opacity: 0; }
   }
 
-  /* Server LEDs - cascade on receive */
-  .send-illustration .led-1 { animation: led-blink 2.8s ease-in-out infinite; }
-  .send-illustration .led-2 { animation: led-blink 2.8s ease-in-out infinite 0.4s; }
-  .send-illustration .led-3 { animation: led-blink 2.8s ease-in-out infinite 0.8s; }
+  .send-illustration .led-1 { animation: led-blink 3s ease-in-out infinite; }
+  .send-illustration .led-2 { animation: led-blink 3s ease-in-out infinite 0.5s; }
+  .send-illustration .led-3 { animation: led-blink 3s ease-in-out infinite 1s; }
 
   @keyframes led-blink {
-    0%, 100% { opacity: 0.08; }
-    50%      { opacity: 0.5; }
+    0%, 100% { opacity: 0.06; }
+    50%      { opacity: 0.35; }
   }
 
-  /* Receive chevron */
-  .send-illustration .recv-chevron {
-    animation: chevron-pulse 2.8s ease-in-out infinite;
-  }
-  @keyframes chevron-pulse {
-    0%, 40%    { opacity: 0; }
-    55%        { opacity: 0.35; }
-    70%        { opacity: 0.35; }
-    85%, 100%  { opacity: 0; }
-  }
-
-  /* Server glow on receive */
-  .send-illustration .send-server {
-    animation: srv-glow 2.8s ease-in-out infinite;
-  }
-  @keyframes srv-glow {
-    0%, 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
-    55%      { filter: drop-shadow(0 0 12px rgba(255,255,255,0.06)); }
-  }
-
-  /* Ambient */
-  .send-illustration .send-ambient {
-    animation: ambient-breathe 2.8s ease-in-out infinite;
-  }
-
-  /* Doc float */
   .send-illustration .send-doc {
-    animation: gentle-float 7s ease-in-out infinite;
+    animation: gentle-float 8s ease-in-out infinite;
   }
 
   /* ═══════════════════════════════════════════════════════════
      VERIFY – Shield + Check + Address
      ═══════════════════════════════════════════════════════════ */
 
-  /* Shield path draw */
   .verify-illustration .shield-draw {
     stroke-dasharray: 360;
     stroke-dashoffset: 360;
-    animation: shield-trace 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    animation: shield-trace 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
   @keyframes shield-trace {
-    0%       { stroke-dashoffset: 360; opacity: 0.2; }
-    8%       { opacity: 0.8; }
-    35%      { stroke-dashoffset: 0; opacity: 0.8; }
-    75%      { stroke-dashoffset: 0; opacity: 0.55; }
-    100%     { stroke-dashoffset: 0; opacity: 0.2; }
+    0%       { stroke-dashoffset: 360; opacity: 0.15; }
+    10%      { opacity: 0.6; }
+    40%      { stroke-dashoffset: 0; opacity: 0.6; }
+    80%      { stroke-dashoffset: 0; opacity: 0.4; }
+    100%     { stroke-dashoffset: 0; opacity: 0.15; }
   }
 
-  /* Inner shield reveal */
-  .verify-illustration .shield-inner {
-    stroke-dasharray: 280;
-    stroke-dashoffset: 280;
-    animation: inner-trace 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-  @keyframes inner-trace {
-    0%, 12%  { stroke-dashoffset: 280; opacity: 0; }
-    20%      { opacity: 0.2; }
-    42%      { stroke-dashoffset: 0; opacity: 0.2; }
-    75%      { stroke-dashoffset: 0; opacity: 0.12; }
-    100%     { stroke-dashoffset: 280; opacity: 0; }
-  }
-
-  /* Checkmark draw – the payoff moment */
   .verify-illustration .v-check {
-    stroke-dasharray: 65;
-    stroke-dashoffset: 65;
-    animation: check-snap 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: check-snap 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
   @keyframes check-snap {
-    0%, 32%  { stroke-dashoffset: 65; opacity: 0; }
-    36%      { opacity: 1; }
-    50%      { stroke-dashoffset: 0; opacity: 1; }
-    75%      { stroke-dashoffset: 0; opacity: 0.75; }
-    100%     { stroke-dashoffset: 0; opacity: 0.2; }
+    0%, 36%  { stroke-dashoffset: 60; opacity: 0; }
+    40%      { opacity: 0.9; }
+    52%      { stroke-dashoffset: 0; opacity: 0.9; }
+    80%      { stroke-dashoffset: 0; opacity: 0.6; }
+    100%     { stroke-dashoffset: 0; opacity: 0.15; }
   }
 
-  /* Verification rings – radiate outward after check */
-  .verify-illustration .v-ring-1 {
-    animation: ring-out 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-    transform-origin: 120px 82px;
+  .verify-illustration .v-ring {
+    animation: ring-out 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    transform-origin: 120px 84px;
   }
   @keyframes ring-out {
-    0%, 38%  { opacity: 0; transform: scale(0.8); }
-    52%      { opacity: 0.12; transform: scale(1); }
-    72%      { opacity: 0.08; transform: scale(1.08); }
-    100%     { opacity: 0; transform: scale(1.15); }
-  }
-
-  .verify-illustration .v-ring-2 {
-    animation: ring-out-2 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-    transform-origin: 120px 82px;
-  }
-  @keyframes ring-out-2 {
-    0%, 44%  { opacity: 0; transform: scale(0.8); }
-    58%      { opacity: 0.08; transform: scale(1); }
-    76%      { opacity: 0.05; transform: scale(1.05); }
+    0%, 42%  { opacity: 0; transform: scale(0.85); }
+    56%      { opacity: 0.1; transform: scale(1); }
+    78%      { opacity: 0.05; transform: scale(1.06); }
     100%     { opacity: 0; transform: scale(1.1); }
   }
 
-  .verify-illustration .v-ring-3 {
-    animation: ring-out-3 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-    transform-origin: 120px 82px;
-  }
-  @keyframes ring-out-3 {
-    0%, 50%  { opacity: 0; transform: scale(0.8); }
-    64%      { opacity: 0.05; transform: scale(1); }
-    80%      { opacity: 0.03; transform: scale(1.03); }
-    100%     { opacity: 0; transform: scale(1.05); }
-  }
-
-  /* Address pill reveal */
   .verify-illustration .addr-pill {
-    animation: pill-reveal 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: pill-reveal 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
   @keyframes pill-reveal {
-    0%, 48%   { opacity: 0; }
-    60%       { opacity: 0.45; }
-    78%       { opacity: 0.45; }
+    0%, 52%   { opacity: 0; }
+    64%       { opacity: 0.3; }
+    82%       { opacity: 0.3; }
     100%      { opacity: 0; }
   }
 
-  /* Address text */
   .verify-illustration .addr-text {
-    animation: text-reveal 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: text-reveal 6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
   @keyframes text-reveal {
-    0%, 50%   { opacity: 0; transform: translateY(3px); }
-    62%       { opacity: 0.65; transform: translateY(0); }
-    78%       { opacity: 0.65; transform: translateY(0); }
-    100%      { opacity: 0; transform: translateY(0); }
-  }
-
-  /* Verified badge pop */
-  .verify-illustration .addr-badge {
-    animation: badge-pop 5s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-    transform-origin: 204px 177px;
-  }
-  @keyframes badge-pop {
-    0%, 58%   { opacity: 0; transform: scale(0.7); }
-    68%       { opacity: 0.6; transform: scale(1.05); }
-    72%       { opacity: 0.6; transform: scale(1); }
-    80%       { opacity: 0.6; transform: scale(1); }
-    100%      { opacity: 0; transform: scale(1); }
+    0%, 54%   { opacity: 0; }
+    66%       { opacity: 0.5; }
+    82%       { opacity: 0.5; }
+    100%      { opacity: 0; }
   }
 
   /* ═══════════════════════════════════════════════════════════
-     SHARED KEYFRAMES
+     SHARED
      ═══════════════════════════════════════════════════════════ */
 
   @keyframes gentle-float {
     0%, 100% { transform: translateY(0); }
-    50%      { transform: translateY(-2px); }
-  }
-
-  @keyframes ambient-breathe {
-    0%, 100% { opacity: 0.01; }
-    50%      { opacity: 0.025; }
+    50%      { transform: translateY(-1.5px); }
   }
 
   /* ═══════════════════════════════════════════════════════════
-     HOVER & INTERACTION
+     HOVER
      ═══════════════════════════════════════════════════════════ */
 
   .illustration-container {
@@ -539,7 +320,7 @@ const steps = [
   }
 
   .group:hover .illustration-container {
-    transform: scale(1.04);
+    transform: scale(1.03);
   }
 
   .illustration-container svg {
@@ -547,7 +328,7 @@ const steps = [
   }
 
   .group:hover .illustration-container svg {
-    filter: drop-shadow(0 0 28px rgba(255,255,255,0.05));
+    filter: drop-shadow(0 0 20px rgba(255,255,255,0.04));
   }
 
   /* ═══════════════════════════════════════════════════════════
