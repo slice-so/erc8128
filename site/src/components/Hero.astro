@@ -430,7 +430,7 @@
       const avgZ = (a.z + b.z) / 2;
       const depthFactor = (avgZ + 1) / 2;
 
-      const baseOpacity = 0.045 + depthFactor * 0.075;
+      const baseOpacity = 0.015 + depthFactor * 0.05;
 
       let cursorBoost = 0;
       const midX = (a.px + b.px) / 2;
@@ -460,7 +460,7 @@
 
         const glowIntensity = glow.intensity * depthFactor;
         const grad = ctx.createLinearGradient(fromPt.px, fromPt.py, drawX, drawY);
-        grad.addColorStop(0, `rgba(${LINE_COLOR}, ${glowIntensity * 0.45})`);
+        grad.addColorStop(0, `rgba(${LINE_COLOR}, ${glowIntensity * 0.35})`);
         grad.addColorStop(1, `rgba(${LINE_COLOR}, ${glowIntensity})`);
 
         ctx.strokeStyle = grad;
