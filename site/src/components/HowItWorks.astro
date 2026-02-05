@@ -136,6 +136,30 @@ const steps = [
                       >
                         sha-256=X48E9...
                       </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="3"
+                        x="78"
+                        y="96"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6.5"
+                        fill="white"
+                        opacity="0"
+                      >
+                        @authority:
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="4"
+                        x="82"
+                        y="106"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6"
+                        fill="white"
+                        opacity="0"
+                      >
+                        api.example.com
+                      </text>
                       {/* Divider */}
                       <line x1="88" y1="118" x2="152" y2="118" stroke="white" stroke-width="0.3" opacity="0.06" />
 
@@ -257,15 +281,15 @@ const steps = [
 
   #hiw-grid {
     /* Keep these in sync with JS timings */
-    --hiw-cycle: 4700ms;
+    --hiw-cycle: 5900ms;
     --hiw-sign-text: 300ms;
     --hiw-sign-sig: 500ms;
     --hiw-line-delay: 100ms; /* pause after Sign completes */
-    --hiw-line-to-send: 400ms;
-    --hiw-process-delay: 400ms;
+    --hiw-line-to-send: 800ms;
+    --hiw-process-delay: 0ms;
     --hiw-process-spin: 400ms;
     --hiw-spinner-fade: 100ms;
-    --hiw-line-to-verify: 400ms;
+    --hiw-line-to-verify: 800ms;
     --hiw-scramble: 600ms;
     --hiw-return: 500ms;
     --hiw-hold: 500ms;
@@ -339,10 +363,16 @@ const steps = [
   .hiw-step.hiw-active .hiw-sign-el[data-idx="2"] {
     animation-delay: 160ms;
   }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="3"] {
+    animation-delay: 220ms;
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="4"] {
+    animation-delay: 260ms;
+  }
   @keyframes hiwSignFadeInHold {
     0% { opacity: 0; }
-    6.38% { opacity: 0.55; }
-    91.49% { opacity: 0.55; }
+    5.08% { opacity: 0.55; }
+    93.22% { opacity: 0.55; }
     100% { opacity: 0; }
   }
 
@@ -352,11 +382,11 @@ const steps = [
       stroke-dasharray: 1;
       stroke-dashoffset: 1;
     }
-    6.38% {
+    5.08% {
       opacity: 0.35;
       stroke-dashoffset: 0;
     }
-    91.49% {
+    93.22% {
       opacity: 0.35;
       stroke-dashoffset: 0;
     }
@@ -368,23 +398,18 @@ const steps = [
 
   @keyframes hiwSigDrawHold {
     0% {
-      opacity: 0;
-      stroke-dashoffset: 120;
-    }
-    6.38% {
-      opacity: 0;
-      stroke-dashoffset: 120;
-    }
-    /* No fade-in: signature appears and draws */
-    6.39% {
       opacity: 1;
       stroke-dashoffset: 120;
     }
-    17.02% {
+    5.08% {
+      opacity: 1;
+      stroke-dashoffset: 120;
+    }
+    13.56% {
       opacity: 1;
       stroke-dashoffset: 0;
     }
-    91.49% {
+    93.22% {
       opacity: 1;
       stroke-dashoffset: 0;
     }
@@ -417,22 +442,22 @@ const steps = [
       opacity: 0;
       transform: rotate(0deg);
     }
-    36.17% {
+    28.81% {
       opacity: 0;
       transform: rotate(0deg);
     }
     /* Fade in (<=100ms) */
-    38.30% {
+    30.5% {
       opacity: 1;
       transform: rotate(0deg);
     }
     /* Spin for 0.4s */
-    46.81% {
+    33.9% {
       opacity: 1;
       transform: rotate(360deg);
     }
     /* Fade out (<=100ms) */
-    48.94% {
+    35.59% {
       opacity: 0;
       transform: rotate(360deg);
     }
@@ -481,22 +506,22 @@ const steps = [
       stroke-dashoffset: 60;
       transform: scale(1);
     }
-    57.45% {
+    59.32% {
       opacity: 0;
       stroke-dashoffset: 60;
       transform: scale(1);
     }
-    63.83% {
+    64.4% {
       opacity: 1;
       stroke-dashoffset: 0;
       transform: scale(1.06);
     }
-    70.21% {
+    69.49% {
       opacity: 0.88;
       stroke-dashoffset: 0;
       transform: scale(1);
     }
-    91.49% {
+    93.22% {
       opacity: 0.88;
       stroke-dashoffset: 0;
       transform: scale(1);
@@ -513,15 +538,15 @@ const steps = [
       opacity: 0;
       transform: scale(0.85);
     }
-    57.45% {
+    59.32% {
       opacity: 0;
       transform: scale(0.85);
     }
-    63.83% {
+    64.4% {
       opacity: 0.12;
       transform: scale(1.02);
     }
-    70.21% {
+    69.49% {
       opacity: 0;
       transform: scale(1.12);
     }
@@ -533,17 +558,17 @@ const steps = [
 
   @keyframes hiwVerifyAddr {
     0% { opacity: 0.18; }
-    57.45% { opacity: 0.18; }
-    63.83% { opacity: 0.62; }
-    91.49% { opacity: 0.65; }
+    49.15% { opacity: 0.62; }
+    59.32% { opacity: 0.62; }
+    93.22% { opacity: 0.65; }
     100% { opacity: 0.18; }
   }
 
   @keyframes hiwVerifyPill {
     0% { opacity: 0.1; }
-    57.45% { opacity: 0.1; }
-    63.83% { opacity: 0.38; }
-    91.49% { opacity: 0.4; }
+    49.15% { opacity: 0.38; }
+    59.32% { opacity: 0.38; }
+    93.22% { opacity: 0.4; }
     100% { opacity: 0.1; }
   }
 
@@ -649,19 +674,20 @@ const steps = [
     const SIGN_TEXT_MS = 300;
     const SIGN_SIG_MS = 500;
     const LINE_DELAY_MS = 100;
-    const LINE_TO_SEND_MS = 400;
+    const LINE_TO_SEND_MS = 800;
 
     // Send / processing: arrive → wait 0.4s → fade in (<=100ms) → spin 0.4s → fade out (<=100ms)
-    const PROCESS_DELAY_MS = 400;
+    const PROCESS_DELAY_MS = 0;
     const SPINNER_FADE_MS = 100;
-    const PROCESS_SPIN_MS = 400;
+    const PROCESS_SPIN_MS = 200;
     const PROCESS_TOTAL_MS = PROCESS_DELAY_MS + SPINNER_FADE_MS + PROCESS_SPIN_MS + SPINNER_FADE_MS;
 
     // Purple line leg 2 (send → verify)
-    const LINE_TO_VERIFY_MS = 400;
+    const LINE_TO_VERIFY_MS = 800;
 
     // Verify / scramble
     const SCRAMBLE_MS = 600;
+    const RESOLVE_MS = 1000;
     const RETURN_MS = 500;
     const HOLD_MS = 500;
     const FADE_OUT_MS = 400;
@@ -677,11 +703,12 @@ const steps = [
       PROCESS_TOTAL_MS +
       LINE_TO_VERIFY_MS +
       SCRAMBLE_MS +
+      RESOLVE_MS +
       RETURN_MS +
       HOLD_MS +
       FADE_OUT_MS;
 
-    const MOBILE_VERIFY_CYCLE_MS = SCRAMBLE_MS + FADE_OUT_MS;
+    const MOBILE_VERIFY_CYCLE_MS = SCRAMBLE_MS + RESOLVE_MS + RETURN_MS + HOLD_MS + FADE_OUT_MS;
 
     function clamp(v: number, lo = 0, hi = 1) {
       return Math.max(lo, Math.min(hi, v));
@@ -757,7 +784,7 @@ const steps = [
         const fadeOutTimer = setTimeout(() => {
           // reset as we fade back to idle
           setPlaceholder();
-        }, startDelay + SCRAMBLE_MS + RETURN_MS + HOLD_MS);
+        }, startDelay + SCRAMBLE_MS + RESOLVE_MS + RETURN_MS + HOLD_MS);
 
         const nextTimer = window.setTimeout(() => runCycle(startDelay, cycleMs), cycleMs);
         timers.push(signalTimer, fadeOutTimer, nextTimer);
@@ -821,7 +848,8 @@ const steps = [
             LINE_TO_SEND_MS +
             PROCESS_TOTAL_MS +
             LINE_TO_VERIFY_MS +
-            SCRAMBLE_MS) /
+            SCRAMBLE_MS +
+            RESOLVE_MS) /
           DESKTOP_CYCLE_MS;
 
         const returnEnd =
@@ -832,6 +860,7 @@ const steps = [
             PROCESS_TOTAL_MS +
             LINE_TO_VERIFY_MS +
             SCRAMBLE_MS +
+            RESOLVE_MS +
             RETURN_MS) /
           DESKTOP_CYCLE_MS;
 
@@ -843,6 +872,7 @@ const steps = [
             PROCESS_TOTAL_MS +
             LINE_TO_VERIFY_MS +
             SCRAMBLE_MS +
+            RESOLVE_MS +
             RETURN_MS +
             HOLD_MS) /
           DESKTOP_CYCLE_MS;
