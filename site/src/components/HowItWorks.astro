@@ -136,31 +136,6 @@ const steps = [
                       >
                         sha-256=X48E9...
                       </text>
-                      <text
-                        class="hiw-sign-el"
-                        data-idx="3"
-                        x="78"
-                        y="96"
-                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
-                        font-size="6.5"
-                        fill="white"
-                        opacity="0"
-                      >
-                        @authority:
-                      </text>
-                      <text
-                        class="hiw-sign-el"
-                        data-idx="4"
-                        x="82"
-                        y="106"
-                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
-                        font-size="6"
-                        fill="white"
-                        opacity="0"
-                      >
-                        api.example.com
-                      </text>
-
                       {/* Divider */}
                       <line x1="88" y1="118" x2="152" y2="118" stroke="white" stroke-width="0.3" opacity="0.06" />
 
@@ -282,15 +257,18 @@ const steps = [
 
   #hiw-grid {
     /* Keep these in sync with JS timings */
-    --hiw-cycle: 3800ms;
+    --hiw-cycle: 4700ms;
     --hiw-sign-text: 300ms;
     --hiw-sign-sig: 500ms;
-    --hiw-line-delay: 100ms;
-    --hiw-line-to-send: 200ms;
-    --hiw-process: 400ms;
+    --hiw-line-delay: 100ms; /* pause after Sign completes */
+    --hiw-line-to-send: 400ms;
+    --hiw-process-delay: 400ms;
+    --hiw-process-spin: 400ms;
+    --hiw-spinner-fade: 100ms;
+    --hiw-line-to-verify: 400ms;
     --hiw-scramble: 600ms;
-    --hiw-resolve: 1000ms;
     --hiw-return: 500ms;
+    --hiw-hold: 500ms;
     --hiw-fade-out: 400ms;
   }
 
@@ -327,37 +305,6 @@ const steps = [
   .hiw-grid-active #hiw-line-fill {
     animation: none;
   }
-
-  @keyframes hiwLineFill {
-    0% {
-      stroke-dashoffset: 1;
-      opacity: 0;
-    }
-    6% {
-      opacity: 1;
-    }
-    13.33% {
-      stroke-dashoffset: 0.5;
-      opacity: 1;
-    }
-    33.33% {
-      stroke-dashoffset: 0.5;
-      opacity: 1;
-    }
-    53.33% {
-      stroke-dashoffset: 0;
-      opacity: 1;
-    }
-    86.67% {
-      stroke-dashoffset: 0;
-      opacity: 0.85;
-    }
-    100% {
-      stroke-dashoffset: 0;
-      opacity: 0;
-    }
-  }
-
   /* ═══════════════════════════════════════════════════════════
      SIGN (fade-in + hold)
      ═══════════════════════════════════════════════════════════ */
@@ -392,26 +339,11 @@ const steps = [
   .hiw-step.hiw-active .hiw-sign-el[data-idx="2"] {
     animation-delay: 160ms;
   }
-  .hiw-step.hiw-active .hiw-sign-el[data-idx="3"] {
-    animation-delay: 220ms;
-  }
-  .hiw-step.hiw-active .hiw-sign-el[data-idx="4"] {
-    animation-delay: 260ms;
-  }
-
   @keyframes hiwSignFadeInHold {
-    0% {
-      opacity: 0;
-    }
-    7.89% {
-      opacity: 0.55;
-    }
-    94.74% {
-      opacity: 0.55;
-    }
-    100% {
-      opacity: 0;
-    }
+    0% { opacity: 0; }
+    6.38% { opacity: 0.55; }
+    91.49% { opacity: 0.55; }
+    100% { opacity: 0; }
   }
 
   @keyframes hiwDocOutline {
@@ -420,11 +352,11 @@ const steps = [
       stroke-dasharray: 1;
       stroke-dashoffset: 1;
     }
-    7.89% {
+    6.38% {
       opacity: 0.35;
       stroke-dashoffset: 0;
     }
-    94.74% {
+    91.49% {
       opacity: 0.35;
       stroke-dashoffset: 0;
     }
@@ -439,15 +371,20 @@ const steps = [
       opacity: 0;
       stroke-dashoffset: 120;
     }
-    7.89% {
+    6.38% {
       opacity: 0;
       stroke-dashoffset: 120;
     }
-    21.05% {
+    /* No fade-in: signature appears and draws */
+    6.39% {
+      opacity: 1;
+      stroke-dashoffset: 120;
+    }
+    17.02% {
       opacity: 1;
       stroke-dashoffset: 0;
     }
-    94.74% {
+    91.49% {
       opacity: 1;
       stroke-dashoffset: 0;
     }
@@ -475,25 +412,27 @@ const steps = [
       opacity: 0.22;
     }
   }
-
   @keyframes hiwProcSpin {
     0% {
       opacity: 0;
       transform: rotate(0deg);
     }
-    28.95% {
+    36.17% {
       opacity: 0;
       transform: rotate(0deg);
     }
-    31.58% {
+    /* Fade in (<=100ms) */
+    38.30% {
       opacity: 1;
       transform: rotate(0deg);
     }
-    39.47% {
+    /* Spin for 0.4s */
+    46.81% {
       opacity: 1;
       transform: rotate(360deg);
     }
-    42.11% {
+    /* Fade out (<=100ms) */
+    48.94% {
       opacity: 0;
       transform: rotate(360deg);
     }
@@ -536,29 +475,28 @@ const steps = [
     animation: hiwVerifyPill var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
     animation-fill-mode: both;
   }
-
   @keyframes hiwCheckDraw {
     0% {
       opacity: 0;
       stroke-dashoffset: 60;
       transform: scale(1);
     }
-    39.47% {
+    57.45% {
       opacity: 0;
       stroke-dashoffset: 60;
       transform: scale(1);
     }
-    55.26% {
+    63.83% {
       opacity: 1;
       stroke-dashoffset: 0;
       transform: scale(1.06);
     }
-    65.79% {
+    70.21% {
       opacity: 0.88;
       stroke-dashoffset: 0;
       transform: scale(1);
     }
-    94.74% {
+    91.49% {
       opacity: 0.88;
       stroke-dashoffset: 0;
       transform: scale(1);
@@ -575,15 +513,15 @@ const steps = [
       opacity: 0;
       transform: scale(0.85);
     }
-    39.47% {
+    57.45% {
       opacity: 0;
       transform: scale(0.85);
     }
-    55.26% {
+    63.83% {
       opacity: 0.12;
       transform: scale(1.02);
     }
-    65.79% {
+    70.21% {
       opacity: 0;
       transform: scale(1.12);
     }
@@ -594,122 +532,19 @@ const steps = [
   }
 
   @keyframes hiwVerifyAddr {
-    0% {
-      opacity: 0.18;
-    }
-    39.47% {
-      opacity: 0.18;
-    }
-    55.26% {
-      opacity: 0.62;
-    }
-    81.58% {
-      opacity: 0.65;
-    }
-    100% {
-      opacity: 0.18;
-    }
+    0% { opacity: 0.18; }
+    57.45% { opacity: 0.18; }
+    63.83% { opacity: 0.62; }
+    91.49% { opacity: 0.65; }
+    100% { opacity: 0.18; }
   }
 
   @keyframes hiwVerifyPill {
-    0% {
-      opacity: 0.1;
-    }
-    39.47% {
-      opacity: 0.1;
-    }
-    55.26% {
-      opacity: 0.38;
-    }
-    81.58% {
-      opacity: 0.4;
-    }
-    100% {
-      opacity: 0.1;
-    }
-  }
-
-  @keyframes hiwProcSpinMobile {
-    0% {
-      opacity: 1;
-      transform: rotate(0deg);
-    }
-    100% {
-      opacity: 1;
-      transform: rotate(360deg);
-    }
-  }
-
-  @keyframes hiwCheckDrawMobile {
-    0% {
-      opacity: 0;
-      stroke-dashoffset: 60;
-      transform: scale(1);
-    }
-    30% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-      transform: scale(1.06);
-    }
-    80% {
-      opacity: 0.88;
-      stroke-dashoffset: 0;
-      transform: scale(1);
-    }
-    100% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes hiwVerifyRingMobile {
-    0% {
-      opacity: 0;
-      transform: scale(0.85);
-    }
-    30% {
-      opacity: 0.12;
-      transform: scale(1.02);
-    }
-    55% {
-      opacity: 0;
-      transform: scale(1.12);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(1.12);
-    }
-  }
-
-  @keyframes hiwVerifyAddrMobile {
-    0% {
-      opacity: 0.62;
-    }
-    30% {
-      opacity: 0.62;
-    }
-    80% {
-      opacity: 0.65;
-    }
-    100% {
-      opacity: 0.18;
-    }
-  }
-
-  @keyframes hiwVerifyPillMobile {
-    0% {
-      opacity: 0.38;
-    }
-    30% {
-      opacity: 0.38;
-    }
-    80% {
-      opacity: 0.4;
-    }
-    100% {
-      opacity: 0.1;
-    }
+    0% { opacity: 0.1; }
+    57.45% { opacity: 0.1; }
+    63.83% { opacity: 0.38; }
+    91.49% { opacity: 0.4; }
+    100% { opacity: 0.1; }
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -814,12 +649,23 @@ const steps = [
     const SIGN_TEXT_MS = 300;
     const SIGN_SIG_MS = 500;
     const LINE_DELAY_MS = 100;
-    const LINE_TO_SEND_MS = 200;
-    const PROCESS_MS = 400;
+    const LINE_TO_SEND_MS = 400;
+
+    // Send / processing: arrive → wait 0.4s → fade in (<=100ms) → spin 0.4s → fade out (<=100ms)
+    const PROCESS_DELAY_MS = 400;
+    const SPINNER_FADE_MS = 100;
+    const PROCESS_SPIN_MS = 400;
+    const PROCESS_TOTAL_MS = PROCESS_DELAY_MS + SPINNER_FADE_MS + PROCESS_SPIN_MS + SPINNER_FADE_MS;
+
+    // Purple line leg 2 (send → verify)
+    const LINE_TO_VERIFY_MS = 400;
+
+    // Verify / scramble
     const SCRAMBLE_MS = 600;
-    const RESOLVE_MS = 1000;
     const RETURN_MS = 500;
+    const HOLD_MS = 500;
     const FADE_OUT_MS = 400;
+
     const SCRAMBLE_TICK = 80;
     const STAGGER = 32;
 
@@ -828,12 +674,14 @@ const steps = [
       SIGN_SIG_MS +
       LINE_DELAY_MS +
       LINE_TO_SEND_MS +
-      PROCESS_MS +
+      PROCESS_TOTAL_MS +
+      LINE_TO_VERIFY_MS +
       SCRAMBLE_MS +
-      RESOLVE_MS +
       RETURN_MS +
+      HOLD_MS +
       FADE_OUT_MS;
-    const MOBILE_VERIFY_CYCLE_MS = SCRAMBLE_MS + RESOLVE_MS + FADE_OUT_MS;
+
+    const MOBILE_VERIFY_CYCLE_MS = SCRAMBLE_MS + FADE_OUT_MS;
 
     function clamp(v: number, lo = 0, hi = 1) {
       return Math.max(lo, Math.min(hi, v));
@@ -907,8 +755,9 @@ const steps = [
         }, startDelay);
 
         const fadeOutTimer = setTimeout(() => {
+          // reset as we fade back to idle
           setPlaceholder();
-        }, startDelay + SCRAMBLE_MS + RESOLVE_MS);
+        }, startDelay + SCRAMBLE_MS + RETURN_MS + HOLD_MS);
 
         const nextTimer = window.setTimeout(() => runCycle(startDelay, cycleMs), cycleMs);
         timers.push(signalTimer, fadeOutTimer, nextTimer);
@@ -926,7 +775,14 @@ const steps = [
       const lineReturn = grid.querySelector<SVGLineElement>('#hiw-line-return');
       const isMobile = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
       const cycleMs = isMobile ? MOBILE_VERIFY_CYCLE_MS : DESKTOP_CYCLE_MS;
-      const verifyDelayMs = isMobile ? 0 : SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_MS;
+      const verifyDelayMs = isMobile
+        ? 0
+        : SIGN_TEXT_MS +
+          SIGN_SIG_MS +
+          LINE_DELAY_MS +
+          LINE_TO_SEND_MS +
+          PROCESS_TOTAL_MS +
+          LINE_TO_VERIFY_MS;
       const reduceMotion = supportsReducedMotion();
 
       const verifyStep = steps.find((s) => s.getAttribute('data-step') === 'verify') as HTMLElement | undefined;
@@ -947,39 +803,72 @@ const steps = [
         const lineSendArrive =
           (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS) / DESKTOP_CYCLE_MS;
         const lineSendPauseEnd =
-          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_MS) / DESKTOP_CYCLE_MS;
-        const lineVerifyArrive =
-          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_MS + SCRAMBLE_MS) /
+          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_TOTAL_MS) /
           DESKTOP_CYCLE_MS;
+        const lineVerifyArrive =
+          (SIGN_TEXT_MS +
+            SIGN_SIG_MS +
+            LINE_DELAY_MS +
+            LINE_TO_SEND_MS +
+            PROCESS_TOTAL_MS +
+            LINE_TO_VERIFY_MS) /
+          DESKTOP_CYCLE_MS;
+
         const resolveEnd =
           (SIGN_TEXT_MS +
             SIGN_SIG_MS +
             LINE_DELAY_MS +
             LINE_TO_SEND_MS +
-            PROCESS_MS +
-            SCRAMBLE_MS +
-            RESOLVE_MS) /
+            PROCESS_TOTAL_MS +
+            LINE_TO_VERIFY_MS +
+            SCRAMBLE_MS) /
           DESKTOP_CYCLE_MS;
+
         const returnEnd =
           (SIGN_TEXT_MS +
             SIGN_SIG_MS +
             LINE_DELAY_MS +
             LINE_TO_SEND_MS +
-            PROCESS_MS +
+            PROCESS_TOTAL_MS +
+            LINE_TO_VERIFY_MS +
             SCRAMBLE_MS +
-            RESOLVE_MS +
             RETURN_MS) /
+          DESKTOP_CYCLE_MS;
+
+        const holdEnd =
+          (SIGN_TEXT_MS +
+            SIGN_SIG_MS +
+            LINE_DELAY_MS +
+            LINE_TO_SEND_MS +
+            PROCESS_TOTAL_MS +
+            LINE_TO_VERIFY_MS +
+            SCRAMBLE_MS +
+            RETURN_MS +
+            HOLD_MS) /
           DESKTOP_CYCLE_MS;
 
         lineAnimation = lineFill.animate(
           [
             { strokeDashoffset: 1, opacity: 0, offset: 0 },
             { strokeDashoffset: 1, opacity: 0, offset: lineStart },
+
+            // Segment 1: client → send (stop at 50%)
             { strokeDashoffset: 0.5, opacity: 1, offset: lineSendArrive },
+
+            // Wait at Send for full processing animation
             { strokeDashoffset: 0.5, opacity: 1, offset: lineSendPauseEnd },
+
+            // Segment 2: send → verify
             { strokeDashoffset: 0, opacity: 1, offset: lineVerifyArrive },
+
+            // Keep visible while scrambling / verifying
             { strokeDashoffset: 0, opacity: 1, offset: resolveEnd },
+
+            // Keep visible until the green return line finishes
             { strokeDashoffset: 0, opacity: 1, offset: returnEnd },
+
+            // Hold, then fade out back to idle
+            { strokeDashoffset: 0, opacity: 1, offset: holdEnd },
             { strokeDashoffset: 0, opacity: 0, offset: 1 }
           ],
           {
@@ -995,6 +884,7 @@ const steps = [
               { strokeDashoffset: 1, opacity: 0, offset: 0 },
               { strokeDashoffset: 1, opacity: 0, offset: resolveEnd },
               { strokeDashoffset: 0, opacity: 1, offset: returnEnd },
+              { strokeDashoffset: 0, opacity: 1, offset: holdEnd },
               { strokeDashoffset: 0, opacity: 0, offset: 1 }
             ],
             {
