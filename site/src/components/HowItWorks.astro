@@ -36,7 +36,7 @@ const steps = [
     <div class="relative grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-0" id="hiw-grid">
       <!-- Connection line fill (desktop only) -->
       <svg
-        class="connection-flow hidden md:block absolute top-[120px] left-[16.67%] w-[66.67%] h-8 z-0"
+        class="connection-flow hidden md:block absolute top-[104px] left-[16.67%] w-[66.67%] h-8 z-0"
         viewBox="0 0 800 32"
         preserveAspectRatio="none"
         aria-hidden="true"
@@ -52,6 +52,18 @@ const steps = [
           stroke-width="1.2"
           stroke-linecap="round"
           pathLength="1"
+        />
+        <line
+          id="hiw-line-return"
+          x1="0"
+          y1="16"
+          x2="800"
+          y2="16"
+          stroke="rgba(34, 197, 94, 0.95)"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          pathLength="1"
+          transform="translate(800 0) scale(-1 1)"
         />
       </svg>
 
@@ -70,9 +82,10 @@ const steps = [
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                       {/* Document outline */}
                       <g class="sign-doc">
-                        <rect x="56" y="24" width="104" height="136" rx="3" fill="#0a0a0a" stroke="none" />
+                        <rect x="68" y="24" width="104" height="136" rx="3" fill="#0a0a0a" stroke="none" />
                         <rect
-                          x="56"
+                          class="hiw-doc-outline"
+                          x="68"
                           y="24"
                           width="104"
                           height="136"
@@ -81,6 +94,7 @@ const steps = [
                           stroke="white"
                           stroke-width="0.8"
                           opacity="0.35"
+                          pathLength="1"
                         />
                         <!-- removed fold corner accent -->
                       </g>
@@ -89,7 +103,7 @@ const steps = [
                       <text
                         class="hiw-sign-el"
                         data-idx="0"
-                        x="66"
+                        x="78"
                         y="55"
                         font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
                         font-size="7"
@@ -101,7 +115,7 @@ const steps = [
                       <text
                         class="hiw-sign-el"
                         data-idx="1"
-                        x="66"
+                        x="78"
                         y="70"
                         font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
                         font-size="6.5"
@@ -113,7 +127,7 @@ const steps = [
                       <text
                         class="hiw-sign-el"
                         data-idx="2"
-                        x="70"
+                        x="82"
                         y="80"
                         font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
                         font-size="6"
@@ -125,7 +139,7 @@ const steps = [
                       <text
                         class="hiw-sign-el"
                         data-idx="3"
-                        x="66"
+                        x="78"
                         y="96"
                         font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
                         font-size="6.5"
@@ -137,7 +151,7 @@ const steps = [
                       <text
                         class="hiw-sign-el"
                         data-idx="4"
-                        x="70"
+                        x="82"
                         y="106"
                         font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
                         font-size="6"
@@ -148,12 +162,12 @@ const steps = [
                       </text>
 
                       {/* Divider */}
-                      <line x1="76" y1="118" x2="140" y2="118" stroke="white" stroke-width="0.3" opacity="0.06" />
+                      <line x1="88" y1="118" x2="152" y2="118" stroke="white" stroke-width="0.3" opacity="0.06" />
 
                       {/* Signature stroke */}
                       <path
                         id="hiw-sig"
-                        d="M76 138 C88 124, 96 148, 108 134 C116 126, 124 142, 136 132"
+                        d="M88 138 C100 124, 108 148, 120 134 C128 126, 136 142, 148 132"
                         stroke="white"
                         stroke-width="1.2"
                         stroke-linecap="round"
@@ -170,41 +184,26 @@ const steps = [
                 {step.id === "send" && (
                   <div class="send-illustration relative w-full h-full">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      {/* Server — squared icon based on server-reference.png */}
+                      {/* Server */}
                       <rect x="64" y="40" width="112" height="112" rx="10" fill="#0a0a0a" stroke="none" />
                       <rect x="64" y="40" width="112" height="112" rx="10" fill="none" stroke="white" stroke-width="0.9" opacity="0.35" />
+                      <rect x="78" y="56" width="84" height="12" rx="6" fill="white" opacity="0.08" />
+                      <rect x="78" y="124" width="84" height="10" rx="5" fill="white" opacity="0.14" />
 
-                      {/* Vents (left) */}
-                      <rect x="78" y="62" width="8" height="68" rx="4" fill="white" opacity="0.16" />
-                      <rect x="92" y="62" width="8" height="68" rx="4" fill="white" opacity="0.16" />
-                      <rect x="106" y="62" width="8" height="68" rx="4" fill="white" opacity="0.16" />
-
-                      {/* LEDs (center-right) */}
-                      <circle class="hiw-led" data-idx="0" cx="134" cy="66" r="4" fill="white" opacity="0.08" />
-                      <circle class="hiw-led" data-idx="1" cx="150" cy="66" r="4" fill="white" opacity="0.08" />
-                      <circle class="hiw-led" data-idx="2" cx="166" cy="66" r="4" fill="white" opacity="0.08" />
-                      <circle class="hiw-led" data-idx="3" cx="134" cy="86" r="4" fill="white" opacity="0.08" />
-                      <circle class="hiw-led" data-idx="4" cx="150" cy="86" r="4" fill="white" opacity="0.08" />
-                      <circle class="hiw-led" data-idx="5" cx="166" cy="86" r="4" fill="white" opacity="0.08" />
-
-                      {/* Bottom bar */}
-                      <rect x="124" y="122" width="44" height="8" rx="4" fill="white" opacity="0.16" />
-
-                      {/* Processing indicator — dashed ring + glow + dot */}
+                      {/* Processing indicator — dashed ring + dot */}
                       <g class="hiw-proc">
                         <circle
                           id="hiw-proc-ring"
-                          cx="156"
-                          cy="122"
+                          cx="120"
+                          cy="96"
                           r="18"
                           stroke="white"
-                          stroke-width="0.6"
+                          stroke-width="0.7"
                           fill="none"
-                          opacity="0.06"
-                          stroke-dasharray="4 4"
+                          opacity="0.12"
+                          stroke-dasharray="6 6"
                         />
-                        <circle id="hiw-proc-glow" cx="156" cy="122" r="10" fill="white" opacity="0" />
-                        <circle id="hiw-proc-dot" cx="156" cy="122" r="3" fill="white" opacity="0.12" />
+                        <circle id="hiw-proc-dot" cx="120" cy="96" r="3" fill="white" opacity="0.22" />
                       </g>
                     </svg>
                   </div>
@@ -281,24 +280,32 @@ const steps = [
     background-size: 40px 40px;
   }
 
+  #hiw-grid {
+    /* Keep these in sync with JS timings */
+    --hiw-cycle: 3800ms;
+    --hiw-sign-text: 300ms;
+    --hiw-sign-sig: 500ms;
+    --hiw-line-delay: 100ms;
+    --hiw-line-to-send: 200ms;
+    --hiw-process: 400ms;
+    --hiw-scramble: 600ms;
+    --hiw-resolve: 1000ms;
+    --hiw-return: 500ms;
+    --hiw-fade-out: 400ms;
+  }
+
   /* ═══════════════════════════════════════════════════════════
      HOVER
      ═══════════════════════════════════════════════════════════ */
 
   .illustration-container {
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .group:hover .illustration-container {
-    transform: scale(1.03);
-  }
-
-  .illustration-container svg {
-    transition: filter 0.6s ease;
-  }
-
-  .group:hover .illustration-container svg {
-    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.04));
+  @media (hover: hover) and (pointer: fine) {
+    .group:hover .illustration-container {
+      transform: scale(1.015);
+    }
   }
 
   /* ═══════════════════════════════════════════════════════════
@@ -311,8 +318,14 @@ const steps = [
     opacity: 0;
   }
 
+  #hiw-line-return {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
   .hiw-grid-active #hiw-line-fill {
-    animation: hiwLineFill 2.6s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: none;
   }
 
   @keyframes hiwLineFill {
@@ -320,14 +333,22 @@ const steps = [
       stroke-dashoffset: 1;
       opacity: 0;
     }
-    10% {
+    6% {
       opacity: 1;
     }
-    55% {
+    13.33% {
+      stroke-dashoffset: 0.5;
+      opacity: 1;
+    }
+    33.33% {
+      stroke-dashoffset: 0.5;
+      opacity: 1;
+    }
+    53.33% {
       stroke-dashoffset: 0;
       opacity: 1;
     }
-    85% {
+    86.67% {
       stroke-dashoffset: 0;
       opacity: 0.85;
     }
@@ -342,48 +363,74 @@ const steps = [
      ═══════════════════════════════════════════════════════════ */
 
   .hiw-sign-el,
-  #hiw-sig {
+  #hiw-sig,
+  .hiw-doc-outline {
     opacity: 0;
   }
 
   .hiw-step.hiw-active .hiw-sign-el {
-    animation: hiwSignFadeInHold 5.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwSignFadeInHold var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active #hiw-sig {
-    animation: hiwSigDrawHold 5.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwSigDrawHold var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active .hiw-doc-outline {
+    animation: hiwDocOutline var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active .hiw-sign-el[data-idx="0"] {
-    animation-delay: 0.10s;
+    animation-delay: 0ms;
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="1"] {
-    animation-delay: 0.22s;
+    animation-delay: 80ms;
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="2"] {
-    animation-delay: 0.34s;
+    animation-delay: 160ms;
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="3"] {
-    animation-delay: 0.46s;
+    animation-delay: 220ms;
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="4"] {
-    animation-delay: 0.58s;
+    animation-delay: 260ms;
   }
 
   @keyframes hiwSignFadeInHold {
     0% {
       opacity: 0;
     }
-    14% {
+    7.89% {
       opacity: 0.55;
     }
-    86% {
+    94.74% {
       opacity: 0.55;
     }
     100% {
       opacity: 0;
+    }
+  }
+
+  @keyframes hiwDocOutline {
+    0% {
+      opacity: 0;
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+    }
+    7.89% {
+      opacity: 0.35;
+      stroke-dashoffset: 0;
+    }
+    94.74% {
+      opacity: 0.35;
+      stroke-dashoffset: 0;
+    }
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
     }
   }
 
@@ -392,16 +439,16 @@ const steps = [
       opacity: 0;
       stroke-dashoffset: 120;
     }
-    22% {
+    7.89% {
       opacity: 0;
       stroke-dashoffset: 120;
     }
-    42% {
-      opacity: 0.65;
+    21.05% {
+      opacity: 1;
       stroke-dashoffset: 0;
     }
-    86% {
-      opacity: 0.65;
+    94.74% {
+      opacity: 1;
       stroke-dashoffset: 0;
     }
     100% {
@@ -415,47 +462,44 @@ const steps = [
      ═══════════════════════════════════════════════════════════ */
 
   #hiw-proc-ring {
-    transform-origin: 156px 122px;
+    transform-origin: 120px 96px;
+    will-change: transform, opacity;
   }
 
   .hiw-step.hiw-active #hiw-proc-ring {
-    animation: hiwProcSpin 1s linear infinite;
+    animation: hiwProcSpin var(--hiw-cycle) linear infinite;
   }
 
-  .hiw-step.hiw-active #hiw-proc-glow {
-    animation: hiwProcPulse 1s ease-in-out infinite;
-  }
-
-  /* On mobile the processing animation always runs */
   @media (max-width: 767px) {
-    #hiw-proc-ring {
-      animation: hiwProcSpin 1s linear infinite;
-    }
-
-    #hiw-proc-glow {
-      animation: hiwProcPulse 1s ease-in-out infinite;
-    }
-
     #hiw-proc-dot {
       opacity: 0.22;
     }
   }
 
   @keyframes hiwProcSpin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @keyframes hiwProcPulse {
     0% {
       opacity: 0;
+      transform: rotate(0deg);
     }
-    50% {
-      opacity: 0.08;
+    28.95% {
+      opacity: 0;
+      transform: rotate(0deg);
+    }
+    31.58% {
+      opacity: 1;
+      transform: rotate(0deg);
+    }
+    39.47% {
+      opacity: 1;
+      transform: rotate(360deg);
+    }
+    42.11% {
+      opacity: 0;
+      transform: rotate(360deg);
     }
     100% {
       opacity: 0;
+      transform: rotate(360deg);
     }
   }
 
@@ -465,19 +509,32 @@ const steps = [
 
   #hiw-v-check {
     transform-origin: 120px 82px;
+    will-change: transform, opacity;
   }
 
   #hiw-v-ring {
     transform-origin: 120px 84px;
+    will-change: transform, opacity;
   }
 
   .hiw-step.hiw-active #hiw-v-check {
-    animation: hiwCheckDraw 6.0s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwCheckDraw var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active #hiw-v-ring {
-    animation: hiwVerifyRing 6.0s ease-out infinite;
+    animation: hiwVerifyRing var(--hiw-cycle) ease-out infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-addr-text {
+    animation: hiwVerifyAddr var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-addr-pill {
+    animation: hiwVerifyPill var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation-fill-mode: both;
   }
 
   @keyframes hiwCheckDraw {
@@ -486,22 +543,22 @@ const steps = [
       stroke-dashoffset: 60;
       transform: scale(1);
     }
-    14% {
+    39.47% {
       opacity: 0;
       stroke-dashoffset: 60;
       transform: scale(1);
     }
-    24% {
+    55.26% {
       opacity: 1;
       stroke-dashoffset: 0;
       transform: scale(1.06);
     }
-    34% {
+    65.79% {
       opacity: 0.88;
       stroke-dashoffset: 0;
       transform: scale(1);
     }
-    86% {
+    94.74% {
       opacity: 0.88;
       stroke-dashoffset: 0;
       transform: scale(1);
@@ -518,21 +575,140 @@ const steps = [
       opacity: 0;
       transform: scale(0.85);
     }
-    18% {
+    39.47% {
       opacity: 0;
       transform: scale(0.85);
     }
-    34% {
+    55.26% {
       opacity: 0.12;
       transform: scale(1.02);
     }
-    48% {
+    65.79% {
       opacity: 0;
       transform: scale(1.12);
     }
     100% {
       opacity: 0;
       transform: scale(1.12);
+    }
+  }
+
+  @keyframes hiwVerifyAddr {
+    0% {
+      opacity: 0.18;
+    }
+    39.47% {
+      opacity: 0.18;
+    }
+    55.26% {
+      opacity: 0.62;
+    }
+    81.58% {
+      opacity: 0.65;
+    }
+    100% {
+      opacity: 0.18;
+    }
+  }
+
+  @keyframes hiwVerifyPill {
+    0% {
+      opacity: 0.1;
+    }
+    39.47% {
+      opacity: 0.1;
+    }
+    55.26% {
+      opacity: 0.38;
+    }
+    81.58% {
+      opacity: 0.4;
+    }
+    100% {
+      opacity: 0.1;
+    }
+  }
+
+  @keyframes hiwProcSpinMobile {
+    0% {
+      opacity: 1;
+      transform: rotate(0deg);
+    }
+    100% {
+      opacity: 1;
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes hiwCheckDrawMobile {
+    0% {
+      opacity: 0;
+      stroke-dashoffset: 60;
+      transform: scale(1);
+    }
+    30% {
+      opacity: 1;
+      stroke-dashoffset: 0;
+      transform: scale(1.06);
+    }
+    80% {
+      opacity: 0.88;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes hiwVerifyRingMobile {
+    0% {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    30% {
+      opacity: 0.12;
+      transform: scale(1.02);
+    }
+    55% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+  }
+
+  @keyframes hiwVerifyAddrMobile {
+    0% {
+      opacity: 0.62;
+    }
+    30% {
+      opacity: 0.62;
+    }
+    80% {
+      opacity: 0.65;
+    }
+    100% {
+      opacity: 0.18;
+    }
+  }
+
+  @keyframes hiwVerifyPillMobile {
+    0% {
+      opacity: 0.38;
+    }
+    30% {
+      opacity: 0.38;
+    }
+    80% {
+      opacity: 0.4;
+    }
+    100% {
+      opacity: 0.1;
     }
   }
 
@@ -544,6 +720,89 @@ const steps = [
     .illustration-container {
       height: 11rem;
     }
+
+    .hiw-step[data-step="sign"] {
+      --hiw-cycle: 2600ms;
+    }
+
+    .hiw-step[data-step="send"] {
+      --hiw-cycle: 600ms;
+    }
+
+    .hiw-step[data-step="verify"] {
+      --hiw-cycle: 2000ms;
+    }
+
+    .hiw-step.hiw-active #hiw-line-fill {
+      animation: none;
+    }
+
+    .hiw-step[data-step="send"].hiw-active #hiw-proc-ring {
+      animation: hiwProcSpinMobile var(--hiw-cycle) linear infinite;
+    }
+
+    .hiw-step[data-step="verify"].hiw-active #hiw-v-check {
+      animation: hiwCheckDrawMobile var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step[data-step="verify"].hiw-active #hiw-v-ring {
+      animation: hiwVerifyRingMobile var(--hiw-cycle) ease-out infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step[data-step="verify"].hiw-active #hiw-addr-text {
+      animation: hiwVerifyAddrMobile var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step[data-step="verify"].hiw-active #hiw-addr-pill {
+      animation: hiwVerifyPillMobile var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+      animation-fill-mode: both;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .illustration-container,
+    .illustration-container svg {
+      transition: none;
+    }
+
+    #hiw-line-fill,
+    .hiw-step .hiw-sign-el,
+    .hiw-step #hiw-sig,
+    .hiw-step #hiw-proc-ring,
+    .hiw-step #hiw-addr-text,
+    .hiw-step #hiw-addr-pill,
+    .hiw-step #hiw-v-check,
+    .hiw-step #hiw-v-ring {
+      animation: none;
+    }
+
+    #hiw-line-fill {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+
+    .hiw-step .hiw-sign-el {
+      opacity: 0.55;
+    }
+
+    .hiw-step #hiw-sig {
+      opacity: 0.65;
+      stroke-dashoffset: 0;
+    }
+
+    .hiw-step #hiw-v-check {
+      opacity: 0.88;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+
+    .hiw-step #hiw-v-ring {
+      opacity: 0.12;
+      transform: scale(1.02);
+    }
   }
 </style>
 
@@ -552,26 +811,110 @@ const steps = [
     const FINAL_ADDR = '0x71C7...d93A';
     const PLACEHOLDER = '0x0000…0000';
     const HEX = '0123456789abcdefABCDEF';
+    const SIGN_TEXT_MS = 300;
+    const SIGN_SIG_MS = 500;
+    const LINE_DELAY_MS = 100;
+    const LINE_TO_SEND_MS = 200;
+    const PROCESS_MS = 400;
+    const SCRAMBLE_MS = 600;
+    const RESOLVE_MS = 1000;
+    const RETURN_MS = 500;
+    const FADE_OUT_MS = 400;
+    const SCRAMBLE_TICK = 80;
+    const STAGGER = 32;
 
-    function clamp(v, lo = 0, hi = 1) {
+    const DESKTOP_CYCLE_MS =
+      SIGN_TEXT_MS +
+      SIGN_SIG_MS +
+      LINE_DELAY_MS +
+      LINE_TO_SEND_MS +
+      PROCESS_MS +
+      SCRAMBLE_MS +
+      RESOLVE_MS +
+      RETURN_MS +
+      FADE_OUT_MS;
+    const MOBILE_VERIFY_CYCLE_MS = SCRAMBLE_MS + RESOLVE_MS + FADE_OUT_MS;
+
+    function clamp(v: number, lo = 0, hi = 1) {
       return Math.max(lo, Math.min(hi, v));
     }
 
-    /** progress=0 fully scrambled, progress=1 fully resolved. */
-    function scramble(finalAddr, progress) {
-      return finalAddr
-        .split('')
-        .map((ch, i) => {
-          if (ch === '.' || ch === '…' || (ch === 'x' && i === 1) || (ch === '0' && i === 0)) return ch;
-          const threshold = (progress * (finalAddr.length + 6) - i) / 5;
-          if (threshold >= 1) return ch;
-          return HEX[Math.floor(Math.random() * HEX.length)];
-        })
-        .join('');
+    function isStaticChar(ch: string, index: number) {
+      return ch === '.' || ch === '…' || (ch === 'x' && index === 1) || (ch === '0' && index === 0);
     }
 
-    function isMobile() {
-      return window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+    function supportsReducedMotion() {
+      return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    function createVerifyAnimator(verifyStep: HTMLElement) {
+      const addrText = verifyStep.querySelector<SVGTextElement>('#hiw-addr-text');
+      const addrPill = verifyStep.querySelector<SVGRectElement>('#hiw-addr-pill');
+      if (!addrText || !addrPill) return null;
+
+      let scrambleInterval: number | null = null;
+      let timers: number[] = [];
+
+      const setPlaceholder = () => {
+        addrText.textContent = PLACEHOLDER;
+      };
+
+      const setFinal = () => {
+        addrText.textContent = FINAL_ADDR;
+      };
+
+      const clearTimers = () => {
+        timers.forEach((t) => clearTimeout(t));
+        timers = [];
+        if (scrambleInterval !== null) {
+          clearInterval(scrambleInterval);
+          scrambleInterval = null;
+        }
+      };
+
+      const runCycle = (startDelay: number, cycleMs: number) => {
+        clearTimers();
+        if (!verifyStep.classList.contains('hiw-active')) return;
+
+        setPlaceholder();
+
+        const signalTimer = setTimeout(() => {
+          const start = performance.now();
+          scrambleInterval = window.setInterval(() => {
+            const t = performance.now() - start;
+            const tick = Math.floor(t / SCRAMBLE_TICK);
+            const chars = FINAL_ADDR.split('');
+            const perCharDelay = Math.min(STAGGER, SCRAMBLE_MS / Math.max(1, chars.length - 1));
+            const perCharDuration = Math.max(120, SCRAMBLE_MS - perCharDelay * (chars.length - 1));
+            const totalDuration = SCRAMBLE_MS;
+            const output = chars
+              .map((ch, i) => {
+                if (isStaticChar(ch, i)) return ch;
+                const local = clamp((t - i * perCharDelay) / perCharDuration);
+                if (local >= 1) return ch;
+                return HEX[(i * 13 + tick * 7) % HEX.length];
+              })
+              .join('');
+            addrText.textContent = output;
+            if (t >= totalDuration) {
+              if (scrambleInterval !== null) {
+                clearInterval(scrambleInterval);
+                scrambleInterval = null;
+              }
+              setFinal();
+            }
+          }, SCRAMBLE_TICK);
+        }, startDelay);
+
+        const fadeOutTimer = setTimeout(() => {
+          setPlaceholder();
+        }, startDelay + SCRAMBLE_MS + RESOLVE_MS);
+
+        const nextTimer = window.setTimeout(() => runCycle(startDelay, cycleMs), cycleMs);
+        timers.push(signalTimer, fadeOutTimer, nextTimer);
+      };
+
+      return { runCycle, stop: clearTimers, setFinal };
     }
 
     function init() {
@@ -579,107 +922,152 @@ const steps = [
       if (!grid) return;
 
       const steps = Array.from(grid.querySelectorAll('.hiw-step'));
+      const lineFill = grid.querySelector<SVGLineElement>('#hiw-line-fill');
+      const lineReturn = grid.querySelector<SVGLineElement>('#hiw-line-return');
+      const isMobile = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+      const cycleMs = isMobile ? MOBILE_VERIFY_CYCLE_MS : DESKTOP_CYCLE_MS;
+      const verifyDelayMs = isMobile ? 0 : SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_MS;
+      const reduceMotion = supportsReducedMotion();
 
-      // ── Desktop: trigger the connection line when the grid enters viewport ──
-      const gridObserver = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((e) => {
-            if (e.isIntersecting) grid.classList.add('hiw-grid-active');
-            else grid.classList.remove('hiw-grid-active');
-          });
-        },
-        { threshold: 0.35 }
-      );
+      const verifyStep = steps.find((s) => s.getAttribute('data-step') === 'verify') as HTMLElement | undefined;
+      const verifyAnimator = verifyStep ? createVerifyAnimator(verifyStep) : null;
 
-      gridObserver.observe(grid);
+      if (reduceMotion) {
+        if (verifyAnimator) verifyAnimator.setFinal();
+        return;
+      }
 
-      // ── Per-step activation: when each step enters viewport (mobile + desktop) ──
+      let lineAnimation: Animation | null = null;
+      let lineReturnAnimation: Animation | null = null;
+      const startLine = () => {
+        if (!lineFill) return;
+        if (lineAnimation) lineAnimation.cancel();
+        if (lineReturnAnimation) lineReturnAnimation.cancel();
+        const lineStart = (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS) / DESKTOP_CYCLE_MS;
+        const lineSendArrive =
+          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS) / DESKTOP_CYCLE_MS;
+        const lineSendPauseEnd =
+          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_MS) / DESKTOP_CYCLE_MS;
+        const lineVerifyArrive =
+          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_MS + SCRAMBLE_MS) /
+          DESKTOP_CYCLE_MS;
+        const resolveEnd =
+          (SIGN_TEXT_MS +
+            SIGN_SIG_MS +
+            LINE_DELAY_MS +
+            LINE_TO_SEND_MS +
+            PROCESS_MS +
+            SCRAMBLE_MS +
+            RESOLVE_MS) /
+          DESKTOP_CYCLE_MS;
+        const returnEnd =
+          (SIGN_TEXT_MS +
+            SIGN_SIG_MS +
+            LINE_DELAY_MS +
+            LINE_TO_SEND_MS +
+            PROCESS_MS +
+            SCRAMBLE_MS +
+            RESOLVE_MS +
+            RETURN_MS) /
+          DESKTOP_CYCLE_MS;
+
+        lineAnimation = lineFill.animate(
+          [
+            { strokeDashoffset: 1, opacity: 0, offset: 0 },
+            { strokeDashoffset: 1, opacity: 0, offset: lineStart },
+            { strokeDashoffset: 0.5, opacity: 1, offset: lineSendArrive },
+            { strokeDashoffset: 0.5, opacity: 1, offset: lineSendPauseEnd },
+            { strokeDashoffset: 0, opacity: 1, offset: lineVerifyArrive },
+            { strokeDashoffset: 0, opacity: 1, offset: resolveEnd },
+            { strokeDashoffset: 0, opacity: 1, offset: returnEnd },
+            { strokeDashoffset: 0, opacity: 0, offset: 1 }
+          ],
+          {
+            duration: DESKTOP_CYCLE_MS,
+            iterations: Infinity,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+          }
+        );
+
+        if (lineReturn) {
+          lineReturnAnimation = lineReturn.animate(
+            [
+              { strokeDashoffset: 1, opacity: 0, offset: 0 },
+              { strokeDashoffset: 1, opacity: 0, offset: resolveEnd },
+              { strokeDashoffset: 0, opacity: 1, offset: returnEnd },
+              { strokeDashoffset: 0, opacity: 0, offset: 1 }
+            ],
+            {
+              duration: DESKTOP_CYCLE_MS,
+              iterations: Infinity,
+              easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            }
+          );
+        }
+      };
+
+      const stopLine = () => {
+        if (lineAnimation) {
+          lineAnimation.cancel();
+          lineAnimation = null;
+        }
+        if (lineReturnAnimation) {
+          lineReturnAnimation.cancel();
+          lineReturnAnimation = null;
+        }
+      };
+
+      if (!('IntersectionObserver' in window)) {
+        steps.forEach((s) => s.classList.add('hiw-active'));
+        grid.classList.add('hiw-grid-active');
+        if (!isMobile) startLine();
+        if (verifyAnimator) verifyAnimator.runCycle(verifyDelayMs, cycleMs);
+        return;
+      }
+
+      // ── Desktop: sync full sequence when the grid enters viewport ──
+      if (!isMobile) {
+        const gridObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                grid.classList.add('hiw-grid-active');
+                steps.forEach((s) => s.classList.add('hiw-active'));
+                startLine();
+                if (verifyAnimator) verifyAnimator.runCycle(verifyDelayMs, cycleMs);
+              } else {
+                grid.classList.remove('hiw-grid-active');
+                steps.forEach((s) => s.classList.remove('hiw-active'));
+                stopLine();
+                if (verifyAnimator) verifyAnimator.stop();
+              }
+            });
+          },
+          { threshold: 0.35 }
+        );
+
+        gridObserver.observe(grid);
+        return;
+      }
+
+      // ── Mobile: per-step activation and independent cadence ──
       const stepObserver = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => {
             const el = e.target;
             if (e.isIntersecting) el.classList.add('hiw-active');
             else el.classList.remove('hiw-active');
+
+            if (verifyAnimator && el === verifyStep) {
+              if (e.isIntersecting) verifyAnimator.runCycle(0, cycleMs);
+              else verifyAnimator.stop();
+            }
           });
         },
         { threshold: 0.4 }
       );
 
       steps.forEach((s) => stepObserver.observe(s));
-
-      // ── VERIFY address: sequence per request ──
-      // 1) Placeholder low opacity
-      // 2) On signal received: high opacity + scramble
-      // 3) After ~1s: resolve and stay
-      steps
-        .filter((s) => s.getAttribute('data-step') === 'verify')
-        .forEach((verifyStep) => {
-          const addrText = verifyStep.querySelector('#hiw-addr-text');
-          const addrPill = verifyStep.querySelector('#hiw-addr-pill');
-          if (!addrText || !addrPill) return;
-
-          let rafId = null;
-          let cycleStart = null;
-
-          const CYCLE = 6000; // match CSS verify cadence
-          const SIGNAL_AT = 500; // ms
-          const RESOLVE_AFTER = 1000; // ms after signal
-
-          function frame(ts) {
-            if (!verifyStep.classList.contains('hiw-active')) {
-              rafId = null;
-              cycleStart = null;
-              return;
-            }
-
-            if (cycleStart === null) cycleStart = ts;
-            const t = (ts - cycleStart) % CYCLE;
-
-            // Phase 1
-            if (t < SIGNAL_AT) {
-              addrText.textContent = PLACEHOLDER;
-              addrText.setAttribute('opacity', '0.18');
-              addrPill.setAttribute('opacity', '0.10');
-            }
-            // Phase 2
-            else if (t < SIGNAL_AT + RESOLVE_AFTER) {
-              const sp = clamp((t - SIGNAL_AT) / RESOLVE_AFTER);
-              addrText.textContent = scramble(FINAL_ADDR, sp * 0.35);
-              addrText.setAttribute('opacity', '0.62');
-              addrPill.setAttribute('opacity', '0.38');
-            }
-            // Phase 3
-            else {
-              addrText.textContent = FINAL_ADDR;
-              addrText.setAttribute('opacity', '0.65');
-              addrPill.setAttribute('opacity', '0.40');
-            }
-
-            rafId = requestAnimationFrame(frame);
-          }
-
-          const start = () => {
-            if (rafId) return;
-            rafId = requestAnimationFrame(frame);
-          };
-
-          // Always run on mobile once mounted (but still only animates when step is in view)
-          // Desktop: start when active
-          const obs = new MutationObserver(() => {
-            if (verifyStep.classList.contains('hiw-active')) start();
-          });
-
-          obs.observe(verifyStep, { attributes: true, attributeFilter: ['class'] });
-
-          // If already active
-          if (verifyStep.classList.contains('hiw-active')) start();
-        });
-
-      // Ensure SEND processing is always animated on mobile, even before scroll triggers
-      if (isMobile()) {
-        const sendStep = steps.find((s) => s.getAttribute('data-step') === 'send');
-        if (sendStep) sendStep.classList.add('hiw-active');
-      }
     }
 
     if (document.readyState === 'loading') {
