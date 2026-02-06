@@ -36,7 +36,7 @@ const steps = [
     <div class="relative grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-0" id="hiw-grid">
       <!-- Connection line fill (desktop only) -->
       <svg
-        class="connection-flow hidden md:block absolute top-[104px] left-[16.67%] w-[66.67%] h-8 z-0"
+        class="connection-flow hidden md:block absolute top-[84px] left-[17%] w-[66.67%] h-8 z-0"
         viewBox="0 0 800 32"
         preserveAspectRatio="none"
         aria-hidden="true"
@@ -59,13 +59,14 @@ const steps = [
           y1="16"
           x2="800"
           y2="16"
-          stroke="rgba(34, 197, 94, 0.95)"
+          stroke="var(--hiw-green)"
           stroke-width="1.2"
           stroke-linecap="round"
           pathLength="1"
           transform="translate(800 0) scale(-1 1)"
         />
       </svg>
+      <div class="hiw-line-sig hidden md:block" id="hiw-line-sig">0xA9f2d...</div>
 
       {
         steps.map((step, i) => (
@@ -78,8 +79,14 @@ const steps = [
               <div class="illustration-container relative h-48 md:h-52 mb-10 flex items-center justify-center">
                 {/* ── SIGN ── */}
                 {step.id === "sign" && (
-                  <div class="sign-illustration relative w-full h-full">
-                    <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <div class="sign-illustration relative w-full h-full scale-[1.5] md:top-[16px] md:scale-[1.25]">
+                    <svg
+                      class="w-full h-full overflow-visible"
+                      style="overflow: visible;"
+                      viewBox="0 0 240 220"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
                       {/* Document outline */}
                       <g class="sign-doc">
                         <rect x="68" y="24" width="104" height="136" rx="3" fill="#0a0a0a" stroke="none" />
@@ -181,7 +188,7 @@ const steps = [
 
                 {/* ── SEND (Server) ── */}
                 {step.id === "send" && (
-                  <div class="send-illustration relative w-full h-full">
+                  <div class="send-illustration relative w-full h-full scale-[1.25] md:scale-[1.1]">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                       {/* Server */}
                       <rect x="64" y="40" width="112" height="112" rx="10" fill="#0a0a0a" stroke="none" />
@@ -210,7 +217,7 @@ const steps = [
 
                 {/* ── VERIFY ── */}
                 {step.id === "verify" && (
-                  <div class="verify-illustration relative w-full h-full">
+                  <div class="verify-illustration relative w-full h-full scale-[1.15] md:scale-[1]">
                     <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
                       {/* Verification pulse ring — expands outward */}
                       <circle id="hiw-v-ring" cx="120" cy="84" r="56" stroke="white" stroke-width="0.4" fill="none" opacity="0" />
@@ -218,6 +225,7 @@ const steps = [
                       {/* Shield */}
                       <path d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z" fill="#0a0a0a" stroke="none" />
                       <path
+                        id="hiw-shield-outline"
                         d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z"
                         stroke="white"
                         stroke-width="0.8"
@@ -229,8 +237,8 @@ const steps = [
                       <path
                         id="hiw-v-check"
                         d="M104 84L114 96L140 66"
-                        stroke="white"
-                        stroke-width="2.5"
+                        stroke="var(--hiw-green)"
+                        stroke-width="2"
                         stroke-linecap="round"
                         stroke-linejoin="round"
                         fill="none"
@@ -253,6 +261,19 @@ const steps = [
                         opacity="0.18"
                       >
                         0x0000…0000
+                      </text>
+                      <text
+                        id="hiw-ens-text"
+                        x="120"
+                        y="204"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="9"
+                        fill="white"
+                        text-anchor="middle"
+                        letter-spacing="0.4"
+                        opacity="0.12"
+                      >
+                        slice.eth
                       </text>
                     </svg>
                   </div>
@@ -279,29 +300,17 @@ const steps = [
     background-size: 40px 40px;
   }
 
-  #hiw-grid {
-    /* Keep these in sync with JS timings */
-    --hiw-cycle: 5900ms;
-    --hiw-sign-text: 300ms;
-    --hiw-sign-sig: 500ms;
-    --hiw-line-delay: 100ms; /* pause after Sign completes */
-    --hiw-line-to-send: 800ms;
-    --hiw-process-delay: 0ms;
-    --hiw-process-spin: 400ms;
-    --hiw-spinner-fade: 100ms;
-    --hiw-line-to-verify: 800ms;
-    --hiw-scramble: 600ms;
-    --hiw-return: 500ms;
-    --hiw-hold: 500ms;
-    --hiw-fade-out: 400ms;
-  }
-
   /* ═══════════════════════════════════════════════════════════
      HOVER
      ═══════════════════════════════════════════════════════════ */
 
   .illustration-container {
     transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .verify-illustration,
+  .verify-illustration svg {
+    overflow: visible;
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -313,6 +322,22 @@ const steps = [
   /* ═══════════════════════════════════════════════════════════
      CONNECTION LINE FILL (desktop)
      ═══════════════════════════════════════════════════════════ */
+
+  .hiw-line-sig {
+    position: absolute;
+    left: 33.7%;
+    top: 84px;
+    transform: translate(-50%, -50%);
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.2px;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 0;
+  }
 
   #hiw-line-fill {
     stroke-dasharray: 1;
@@ -340,84 +365,36 @@ const steps = [
   }
 
   .hiw-step.hiw-active .hiw-sign-el {
-    animation: hiwSignFadeInHold var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwSignFadeInHold var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active #hiw-sig {
-    animation: hiwSigDrawHold var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwSigDrawHold var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active .hiw-doc-outline {
-    animation: hiwDocOutline var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwDocOutline var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active .hiw-sign-el[data-idx="0"] {
-    animation-delay: 0ms;
+    animation-delay: var(--hiw-sign-delay-0);
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="1"] {
-    animation-delay: 80ms;
+    animation-delay: var(--hiw-sign-delay-1);
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="2"] {
-    animation-delay: 160ms;
+    animation-delay: var(--hiw-sign-delay-2);
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="3"] {
-    animation-delay: 220ms;
+    animation-delay: var(--hiw-sign-delay-3);
   }
   .hiw-step.hiw-active .hiw-sign-el[data-idx="4"] {
-    animation-delay: 260ms;
+    animation-delay: var(--hiw-sign-delay-4);
   }
-  @keyframes hiwSignFadeInHold {
-    0% { opacity: 0; }
-    5.08% { opacity: 0.55; }
-    93.22% { opacity: 0.55; }
-    100% { opacity: 0; }
-  }
-
-  @keyframes hiwDocOutline {
-    0% {
-      opacity: 0;
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-    }
-    5.08% {
-      opacity: 0.35;
-      stroke-dashoffset: 0;
-    }
-    93.22% {
-      opacity: 0.35;
-      stroke-dashoffset: 0;
-    }
-    100% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-    }
-  }
-
-  @keyframes hiwSigDrawHold {
-    0% {
-      opacity: 1;
-      stroke-dashoffset: 120;
-    }
-    5.08% {
-      opacity: 1;
-      stroke-dashoffset: 120;
-    }
-    13.56% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-    }
-    93.22% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-    }
-    100% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-    }
-  }
+  /* Keyframes are injected by the script from the timing config. */
 
   /* ═══════════════════════════════════════════════════════════
      SEND (processing)
@@ -437,36 +414,6 @@ const steps = [
       opacity: 0.22;
     }
   }
-  @keyframes hiwProcSpin {
-    0% {
-      opacity: 0;
-      transform: rotate(0deg);
-    }
-    28.81% {
-      opacity: 0;
-      transform: rotate(0deg);
-    }
-    /* Fade in (<=100ms) */
-    30.5% {
-      opacity: 1;
-      transform: rotate(0deg);
-    }
-    /* Spin for 0.4s */
-    33.9% {
-      opacity: 1;
-      transform: rotate(360deg);
-    }
-    /* Fade out (<=100ms) */
-    35.59% {
-      opacity: 0;
-      transform: rotate(360deg);
-    }
-    100% {
-      opacity: 0;
-      transform: rotate(360deg);
-    }
-  }
-
   /* ═══════════════════════════════════════════════════════════
      VERIFY (pulse + check)
      ═══════════════════════════════════════════════════════════ */
@@ -481,96 +428,45 @@ const steps = [
     will-change: transform, opacity;
   }
 
+  #hiw-shield-outline {
+    transition: stroke 100ms ease-out;
+  }
+
   .hiw-step.hiw-active #hiw-v-check {
-    animation: hiwCheckDraw var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwCheckDraw var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active #hiw-v-ring {
-    animation: hiwVerifyRing var(--hiw-cycle) ease-out infinite;
+    animation: hiwVerifyRing var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-shield-outline {
+    animation: hiwShieldGlow var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active #hiw-addr-text {
-    animation: hiwVerifyAddr var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwVerifyAddr var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
 
   .hiw-step.hiw-active #hiw-addr-pill {
-    animation: hiwVerifyPill var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    animation: hiwVerifyPill var(--hiw-cycle) linear infinite;
     animation-fill-mode: both;
   }
-  @keyframes hiwCheckDraw {
-    0% {
-      opacity: 0;
-      stroke-dashoffset: 60;
-      transform: scale(1);
-    }
-    59.32% {
-      opacity: 0;
-      stroke-dashoffset: 60;
-      transform: scale(1);
-    }
-    64.4% {
-      opacity: 1;
-      stroke-dashoffset: 0;
-      transform: scale(1.06);
-    }
-    69.49% {
-      opacity: 0.88;
-      stroke-dashoffset: 0;
-      transform: scale(1);
-    }
-    93.22% {
-      opacity: 0.88;
-      stroke-dashoffset: 0;
-      transform: scale(1);
-    }
-    100% {
-      opacity: 0;
-      stroke-dashoffset: 0;
-      transform: scale(1);
-    }
+
+  .hiw-step.hiw-active #hiw-ens-text {
+    animation: hiwVerifyEns var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
   }
 
-  @keyframes hiwVerifyRing {
-    0% {
-      opacity: 0;
-      transform: scale(0.85);
-    }
-    59.32% {
-      opacity: 0;
-      transform: scale(0.85);
-    }
-    64.4% {
-      opacity: 0.12;
-      transform: scale(1.02);
-    }
-    69.49% {
-      opacity: 0;
-      transform: scale(1.12);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(1.12);
-    }
+  .hiw-grid-active #hiw-line-sig {
+    animation: hiwLineSig var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
   }
-
-  @keyframes hiwVerifyAddr {
-    0% { opacity: 0.18; }
-    49.15% { opacity: 0.62; }
-    59.32% { opacity: 0.62; }
-    93.22% { opacity: 0.65; }
-    100% { opacity: 0.18; }
-  }
-
-  @keyframes hiwVerifyPill {
-    0% { opacity: 0.1; }
-    49.15% { opacity: 0.38; }
-    59.32% { opacity: 0.38; }
-    93.22% { opacity: 0.4; }
-    100% { opacity: 0.1; }
-  }
+  /* Keyframes are injected by the script from the timing config. */
 
   /* ═══════════════════════════════════════════════════════════
      RESPONSIVE
@@ -581,43 +477,45 @@ const steps = [
       height: 11rem;
     }
 
-    .hiw-step[data-step="sign"] {
-      --hiw-cycle: 2600ms;
-    }
-
-    .hiw-step[data-step="send"] {
-      --hiw-cycle: 600ms;
-    }
-
-    .hiw-step[data-step="verify"] {
-      --hiw-cycle: 2000ms;
+    #hiw-line-sig {
+      display: none;
     }
 
     .hiw-step.hiw-active #hiw-line-fill {
       animation: none;
     }
 
-    .hiw-step[data-step="send"].hiw-active #hiw-proc-ring {
-      animation: hiwProcSpinMobile var(--hiw-cycle) linear infinite;
+    .hiw-step[data-step="send"] #hiw-proc-ring {
+      animation: hiwProcSpinMobile var(--hiw-proc-spin-period) linear infinite;
+      opacity: 1;
     }
 
-    .hiw-step[data-step="verify"].hiw-active #hiw-v-check {
-      animation: hiwCheckDrawMobile var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    .hiw-step[data-step="send"] #hiw-proc-dot {
+      opacity: 0.22;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-addr-text {
+      animation: hiwVerifyAddrMobile var(--hiw-cycle) linear infinite;
       animation-fill-mode: both;
     }
 
-    .hiw-step[data-step="verify"].hiw-active #hiw-v-ring {
-      animation: hiwVerifyRingMobile var(--hiw-cycle) ease-out infinite;
+    .hiw-step.hiw-active[data-step="verify"] #hiw-addr-pill {
+      animation: hiwVerifyPillMobile var(--hiw-cycle) linear infinite;
       animation-fill-mode: both;
     }
 
-    .hiw-step[data-step="verify"].hiw-active #hiw-addr-text {
-      animation: hiwVerifyAddrMobile var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    .hiw-step.hiw-active[data-step="verify"] #hiw-ens-text {
+      animation: hiwEnsMobile var(--hiw-cycle) linear infinite;
       animation-fill-mode: both;
     }
 
-    .hiw-step[data-step="verify"].hiw-active #hiw-addr-pill {
-      animation: hiwVerifyPillMobile var(--hiw-cycle) cubic-bezier(0.16, 1, 0.3, 1) infinite;
+    .hiw-step.hiw-active[data-step="verify"] #hiw-v-check {
+      animation: hiwCheckMobile var(--hiw-cycle) linear infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-shield-outline {
+      animation: hiwShieldMobile var(--hiw-cycle) linear infinite;
       animation-fill-mode: both;
     }
   }
@@ -629,11 +527,13 @@ const steps = [
     }
 
     #hiw-line-fill,
+    #hiw-line-sig,
     .hiw-step .hiw-sign-el,
     .hiw-step #hiw-sig,
     .hiw-step #hiw-proc-ring,
     .hiw-step #hiw-addr-text,
     .hiw-step #hiw-addr-pill,
+    .hiw-step #hiw-ens-text,
     .hiw-step #hiw-v-check,
     .hiw-step #hiw-v-ring {
       animation: none;
@@ -669,46 +569,384 @@ const steps = [
 <script>
   (function () {
     const FINAL_ADDR = '0x71C7...d93A';
-    const PLACEHOLDER = '0x0000…0000';
+    const PLACEHOLDER = '0x0000...0000';
     const HEX = '0123456789abcdefABCDEF';
-    const SIGN_TEXT_MS = 300;
-    const SIGN_SIG_MS = 500;
-    const LINE_DELAY_MS = 100;
-    const LINE_TO_SEND_MS = 800;
 
-    // Send / processing: arrive → wait 0.4s → fade in (<=100ms) → spin 0.4s → fade out (<=100ms)
-    const PROCESS_DELAY_MS = 0;
-    const SPINNER_FADE_MS = 100;
-    const PROCESS_SPIN_MS = 200;
-    const PROCESS_TOTAL_MS = PROCESS_DELAY_MS + SPINNER_FADE_MS + PROCESS_SPIN_MS + SPINNER_FADE_MS;
+    // ⬇️ All timing knobs live here.
+    const TIMING = {
+      // SIGN (document / text / signature)
+      signTextMs: 600, // time for sign text block to fade in
+      signSigMs: 500, // signature draw duration
+      signDelaysMs: [0, 80, 160, 240, 320], // per-line sign text delays
 
-    // Purple line leg 2 (send → verify)
-    const LINE_TO_VERIFY_MS = 800;
+      // LINE - three phases with explicit delays
+      lineStartDelayMs: 200, // delay after sign before purple line starts
+      lineSignToSendMs: 400, // purple line travel: sign → send
+      lineDelayAtSendMs: 250, // purple line waits at send (process plays during this)
+      lineSendToVerifyMs: 400, // purple line travel: send → verify
+      lineDelayAtVerifyMs: 1400, // purple line waits at verify (verify anim plays during this)
+      lineReturnMs: 600, // green line travel: verify → send
 
-    // Verify / scramble
-    const SCRAMBLE_MS = 600;
-    const RESOLVE_MS = 1000;
-    const RETURN_MS = 500;
-    const HOLD_MS = 500;
-    const FADE_OUT_MS = 400;
+      // LINE SIGNATURE LABEL
+      lineSigFadeMs: 150, // fade-in time for the 0xA9f2d... label (appears when line starts)
 
-    const SCRAMBLE_TICK = 80;
-    const STAGGER = 32;
+      // POST-RETURN
+      holdMs: 2000, // hold after return completes before fade-out
+      fadeOutMs: 500, // everything fades out together
+      cycleGapMs: 200, // pause between loops (max 1s)
 
-    const DESKTOP_CYCLE_MS =
-      SIGN_TEXT_MS +
-      SIGN_SIG_MS +
-      LINE_DELAY_MS +
-      LINE_TO_SEND_MS +
-      PROCESS_TOTAL_MS +
-      LINE_TO_VERIFY_MS +
-      SCRAMBLE_MS +
-      RESOLVE_MS +
-      RETURN_MS +
-      HOLD_MS +
-      FADE_OUT_MS;
+      // PROCESS (plays during lineDelayAtSendMs)
+      spinnerFadeMs: 150, // fade in/out duration
+      processSpinMs: 2000, // spin duration
+      spinnerRps: 1, // rotations per second (fixed speed)
 
-    const MOBILE_VERIFY_CYCLE_MS = SCRAMBLE_MS + RESOLVE_MS + RETURN_MS + HOLD_MS + FADE_OUT_MS;
+      // VERIFY (plays during lineDelayAtVerifyMs)
+      scrambleMs: 1200, // scramble duration for address
+      verifyDrawMs: 300, // checkmark draw duration
+      verifySettleMs: 200, // checkmark settle time
+      verifyPulseMs: 1000, // ring expand duration
+      verifyPulseFadeMs: 500, // ring fade-out duration
+      addrFadeInMs: 200, // address fade-in after line arrives at verify
+      ensFadeInMs: 150, // ENS fade-in time after scramble ends
+
+      // SCRAMBLE animation mechanics
+      scrambleTickMs: 70, // update interval for scramble text
+      staggerMs: 60, // per-character stagger
+      minCharResolveMs: 120, // minimum time per character to resolve
+
+      // MOBILE (per-step cycles)
+      mobile: {
+        signCycleMs: 3000, // sign loop duration
+        sendCycleMs: 1500, // send loop duration
+        verifyCycleMs: 0, // 0 = auto
+        verifyStartDelayMs: 1000, // delay before verify fade-in/scramble
+        scrambleMs: 1000, // mobile scramble duration
+        verifyHoldMs: 2000, // hold after resolve before fade-out
+        fadeOutMs: 500 // mobile fade-out duration
+      }
+    };
+
+    function buildTimeline(timing: typeof TIMING) {
+      // SIGN phase
+      const signTextEnd = timing.signTextMs;
+      const signEnd = signTextEnd  + timing.signSigMs;
+
+      // LINE phase 1: sign → send (purple)
+      const lineStart = signEnd + timing.lineStartDelayMs;
+      const lineSigStart = lineStart;
+      const lineSigEnd = lineSigStart + timing.lineSigFadeMs;
+      const lineSendArrive = lineStart + timing.lineSignToSendMs;
+
+      // LINE phase 2: wait at send (process plays during this)
+      const lineSendPauseEnd = lineSendArrive + timing.lineDelayAtSendMs;
+
+      // LINE phase 3: send → verify (purple)
+      const lineVerifyArrive = lineSendPauseEnd + timing.lineSendToVerifyMs;
+
+      // LINE phase 4: wait at verify (verify animation plays during this)
+      const lineVerifyPauseEnd = lineVerifyArrive + timing.lineDelayAtVerifyMs;
+
+      // LINE phase 5: verify → send (green return)
+      const returnStart = lineVerifyPauseEnd;
+      const returnEnd = returnStart + timing.lineReturnMs;
+
+      // POST-RETURN: hold then fade out together
+      const holdEnd = returnEnd + timing.holdMs;
+      const fadeOutStart = holdEnd;
+      const fadeOutEnd = fadeOutStart + timing.fadeOutMs;
+      const cycleMs = fadeOutEnd + timing.cycleGapMs;
+
+      // PROCESS animation (plays during lineDelayAtSendMs)
+      const processStart = lineSendArrive;
+      const processFadeInEnd = processStart + timing.spinnerFadeMs;
+      const processSpinEnd = processFadeInEnd + timing.processSpinMs;
+      const processFadeOutEnd = processSpinEnd + timing.spinnerFadeMs;
+
+      // VERIFY animation sequence:
+      // 1. Scramble starts when line arrives at verify
+      // 2. When scramble ends, address is resolved and ENS fades in
+      // 3. When ENS appears, checkmark starts drawing
+      // 4. When checkmark finishes, return line starts
+      const verifyStart = lineVerifyArrive;
+      const scrambleEnd = verifyStart + timing.scrambleMs;
+      const ensFadeInStart = scrambleEnd;
+      const ensFadeInEnd = ensFadeInStart + timing.ensFadeInMs;
+      const checkStart = ensFadeInStart; // checkmark starts when ENS starts appearing
+      const checkDrawEnd = checkStart + timing.verifyDrawMs;
+      const checkSettleEnd = checkDrawEnd + timing.verifySettleMs;
+
+      console.log('Timeline (ms):', {
+        signEnd,
+        lineStart,
+        lineSendArrive,
+        lineSendPauseEnd,
+        lineVerifyArrive,
+        verifyStart,
+        scrambleEnd,
+        ensFadeInEnd,
+        checkDrawEnd,
+        lineVerifyPauseEnd,
+        returnStart,
+        returnEnd,
+        holdEnd,
+        cycleMs,
+      });
+
+      return {
+        signTextEnd,
+        signEnd,
+        lineStart,
+        lineSigStart,
+        lineSigEnd,
+        lineSendArrive,
+        lineSendPauseEnd,
+        lineVerifyArrive,
+        lineVerifyPauseEnd,
+        returnStart,
+        returnEnd,
+        holdEnd,
+        fadeOutStart,
+        fadeOutEnd,
+        cycleMs,
+        // Process
+        processStart,
+        processFadeInEnd,
+        processSpinEnd,
+        processFadeOutEnd,
+        // Verify
+        verifyStart,
+        scrambleEnd,
+        ensFadeInStart,
+        ensFadeInEnd,
+        checkStart,
+        checkDrawEnd,
+        checkSettleEnd,
+      };
+    }
+
+    function injectTimingStyles(timing: typeof TIMING, timeline: ReturnType<typeof buildTimeline>) {
+      const safeMs = (ms: number) => (Number.isFinite(ms) ? ms : 0);
+      const pct = (ms: number) => {
+        if (!Number.isFinite(timeline.cycleMs) || timeline.cycleMs <= 0) return 0;
+        return Math.min(100, Math.max(0, (safeMs(ms) / timeline.cycleMs) * 100));
+      };
+      const p = (ms: number) => `${pct(ms).toFixed(2)}%`;
+      const pm = (ms: number) => {
+        if (!Number.isFinite(mobileVerifyCycleMs) || mobileVerifyCycleMs <= 0) return "0%";
+        const value = Math.min(100, Math.max(0, (safeMs(ms) / mobileVerifyCycleMs) * 100));
+        return `${value.toFixed(2)}%`;
+      };
+      const jumpPct = (ms: number, maxMs: number) => `${Math.min(pct(ms) + 0.01, pct(maxMs)).toFixed(2)}%`;
+      const mobileVerifyStartDelay = timing.mobile.verifyStartDelayMs ?? 1000;
+      const mobileScrambleMs = timing.mobile.scrambleMs ?? timing.scrambleMs;
+      const mobileHoldMs = timing.mobile.verifyHoldMs ?? 2000;
+      const mobileFadeOutMs = timing.mobile.fadeOutMs ?? timing.fadeOutMs;
+      const mobileVerifyCycleMs =
+        timing.mobile.verifyCycleMs ||
+        (mobileVerifyStartDelay + mobileScrambleMs + mobileHoldMs + mobileFadeOutMs + timing.cycleGapMs);
+
+      // Sign animation timing
+      const sigStart = timeline.signTextEnd;
+      const sigEnd = timeline.signEnd;
+
+      // Verify animation timing (from timeline)
+      const checkStart = timeline.checkStart;
+      const checkDrawEnd = timeline.checkDrawEnd;
+      const checkSettleEnd = timeline.checkSettleEnd;
+      const ringPeak = checkStart + timing.verifyPulseMs;
+      const ringEnd = ringPeak + timing.verifyPulseFadeMs;
+      const addrFadeInEnd = timeline.verifyStart + timing.addrFadeInMs;
+      const mobileScrambleStart = mobileVerifyStartDelay;
+      const mobileScrambleEnd = mobileScrambleStart + mobileScrambleMs;
+      const mobileEnsFadeInEnd = mobileScrambleEnd + timing.ensFadeInMs;
+      const mobileAddrFadeInEnd = mobileScrambleStart + timing.addrFadeInMs;
+      const mobileCheckStart = mobileScrambleEnd;
+      const mobileCheckDrawEnd = mobileCheckStart + timing.verifyDrawMs;
+      const mobileCheckSettleEnd = mobileCheckDrawEnd + timing.verifySettleMs;
+      const mobileFadeOutStart = mobileScrambleEnd + mobileHoldMs;
+      const mobileFadeOutEnd = mobileFadeOutStart + mobileFadeOutMs;
+
+      const styleText = `
+#hiw-grid {
+  --hiw-cycle: ${timeline.cycleMs}ms;
+  --hiw-green: rgba(34, 197, 94, 0.95);
+  --hiw-proc-spin-deg: ${(timing.processSpinMs / 1000) * timing.spinnerRps * 360}deg;
+  --hiw-proc-spin-period: ${1000 / timing.spinnerRps}ms;
+  --hiw-sign-delay-0: ${timing.signDelaysMs[0]}ms;
+  --hiw-sign-delay-1: ${timing.signDelaysMs[1]}ms;
+  --hiw-sign-delay-2: ${timing.signDelaysMs[2]}ms;
+  --hiw-sign-delay-3: ${timing.signDelaysMs[3]}ms;
+  --hiw-sign-delay-4: ${timing.signDelaysMs[4]}ms;
+}
+
+@media (max-width: 767px) {
+  .hiw-step[data-step="sign"] { --hiw-cycle: ${timing.mobile.signCycleMs}ms; }
+  .hiw-step[data-step="send"] { --hiw-cycle: ${timing.mobile.sendCycleMs}ms; }
+  .hiw-step[data-step="verify"] { --hiw-cycle: ${mobileVerifyCycleMs}ms; }
+}
+
+@keyframes hiwSignFadeInHold {
+  0% { opacity: 0; }
+  ${p(timeline.signTextEnd)} { opacity: 0.55; }
+  ${p(timeline.fadeOutStart)} { opacity: 0.55; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes hiwDocOutline {
+  0% { opacity: 0; stroke-dasharray: 1; stroke-dashoffset: 1; }
+  ${p(timeline.signTextEnd)} { opacity: 0.35; stroke-dashoffset: 0; }
+  ${p(timeline.fadeOutStart)} { opacity: 0.35; stroke-dashoffset: 0; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0; stroke-dashoffset: 0; }
+  100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+@keyframes hiwSigDrawHold {
+  0% { opacity: 0; stroke-dashoffset: 120; }
+  ${p(sigStart)} { opacity: 0; stroke-dashoffset: 120; }
+  ${jumpPct(sigStart, sigEnd)} { opacity: 1; stroke-dashoffset: 120; }
+  ${p(sigEnd)} { opacity: 1; stroke-dashoffset: 0; }
+  ${p(timeline.fadeOutStart)} { opacity: 1; stroke-dashoffset: 0; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0; stroke-dashoffset: 0; }
+  100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+@keyframes hiwProcSpin {
+  0% { opacity: 0; transform: rotate(0deg); }
+  ${p(timeline.processStart)} { opacity: 0; transform: rotate(0deg); }
+  ${p(timeline.processFadeInEnd)} { opacity: 1; transform: rotate(0deg); }
+  ${p(timeline.processSpinEnd)} { opacity: 1; transform: rotate(var(--hiw-proc-spin-deg)); }
+  ${p(timeline.processFadeOutEnd)} { opacity: 0; transform: rotate(var(--hiw-proc-spin-deg)); }
+  100% { opacity: 0; transform: rotate(var(--hiw-proc-spin-deg)); }
+}
+
+@keyframes hiwCheckDraw {
+  0% { opacity: 0; stroke-dashoffset: 60; transform: scale(1); }
+  ${p(checkStart)} { opacity: 0; stroke-dashoffset: 60; transform: scale(1); }
+  ${p(checkDrawEnd)} { opacity: 1; stroke-dashoffset: 0; transform: scale(1.06); }
+  ${p(checkSettleEnd)} { opacity: 0.88; stroke-dashoffset: 0; transform: scale(1); }
+  ${p(timeline.fadeOutStart)} { opacity: 0.88; stroke-dashoffset: 0; transform: scale(1); }
+  ${p(timeline.fadeOutEnd)} { opacity: 0; stroke-dashoffset: 0; transform: scale(1); }
+  100% { opacity: 0; stroke-dashoffset: 0; transform: scale(1); }
+}
+
+@keyframes hiwShieldGlow {
+  0% { stroke: white; opacity: 0.3; }
+  ${p(checkStart)} { stroke: white; opacity: 0.3; }
+  ${p(checkDrawEnd)} { stroke: var(--hiw-green); opacity: 1; }
+  ${p(timeline.fadeOutStart)} { stroke: var(--hiw-green); opacity: 1; }
+  ${p(timeline.fadeOutEnd)} { stroke: white; opacity: 0.3; }
+  100% { stroke: white; opacity: 0.3; }
+}
+
+@keyframes hiwVerifyRing {
+  0% { opacity: 0; transform: scale(0.85); }
+  ${p(checkStart)} { opacity: 0; transform: scale(0.85); }
+  ${p(ringPeak)} { opacity: 0.12; transform: scale(1.02); }
+  ${p(ringEnd)} { opacity: 0; transform: scale(1.12); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+
+@keyframes hiwVerifyAddr {
+  0% { opacity: 0.18; }
+  ${p(timeline.verifyStart)} { opacity: 0.18; }
+  ${p(addrFadeInEnd)} { opacity: 0.62; }
+  ${p(timeline.scrambleEnd)} { opacity: 0.62; }
+  ${p(timeline.lineVerifyPauseEnd)} { opacity: 0.65; }
+  ${p(timeline.fadeOutStart)} { opacity: 0.65; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0.18; }
+  100% { opacity: 0.18; }
+}
+
+@keyframes hiwVerifyPill {
+  0% { opacity: 0.1; }
+  ${p(timeline.verifyStart)} { opacity: 0.1; }
+  ${p(addrFadeInEnd)} { opacity: 0.38; }
+  ${p(timeline.scrambleEnd)} { opacity: 0.38; }
+  ${p(timeline.lineVerifyPauseEnd)} { opacity: 0.4; }
+  ${p(timeline.fadeOutStart)} { opacity: 0.4; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0.1; }
+  100% { opacity: 0.1; }
+}
+
+@keyframes hiwVerifyEns {
+  0% { opacity: 0; }
+  ${p(timeline.ensFadeInStart)} { opacity: 0; }
+  ${p(timeline.ensFadeInEnd)} { opacity: 0.6; }
+  ${p(timeline.fadeOutStart)} { opacity: 0.6; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes hiwVerifyAddrMobile {
+  0% { opacity: 0.18; }
+  ${pm(mobileVerifyStartDelay)} { opacity: 0.18; }
+  ${pm(mobileAddrFadeInEnd)} { opacity: 1; }
+  ${pm(mobileFadeOutStart)} { opacity: 1; }
+  ${pm(mobileFadeOutEnd)} { opacity: 0.18; }
+  100% { opacity: 0.18; }
+}
+
+@keyframes hiwVerifyPillMobile {
+  0% { opacity: 0.1; }
+  ${pm(mobileVerifyStartDelay)} { opacity: 0.1; }
+  ${pm(mobileAddrFadeInEnd)} { opacity: 0.4; }
+  ${pm(mobileFadeOutStart)} { opacity: 0.4; }
+  ${pm(mobileFadeOutEnd)} { opacity: 0.1; }
+  100% { opacity: 0.1; }
+}
+
+@keyframes hiwCheckMobile {
+  0% { opacity: 0; stroke-dashoffset: 60; transform: scale(1); }
+  ${pm(mobileCheckStart)} { opacity: 0; stroke-dashoffset: 60; transform: scale(1); }
+  ${pm(mobileCheckDrawEnd)} { opacity: 1; stroke-dashoffset: 0; transform: scale(1.06); }
+  ${pm(mobileCheckSettleEnd)} { opacity: 0.88; stroke-dashoffset: 0; transform: scale(1); }
+  ${pm(mobileFadeOutStart)} { opacity: 0.88; stroke-dashoffset: 0; transform: scale(1); }
+  ${pm(mobileFadeOutEnd)} { opacity: 0; stroke-dashoffset: 0; transform: scale(1); }
+  100% { opacity: 0; stroke-dashoffset: 0; transform: scale(1); }
+}
+
+@keyframes hiwLineSig {
+  0% { opacity: 0; }
+  ${p(timeline.lineSigStart)} { opacity: 0; }
+  ${p(timeline.lineSigEnd)} { opacity: 0.9; }
+  ${p(timeline.fadeOutStart)} { opacity: 0.9; }
+  ${p(timeline.fadeOutEnd)} { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes hiwProcSpinMobile {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes hiwEnsMobile {
+  0% { opacity: 0; }
+  ${pm(mobileScrambleEnd)} { opacity: 0; }
+  ${pm(mobileEnsFadeInEnd)} { opacity: 0.6; }
+  ${pm(mobileFadeOutStart)} { opacity: 0.6; }
+  ${pm(mobileFadeOutEnd)} { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+@keyframes hiwShieldMobile {
+  0% { stroke: white; opacity: 0.3; }
+  ${pm(mobileScrambleEnd)} { stroke: white; opacity: 0.3; }
+  ${pm(mobileEnsFadeInEnd)} { stroke: var(--hiw-green); opacity: 1; }
+  ${pm(mobileFadeOutStart)} { stroke: var(--hiw-green); opacity: 1; }
+  ${pm(mobileFadeOutEnd)} { stroke: white; opacity: 0.3; }
+  100% { stroke: white; opacity: 0.3; }
+}
+      `.trim();
+
+      let styleEl = document.getElementById('hiw-timing-styles') as HTMLStyleElement | null;
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'hiw-timing-styles';
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = styleText;
+    }
 
     function clamp(v: number, lo = 0, hi = 1) {
       return Math.max(lo, Math.min(hi, v));
@@ -729,6 +967,11 @@ const steps = [
 
       let scrambleInterval: number | null = null;
       let timers: number[] = [];
+      let animationBound = false;
+      let currentStartDelay = 0;
+      let currentFadeOutDelay = 0;
+      let onAnimTick: (() => void) | null = null;
+      let fallbackTimer: number | null = null;
 
       const setPlaceholder = () => {
         addrText.textContent = PLACEHOLDER;
@@ -741,56 +984,94 @@ const steps = [
       const clearTimers = () => {
         timers.forEach((t) => clearTimeout(t));
         timers = [];
+        if (fallbackTimer !== null) {
+          clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+        }
         if (scrambleInterval !== null) {
           clearInterval(scrambleInterval);
           scrambleInterval = null;
         }
       };
 
-      const runCycle = (startDelay: number, cycleMs: number) => {
+      const runCycle = (startDelay: number, cycleMs: number, fadeOutDelay: number, scrambleMs: number) => {
         clearTimers();
         if (!verifyStep.classList.contains('hiw-active')) return;
 
-        setPlaceholder();
+        currentStartDelay = Math.max(0, startDelay);
+        currentFadeOutDelay = Math.max(currentStartDelay, fadeOutDelay);
+        const activeScrambleMs = Math.max(0, scrambleMs);
 
-        const signalTimer = setTimeout(() => {
-          const start = performance.now();
-          scrambleInterval = window.setInterval(() => {
-            const t = performance.now() - start;
-            const tick = Math.floor(t / SCRAMBLE_TICK);
-            const chars = FINAL_ADDR.split('');
-            const perCharDelay = Math.min(STAGGER, SCRAMBLE_MS / Math.max(1, chars.length - 1));
-            const perCharDuration = Math.max(120, SCRAMBLE_MS - perCharDelay * (chars.length - 1));
-            const totalDuration = SCRAMBLE_MS;
-            const output = chars
-              .map((ch, i) => {
-                if (isStaticChar(ch, i)) return ch;
-                const local = clamp((t - i * perCharDelay) / perCharDuration);
-                if (local >= 1) return ch;
-                return HEX[(i * 13 + tick * 7) % HEX.length];
-              })
-              .join('');
-            addrText.textContent = output;
-            if (t >= totalDuration) {
-              if (scrambleInterval !== null) {
-                clearInterval(scrambleInterval);
-                scrambleInterval = null;
-              }
-              setFinal();
-            }
-          }, SCRAMBLE_TICK);
-        }, startDelay);
-
-        const fadeOutTimer = setTimeout(() => {
-          // reset as we fade back to idle
+        const startOnce = () => {
+          clearTimers();
+          if (!verifyStep.classList.contains('hiw-active')) return;
           setPlaceholder();
-        }, startDelay + SCRAMBLE_MS + RESOLVE_MS + RETURN_MS + HOLD_MS);
+          const startTimer = window.setTimeout(() => {
+            const start = performance.now();
+            scrambleInterval = window.setInterval(() => {
+              const t = performance.now() - start;
+              const tick = Math.floor(t / TIMING.scrambleTickMs);
+              const chars = FINAL_ADDR.split('');
+              const perCharDelay = Math.min(TIMING.staggerMs, activeScrambleMs / Math.max(1, chars.length - 1));
+              const perCharDuration = Math.max(
+                TIMING.minCharResolveMs,
+                activeScrambleMs - perCharDelay * (chars.length - 1)
+              );
+              const totalDuration = activeScrambleMs;
+              const output = chars
+                .map((ch, i) => {
+                  if (isStaticChar(ch, i)) return ch;
+                  const local = clamp((t - i * perCharDelay) / perCharDuration);
+                  if (local >= 1) return ch;
+                  return HEX[(i * 13 + tick * 7) % HEX.length];
+                })
+                .join('');
+              addrText.textContent = output;
+              if (t >= totalDuration) {
+                if (scrambleInterval !== null) {
+                  clearInterval(scrambleInterval);
+                  scrambleInterval = null;
+                }
+                setFinal();
+              }
+            }, TIMING.scrambleTickMs);
+          }, currentStartDelay);
 
-        const nextTimer = window.setTimeout(() => runCycle(startDelay, cycleMs), cycleMs);
-        timers.push(signalTimer, fadeOutTimer, nextTimer);
+          const fadeOutTimer = window.setTimeout(() => {
+            setPlaceholder();
+          }, currentFadeOutDelay);
+
+          timers.push(startTimer, fadeOutTimer);
+        };
+
+        if (!animationBound) {
+          onAnimTick = () => {
+            if (fallbackTimer !== null) {
+              clearTimeout(fallbackTimer);
+              fallbackTimer = null;
+            }
+            startOnce();
+          };
+          addrText.addEventListener("animationstart", onAnimTick);
+          addrText.addEventListener("animationiteration", onAnimTick);
+          animationBound = true;
+        }
+
+        // Fallback if animation events don't fire promptly.
+        fallbackTimer = window.setTimeout(startOnce, 50);
       };
 
-      return { runCycle, stop: clearTimers, setFinal };
+      const stop = () => {
+        clearTimers();
+        if (animationBound && onAnimTick) {
+          addrText.removeEventListener("animationstart", onAnimTick);
+          addrText.removeEventListener("animationiteration", onAnimTick);
+          animationBound = false;
+          onAnimTick = null;
+        }
+      };
+
+      return { runCycle, stop, setFinal };
     }
 
     function init() {
@@ -801,15 +1082,21 @@ const steps = [
       const lineFill = grid.querySelector<SVGLineElement>('#hiw-line-fill');
       const lineReturn = grid.querySelector<SVGLineElement>('#hiw-line-return');
       const isMobile = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
-      const cycleMs = isMobile ? MOBILE_VERIFY_CYCLE_MS : DESKTOP_CYCLE_MS;
-      const verifyDelayMs = isMobile
-        ? 0
-        : SIGN_TEXT_MS +
-          SIGN_SIG_MS +
-          LINE_DELAY_MS +
-          LINE_TO_SEND_MS +
-          PROCESS_TOTAL_MS +
-          LINE_TO_VERIFY_MS;
+      let timeline = buildTimeline(TIMING);
+      injectTimingStyles(TIMING, timeline);
+      const mobileVerifyStartDelayMs = TIMING.mobile.verifyStartDelayMs ?? 1000;
+      const mobileScrambleMs = TIMING.mobile.scrambleMs ?? TIMING.scrambleMs;
+      const mobileHoldMs = TIMING.mobile.verifyHoldMs ?? 2000;
+      const mobileFadeOutMs = TIMING.mobile.fadeOutMs ?? TIMING.fadeOutMs;
+      const mobileVerifyCycleMs =
+        TIMING.mobile.verifyCycleMs ||
+        (mobileVerifyStartDelayMs + mobileScrambleMs + mobileHoldMs + mobileFadeOutMs + TIMING.cycleGapMs);
+
+      const cycleMs = isMobile ? mobileVerifyCycleMs : timeline.cycleMs;
+      const verifyDelayMs = isMobile ? mobileVerifyStartDelayMs : timeline.verifyStart;
+      const verifyFadeOutDelayMs = isMobile
+        ? mobileVerifyStartDelayMs + mobileScrambleMs + mobileHoldMs + mobileFadeOutMs
+        : Math.max(0, timeline.fadeOutEnd);
       const reduceMotion = supportsReducedMotion();
 
       const verifyStep = steps.find((s) => s.getAttribute('data-step') === 'verify') as HTMLElement | undefined;
@@ -826,101 +1113,83 @@ const steps = [
         if (!lineFill) return;
         if (lineAnimation) lineAnimation.cancel();
         if (lineReturnAnimation) lineReturnAnimation.cancel();
-        const lineStart = (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS) / DESKTOP_CYCLE_MS;
-        const lineSendArrive =
-          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS) / DESKTOP_CYCLE_MS;
-        const lineSendPauseEnd =
-          (SIGN_TEXT_MS + SIGN_SIG_MS + LINE_DELAY_MS + LINE_TO_SEND_MS + PROCESS_TOTAL_MS) /
-          DESKTOP_CYCLE_MS;
-        const lineVerifyArrive =
-          (SIGN_TEXT_MS +
-            SIGN_SIG_MS +
-            LINE_DELAY_MS +
-            LINE_TO_SEND_MS +
-            PROCESS_TOTAL_MS +
-            LINE_TO_VERIFY_MS) /
-          DESKTOP_CYCLE_MS;
+        timeline = buildTimeline(TIMING);
+        injectTimingStyles(TIMING, timeline);
+        if (!Number.isFinite(timeline.cycleMs) || timeline.cycleMs <= 0) return;
 
-        const resolveEnd =
-          (SIGN_TEXT_MS +
-            SIGN_SIG_MS +
-            LINE_DELAY_MS +
-            LINE_TO_SEND_MS +
-            PROCESS_TOTAL_MS +
-            LINE_TO_VERIFY_MS +
-            SCRAMBLE_MS +
-            RESOLVE_MS) /
-          DESKTOP_CYCLE_MS;
+        const cycleMs = timeline.cycleMs;
+        const toOffset = (ms: number) => Math.max(0, Math.min(1, ms / cycleMs));
 
-        const returnEnd =
-          (SIGN_TEXT_MS +
-            SIGN_SIG_MS +
-            LINE_DELAY_MS +
-            LINE_TO_SEND_MS +
-            PROCESS_TOTAL_MS +
-            LINE_TO_VERIFY_MS +
-            SCRAMBLE_MS +
-            RESOLVE_MS +
-            RETURN_MS) /
-          DESKTOP_CYCLE_MS;
+        // Calculate offsets from timeline
+        const lineStart = toOffset(timeline.lineStart);
+        const lineSendArrive = toOffset(timeline.lineSendArrive);
+        const lineSendPauseEnd = toOffset(timeline.lineSendPauseEnd);
+        const lineVerifyArrive = toOffset(timeline.lineVerifyArrive);
+        const lineVerifyPauseEnd = toOffset(timeline.lineVerifyPauseEnd);
+        const returnStart = toOffset(timeline.returnStart);
+        const returnEnd = toOffset(timeline.returnEnd);
+        const holdEnd = toOffset(timeline.holdEnd);
+        const fadeOutEnd = toOffset(timeline.fadeOutEnd);
 
-        const holdEnd =
-          (SIGN_TEXT_MS +
-            SIGN_SIG_MS +
-            LINE_DELAY_MS +
-            LINE_TO_SEND_MS +
-            PROCESS_TOTAL_MS +
-            LINE_TO_VERIFY_MS +
-            SCRAMBLE_MS +
-            RESOLVE_MS +
-            RETURN_MS +
-            HOLD_MS) /
-          DESKTOP_CYCLE_MS;
+        console.log('Line animation offsets:', {
+          cycleMs,
+          lineStart: `${(lineStart * 100).toFixed(1)}%`,
+          lineSendArrive: `${(lineSendArrive * 100).toFixed(1)}%`,
+          lineSendPauseEnd: `${(lineSendPauseEnd * 100).toFixed(1)}%`,
+          lineVerifyArrive: `${(lineVerifyArrive * 100).toFixed(1)}%`,
+          lineVerifyPauseEnd: `${(lineVerifyPauseEnd * 100).toFixed(1)}%`,
+          returnStart: `${(returnStart * 100).toFixed(1)}%`,
+          returnEnd: `${(returnEnd * 100).toFixed(1)}%`,
+          holdEnd: `${(holdEnd * 100).toFixed(1)}%`,
+        });
 
+        // Purple line: sign → send → verify
         lineAnimation = lineFill.animate(
           [
             { strokeDashoffset: 1, opacity: 0, offset: 0 },
             { strokeDashoffset: 1, opacity: 0, offset: lineStart },
 
-            // Segment 1: client → send (stop at 50%)
+            // Phase 1: sign → send (line reaches 50%)
             { strokeDashoffset: 0.5, opacity: 1, offset: lineSendArrive },
 
-            // Wait at Send for full processing animation
+            // Phase 2: wait at send (process plays)
             { strokeDashoffset: 0.5, opacity: 1, offset: lineSendPauseEnd },
 
-            // Segment 2: send → verify
+            // Phase 3: send → verify (line reaches 0%)
             { strokeDashoffset: 0, opacity: 1, offset: lineVerifyArrive },
 
-            // Keep visible while scrambling / verifying
-            { strokeDashoffset: 0, opacity: 1, offset: resolveEnd },
+            // Phase 4: wait at verify (verify anim plays)
+            { strokeDashoffset: 0, opacity: 1, offset: lineVerifyPauseEnd },
 
-            // Keep visible until the green return line finishes
-            { strokeDashoffset: 0, opacity: 1, offset: returnEnd },
-
-            // Hold, then fade out back to idle
+            // Stay visible during return and hold
             { strokeDashoffset: 0, opacity: 1, offset: holdEnd },
+
+            // Fade out (fixed duration), then idle gap
+            { strokeDashoffset: 0, opacity: 0, offset: fadeOutEnd },
             { strokeDashoffset: 0, opacity: 0, offset: 1 }
           ],
           {
-            duration: DESKTOP_CYCLE_MS,
+            duration: cycleMs,
             iterations: Infinity,
-            easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+            easing: 'linear'
           }
         );
 
+        // Green return line: verify → send (after verify animation completes)
         if (lineReturn) {
           lineReturnAnimation = lineReturn.animate(
             [
               { strokeDashoffset: 1, opacity: 0, offset: 0 },
-              { strokeDashoffset: 1, opacity: 0, offset: resolveEnd },
+              { strokeDashoffset: 1, opacity: 0, offset: returnStart },
               { strokeDashoffset: 0, opacity: 1, offset: returnEnd },
               { strokeDashoffset: 0, opacity: 1, offset: holdEnd },
+              { strokeDashoffset: 0, opacity: 0, offset: fadeOutEnd },
               { strokeDashoffset: 0, opacity: 0, offset: 1 }
             ],
             {
-              duration: DESKTOP_CYCLE_MS,
+              duration: cycleMs,
               iterations: Infinity,
-              easing: 'cubic-bezier(0.16, 1, 0.3, 1)'
+              easing: 'linear'
             }
           );
         }
@@ -940,54 +1209,63 @@ const steps = [
       if (!('IntersectionObserver' in window)) {
         steps.forEach((s) => s.classList.add('hiw-active'));
         grid.classList.add('hiw-grid-active');
-        if (!isMobile) startLine();
-        if (verifyAnimator) verifyAnimator.runCycle(verifyDelayMs, cycleMs);
+        startLine();
+        if (verifyAnimator) {
+          const scrambleMs = isMobile ? mobileScrambleMs : TIMING.scrambleMs;
+          verifyAnimator.runCycle(verifyDelayMs, cycleMs, verifyFadeOutDelayMs, scrambleMs);
+        }
         return;
       }
 
-      // ── Desktop: sync full sequence when the grid enters viewport ──
-      if (!isMobile) {
-        const gridObserver = new IntersectionObserver(
+      if (isMobile) {
+        // ── Mobile: each step runs from frame 0 when it enters viewport ──
+        const stepObserver = new IntersectionObserver(
           (entries) => {
             entries.forEach((e) => {
+              const el = e.target as HTMLElement;
               if (e.isIntersecting) {
-                grid.classList.add('hiw-grid-active');
-                steps.forEach((s) => s.classList.add('hiw-active'));
-                startLine();
-                if (verifyAnimator) verifyAnimator.runCycle(verifyDelayMs, cycleMs);
+                el.classList.add('hiw-active');
+                if (verifyAnimator && el === verifyStep) {
+                  const scrambleMs = isMobile ? mobileScrambleMs : TIMING.scrambleMs;
+                  verifyAnimator.runCycle(verifyDelayMs, cycleMs, verifyFadeOutDelayMs, scrambleMs);
+                }
               } else {
-                grid.classList.remove('hiw-grid-active');
-                steps.forEach((s) => s.classList.remove('hiw-active'));
-                stopLine();
-                if (verifyAnimator) verifyAnimator.stop();
+                el.classList.remove('hiw-active');
+                if (verifyAnimator && el === verifyStep) verifyAnimator.stop();
               }
             });
           },
-          { threshold: 0.35 }
+          { threshold: 0.4 }
         );
 
-        gridObserver.observe(grid);
+        steps.forEach((s) => stepObserver.observe(s));
         return;
       }
 
-      // ── Mobile: per-step activation and independent cadence ──
-      const stepObserver = new IntersectionObserver(
+      // ── Desktop: full sequence when grid enters viewport ──
+      const gridObserver = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => {
-            const el = e.target;
-            if (e.isIntersecting) el.classList.add('hiw-active');
-            else el.classList.remove('hiw-active');
-
-            if (verifyAnimator && el === verifyStep) {
-              if (e.isIntersecting) verifyAnimator.runCycle(0, cycleMs);
-              else verifyAnimator.stop();
+            if (e.isIntersecting) {
+              grid.classList.add('hiw-grid-active');
+              steps.forEach((s) => s.classList.add('hiw-active'));
+              startLine();
+              if (verifyAnimator) {
+                const scrambleMs = isMobile ? mobileScrambleMs : TIMING.scrambleMs;
+                verifyAnimator.runCycle(verifyDelayMs, cycleMs, verifyFadeOutDelayMs, scrambleMs);
+              }
+            } else {
+              grid.classList.remove('hiw-grid-active');
+              steps.forEach((s) => s.classList.remove('hiw-active'));
+              stopLine();
+              if (verifyAnimator) verifyAnimator.stop();
             }
           });
         },
-        { threshold: 0.4 }
+        { threshold: 0.35 }
       );
 
-      steps.forEach((s) => stepObserver.observe(s));
+      gridObserver.observe(grid);
     }
 
     if (document.readyState === 'loading') {

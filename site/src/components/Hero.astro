@@ -172,7 +172,7 @@
   }
 
   const signals: TravelingSignal[] = [];
-  const MAX_SIGNALS = 10;
+  const MAX_SIGNALS = 16;
 
   function findRandomPath(minHops: number, maxHops: number): number[] | null {
     const start = Math.floor(Math.random() * NUM_POINTS);
@@ -430,7 +430,7 @@
       const avgZ = (a.z + b.z) / 2;
       const depthFactor = (avgZ + 1) / 2;
 
-      const baseOpacity = 0.015 + depthFactor * 0.05;
+      const baseOpacity = 0.02 + depthFactor * 0.05;
 
       let cursorBoost = 0;
       const midX = (a.px + b.px) / 2;
