@@ -169,7 +169,7 @@ This is useful when:
 When using `binding: 'class-bound'`, you must provide the `components` array explicitly. The library always includes `@authority` (required by the spec).
 
 :::warning
-Class-bound signatures weaken request integrity — the verifier must explicitly opt in to accepting them. A server that only accepts request-bound signatures (the default) will reject class-bound signatures. See [Server Enforcement](/concepts/request-binding#server-enforcement-with-requiredcomponents) for how verifiers control this.
+Class-bound signatures weaken request integrity — the verifier must explicitly opt in to accepting them. A server that only accepts request-bound signatures (the default) will reject class-bound signatures. See [Server Enforcement](/concepts/request-binding#server-enforcement-with-additionalrequestboundcomponents-and-classboundpolicies) for how verifiers control this.
 :::
 
 ### Additional Components

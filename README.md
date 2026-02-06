@@ -121,7 +121,7 @@ Signs and sends a request in one call.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `binding` | `"request-bound"` \| `"minimal"` | `"request-bound"` | Components to sign |
+| `binding` | `"request-bound"` \| `"class-bound"` | `"request-bound"` | Components to sign |
 | `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Include nonce |
 | `ttlSeconds` | `number` | `60` | Signature validity window |
 | `label` | `string` | `"eth"` | Signature label |
