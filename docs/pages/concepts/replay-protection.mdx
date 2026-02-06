@@ -47,7 +47,7 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Server Side]
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   maxValiditySec: 300,  // Max 5 minutes allowed
   clockSkewSec: 30,     // Allow 30s clock drift
   now: () => Math.floor(Date.now() / 1000),  // Time source
@@ -107,9 +107,8 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Server]
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   nonce: 'required',    // Default: reject requests without nonce
-  nonceStore,           // Required for nonce enforcement
   maxNonceWindowSec: 60, // Optional: limit nonce validity window
   ...
 })
@@ -154,7 +153,7 @@ By default: `${keyid}:${nonce}`
 This scopes nonces per signer. Custom format:
 
 ```typescript
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   nonceKey: (keyid, nonce) => `myapp:${keyid}:${nonce}`,
   ...
 })
@@ -175,7 +174,7 @@ Like non-replayable signatures, replayable signatures are still time-bounded (`c
 
 **From the verifier's perspective:**
 
-- **No nonce state** — Verifiers do not need a nonce store (e.g., Redis), simplifying infrastructure. This is significant for stateless architectures or edge deployments where shared state is expensive.
+- **No nonce state** — Verifiers don't need to persist nonce state. The `nonceStore` parameter is still required by the API, but it won't be used when the request has no nonce.
 - **Verification caching** — Because the same signature may appear on multiple requests, verifiers can cache successful verification results (keyed by signature bytes) to avoid repeating expensive cryptographic checks. This is most relevant for high-frequency clients and large-scale gateways where repeated signature verification becomes a material CPU cost.
 
 ### Security Properties
@@ -216,9 +215,8 @@ const signedRequest = await signRequest(
 
 ```typescript [Server]
 // Allow missing nonce, must implement early invalidation
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   nonce: 'optional',  // Accept with or without nonce
-  verifyMessage,
 })
 ```
 

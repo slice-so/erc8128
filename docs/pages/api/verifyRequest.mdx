@@ -4,22 +4,14 @@ Verify an ERC-8128 signed HTTP request.
 
 ## Usage
 
-Pass a `Request` (or URL string) and a verification policy. The function returns a `VerifyResult` indicating success or failure.
+Pass a `Request`, a `verifyMessage` implementation, a `nonceStore`, and an optional policy. The function returns a `VerifyResult` indicating success or failure.
 
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
-// Simple: just input and policy
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage,
+// Simple: request + required dependencies + policy
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   maxValiditySec: 300,
-})
-
-// With RequestInit (useful when you have separate input/init)
-const result = await verifyRequest(request, undefined, {
-  nonceStore,
-  verifyMessage,
 })
 
 if (result.ok) {
@@ -52,33 +44,32 @@ if (result.ok) {
 
 ## Parameters
 
-### Overload 1: Simple
-
-When you already have a `Request` object, pass it directly with an optional policy.
-
 ```typescript
-verifyRequest(input: RequestInfo, policy?: VerifyPolicy): Promise<VerifyResult>
+verifyRequest(
+  request: Request,
+  verifyMessage: VerifyMessageFn,
+  nonceStore: NonceStore,
+  policy?: VerifyPolicy
+): Promise<VerifyResult>
 ```
 
-### Overload 2: With RequestInit
+### request
 
-When you have separate input and init (e.g., from a framework), pass the `RequestInit` as the second argument.
+- **Type:** `Request`
 
-```typescript
-verifyRequest(input: RequestInfo, init: RequestInit | undefined, policy?: VerifyPolicy): Promise<VerifyResult>
-```
+The Request to verify.
 
-### input
+### verifyMessage
 
-- **Type:** `RequestInfo`
+- **Type:** [`VerifyMessageFn`](/api/types#verifymessagefn)
 
-The Request to verify (or URL string).
+Signature verification function (e.g. viem-compatible).
 
-### init (optional)
+### nonceStore
 
-- **Type:** `RequestInit | undefined`
+- **Type:** [`NonceStore`](/api/types#noncestore)
 
-Optional RequestInit.
+Replay protection store for non-replayable requests.
 
 ### policy (optional)
 
@@ -93,7 +84,7 @@ These examples show strict, relaxed, and custom-component verification policies.
 :::code-group
 
 ```typescript [Strict Policy]
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   label: 'eth',
   strictLabel: true,
   nonce: 'required',
@@ -101,25 +92,21 @@ const result = await verifyRequest(request, {
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
   enforceContentDigest: true,
-  nonceStore,
-  verifyMessage,
 })
 ```
 
 ```typescript [Relaxed Policy]
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   nonce: 'optional',
   maxValiditySec: 300,
   clockSkewSec: 30,
-  verifyMessage,
 })
 ```
 
 ```typescript [Custom Components]
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   requiredComponents: ['@authority', 'x-custom-header'],
   nonce: 'optional',
-  verifyMessage,
 })
 ```
 

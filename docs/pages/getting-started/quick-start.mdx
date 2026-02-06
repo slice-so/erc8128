@@ -85,10 +85,11 @@ import { verifyRequest } from '@slicekit/erc8128'
 import { publicClient } from './client'
 import { nonceStore } from './nonce'
 
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage: publicClient.verifyMessage,
-})
+const result = await verifyRequest(
+  request,
+  publicClient.verifyMessage,
+  nonceStore
+)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)

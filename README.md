@@ -52,10 +52,7 @@ import { mainnet } from 'viem/chains'
 
 const client = createPublicClient({ chain: mainnet, transport: http() })
 
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage: client.verifyMessage,
-})
+const result = await verifyRequest(request, client.verifyMessage, nonceStore)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address}`)
@@ -75,7 +72,7 @@ client.fetch(input, init?)      // Sign and send
 client.signRequest(input, init?) // Sign only
 ```
 
-### `verifyRequest(input, init?, policy?)`
+### `verifyRequest(request, verifyMessage, nonceStore, policy?)`
 
 Verifies a signed request.
 
@@ -113,8 +110,6 @@ Signs and sends a request in one call.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `nonceStore` | `NonceStore` | — | Required for replay protection |
-| `verifyMessage` | `function` | — | Signature verification function |
 | `maxValiditySec` | `number` | `300` | Max allowed validity window |
 | `clockSkewSec` | `number` | `0` | Allowed clock drift |
 | `label` | `string` | — | Preferred signature label |

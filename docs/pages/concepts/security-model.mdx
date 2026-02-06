@@ -173,22 +173,18 @@ Choose a policy tier based on the sensitivity of the endpoint — tighter constr
 // For payments and mutations
 {
   nonce: 'required',
-  nonceStore: redisStore,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
   enforceContentDigest: true,
-  verifyMessage,
 }
 ```
 
 ```typescript [Standard API]
 {
   nonce: 'required',
-  nonceStore: redisStore,
   maxValiditySec: 300,
   clockSkewSec: 30,
-  verifyMessage,
 }
 ```
 
@@ -197,7 +193,6 @@ Choose a policy tier based on the sensitivity of the endpoint — tighter constr
   nonce: 'optional',
   maxValiditySec: 300,
   clockSkewSec: 60,
-  verifyMessage,
 }
 ```
 
@@ -228,7 +223,7 @@ Choose a policy tier based on the sensitivity of the endpoint — tighter constr
 Even with valid signatures, apply rate limits:
 
 ```typescript
-const result = await verifyRequest(request, policy)
+const result = await verifyRequest(request, verifyMessage, nonceStore, policy)
 if (result.ok) {
   // Check rate limit for this address
   const allowed = await rateLimit(result.address)

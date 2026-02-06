@@ -195,17 +195,11 @@ type VerifyPolicy = {
   /** Maximum nonce validity window (optional) */
   maxNonceWindowSec?: number
   
-  /** Store for replay protection (required for non-replayable) */
-  nonceStore?: NonceStore
-  
   /** Custom key generator for nonce storage */
   nonceKey?: (keyid: string, nonce: string) => string
   
   /** Verify Content-Digest if present (default: true) */
   enforceContentDigest?: boolean
-  
-  /** Message verification function (required) */
-  verifyMessage?: VerifyMessageFn
 }
 ```
 

@@ -18,10 +18,7 @@ The simplest way to verify a request using [verifyRequest](/api/verifyRequest):
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage,
-})
+const result = await verifyRequest(request, verifyMessage, nonceStore)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address}`)
@@ -77,24 +74,21 @@ Choose the appropriate policy based on your endpoint's security requirements:
 
 ```typescript [Strict (Mutations)]
 // For high-security endpoints that modify state
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
   nonce: 'required',
   maxValiditySec: 60,       // Short window
   maxNonceWindowSec: 60,
   clockSkewSec: 5,          // Small tolerance
   enforceContentDigest: true,
-  nonceStore,
-  verifyMessage: verifyMessageFn,
 })
 ```
 
 ```typescript [Relaxed (Reads)]
 // For idempotent read operations
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
   nonce: 'optional',        // Allow replayable signatures
   maxValiditySec: 300,      // Longer window
   clockSkewSec: 30,         // More tolerance
-  verifyMessage: verifyMessageFn,
 })
 ```
 
@@ -108,20 +102,16 @@ When multiple signatures exist on a request:
 
 ```typescript [Default (Prefer Label)]
 // Prefer "eth" label, fall back to first valid
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
   label: 'eth',
-  nonceStore,
-  verifyMessage: verifyMessageFn,
 })
 ```
 
 ```typescript [Strict (Require Label)]
 // Require exact label match
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
   label: 'user',
   strictLabel: true,  // Fail if "user" label not found
-  nonceStore,
-  verifyMessage: verifyMessageFn,
 })
 ```
 
@@ -135,23 +125,16 @@ Setting `requiredComponents` **replaces** this default check with a custom one. 
 
 ```typescript
 // Default: rejects class-bound signatures (full request-bound check)
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage: verifyMessageFn,
-})
+const result = await verifyRequest(request, verifyMessageFn, nonceStore)
 
 // Accept class-bound: only require @authority and @method
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
   requiredComponents: ['@authority', '@method'],
-  nonceStore,
-  verifyMessage: verifyMessageFn,
 })
 
 // Require custom headers to be signed alongside standard components
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
   requiredComponents: ['@authority', '@method', '@path', 'x-idempotency-key'],
-  nonceStore,
-  verifyMessage: verifyMessageFn,
 })
 ```
 
@@ -168,9 +151,7 @@ import { verifyRequest } from '@slicekit/erc8128'
 import { createMiddleware } from 'hono/factory'
 
 const erc8128Auth = createMiddleware(async (c, next) => {
-  const result = await verifyRequest(c.req.raw, {
-    nonceStore,
-    verifyMessage: verifyMessageFn,
+  const result = await verifyRequest(c.req.raw, verifyMessageFn, nonceStore, {
     maxValiditySec: 300,
   })
 
@@ -192,10 +173,7 @@ import { verifyRequest } from '@slicekit/erc8128'
 import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const result = await verifyRequest(req, {
-    nonceStore,
-    verifyMessage: verifyMessageFn,
-  })
+  const result = await verifyRequest(req, verifyMessageFn, nonceStore)
 
   if (!result.ok) {
     return Response.json({ error: result.reason }, { status: 401 })
@@ -219,9 +197,7 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
     body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
   })
 
-  const result = await verifyRequest(fetchRequest, {
-    nonceStore,
-    verifyMessage: verifyMessageFn,
+  const result = await verifyRequest(fetchRequest, verifyMessageFn, nonceStore, {
     maxValiditySec: 300,
   })
 
@@ -249,7 +225,7 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
 When verification fails, inspect `result.reason` to return appropriate HTTP status codes and error messages.
 
 ```typescript
-const result = await verifyRequest(request, policy)
+const result = await verifyRequest(request, verifyMessageFn, nonceStore, policy)
 
 if (!result.ok) {
   switch (result.reason) {

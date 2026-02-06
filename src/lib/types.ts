@@ -73,14 +73,10 @@ export type VerifyPolicy = {
   maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
 
   /** Replay protection */
-  nonceStore?: NonceStore // required when verifying non-replayable (nonce) requests
   nonceKey?: (keyid: string, nonce: string) => string // default `${keyid}:${nonce}`
 
   /** If true: if content-digest is covered, recompute and compare (default true) */
   enforceContentDigest?: boolean
-
-  /** Message signature verifier (viem-compatible). */
-  verifyMessage?: VerifyMessageFn
 }
 
 export type SignatureParams = {

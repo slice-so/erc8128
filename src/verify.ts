@@ -6,40 +6,33 @@ import {
   isOrderedSubsequence,
   isRequestBoundForThisRequest
 } from "./lib/policies/isRequestBound.js"
-import type { Address, VerifyPolicy, VerifyResult } from "./lib/types.js"
+import type {
+  Address,
+  NonceStore,
+  VerifyMessageFn,
+  VerifyPolicy,
+  VerifyResult
+} from "./lib/types.js"
 import {
   base64Decode,
   bytesToHex,
   sanitizeUrl,
-  toRequest,
   unixNow
 } from "./lib/utilities.js"
 
 const DEFAULT_MAX_VALIDITY_SEC = 300
 
 export async function verifyRequest(
-  input: RequestInfo,
-  policy?: VerifyPolicy
-): Promise<VerifyResult>
-export async function verifyRequest(
-  input: RequestInfo,
-  init: RequestInit | undefined,
-  policy?: VerifyPolicy
-): Promise<VerifyResult>
-export async function verifyRequest(
-  input: RequestInfo,
-  initOrPolicy?: RequestInit | VerifyPolicy,
+  request: Request,
+  verifyMessage: VerifyMessageFn,
+  nonceStore: NonceStore,
   policy?: VerifyPolicy
 ): Promise<VerifyResult> {
-  const hasPolicyArg = policy !== undefined
-  const init = hasPolicyArg
-    ? (initOrPolicy as RequestInit | undefined)
-    : undefined
-  const resolvedPolicy = hasPolicyArg
-    ? (policy as VerifyPolicy)
-    : ((initOrPolicy as VerifyPolicy | undefined) ?? {})
-
-  const request = toRequest(input, init)
+  const resolvedPolicy = {
+    ...policy,
+    verifyMessage,
+    nonceStore
+  }
   const labelPref = resolvedPolicy.label
   const strictLabel = resolvedPolicy.strictLabel ?? false
 

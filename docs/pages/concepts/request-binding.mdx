@@ -105,7 +105,7 @@ const signedRequest = await signRequest(
 During verification, the server checks that the `Content-Digest` header matches the actual body bytes. A mismatch indicates tampering.
 
 ```typescript
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   enforceContentDigest: true, // Default
   ...
 })
@@ -206,10 +206,7 @@ If the signature omits any of these (given the request shape), verification fail
 
 ```typescript
 // Default: enforces full request-bound check
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage,
-})
+const result = await verifyRequest(request, verifyMessage, nonceStore)
 // A class-bound signature (e.g. only @authority) would be rejected
 ```
 
@@ -219,10 +216,8 @@ When `requiredComponents` is set, it allows class-bound requests with the specif
 
 ```typescript
 // Accept signatures that cover at least @authority and @method
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   requiredComponents: ['@authority', '@method'],
-  nonceStore,
-  verifyMessage,
 })
 // A class-bound signature with ['@authority', '@method'] would be accepted
 // A class-bound signature with only ['@authority'] would be rejected
@@ -242,10 +237,8 @@ In practice, if you want the default request-bound behavior, simply don't set `r
 You can require components beyond the standard set — including application-specific headers:
 
 ```typescript
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   requiredComponents: ['@authority', '@method', '@path', 'x-api-version'],
-  nonceStore,
-  verifyMessage,
 })
 ```
 
@@ -258,10 +251,9 @@ Custom components are useful when:
 
 ```typescript
 // Require a custom scope header to be signed
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   requiredComponents: ['@authority', 'x-scope'],
   nonce: 'optional',
-  verifyMessage,
 })
 ```
 

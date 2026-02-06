@@ -50,10 +50,11 @@ describe("docs: signRequest + verifyRequest example", () => {
       signer
     )
 
-    const result = await verifyRequest(signed, {
-      nonceStore,
-      verifyMessage: publicClient.verifyMessage
-    })
+    const result = await verifyRequest(
+      signed,
+      publicClient.verifyMessage,
+      nonceStore
+    )
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
@@ -83,11 +84,8 @@ describe("docs: createClient example", () => {
     expect(signed.headers.get("Signature-Input")).toBeTruthy()
     expect(signed.headers.get("Signature")).toBeTruthy()
 
-    const result = await verifyRequest(signed, {
-      nonceStore: {
-        consume: async () => true
-      },
-      verifyMessage: publicClient.verifyMessage
+    const result = await verifyRequest(signed, publicClient.verifyMessage, {
+      consume: async () => true
     })
     expect(result.ok).toBe(true)
   })
