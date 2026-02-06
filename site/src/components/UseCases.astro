@@ -36,11 +36,11 @@ const useCases = [
       {
         useCases.map((useCase, i) => (
           <div class={`p-10 flex flex-col transition-colors duration-300 hover:bg-surface-elevated ${
-            i % 2 === 0 ? 'md:border-r border-border' : ''
+            i % 2 === 0 ? 'md:border-r border-gray-700' : ''
           } ${
-            i < 2 ? 'border-b border-border' : ''
+            i < 2 ? 'border-b border-gray-700' : ''
           } ${
-            i < useCases.length - 1 ? 'max-md:border-b max-md:border-border' : ''
+            i < useCases.length - 1 ? 'max-md:border-b max-md:border-gray-700' : ''
           }`}>
             <h3 class="text-xl font-bold uppercase mb-4">{useCase.title}</h3>
             <p class="text-base opacity-70 leading-[1.7]">{useCase.description}</p>

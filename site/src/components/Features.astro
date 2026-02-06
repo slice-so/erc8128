@@ -27,10 +27,19 @@ const features = [
 ]
 ---
 
-<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 border-b border-border">
+<section class="border-b border-border">
+  <!-- Mobile header - hidden on desktop -->
+    <div class="md:hidden px-4 mt-24 md:mt-32 mb-8 md:mb-12">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
+        Features
+      </div>
+    </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
   {
     features.map((feature, i) => (
-      <div class={`p-10 flex flex-col h-full border-b border-border transition-colors duration-300 hover:bg-surface-elevated lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-border' : ''} ${i % 2 === 0 ? 'md:border-r md:border-border md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
+      <div class={`p-10 flex flex-col h-full border-b border-gray-700 transition-colors duration-300 hover:bg-surface-elevated lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-gray-700' : ''} ${i % 2 === 0 ? 'md:border-r md:border-gray-700 md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
         <div class="mb-8 opacity-35 text-white transition-opacity duration-300 group-hover:opacity-100 feature-icon">
           {feature.icon === "shield" && (
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Cryptographic signature verification shield">
@@ -69,6 +78,7 @@ const features = [
       </div>
     ))
   }
+  </div>
 </section>
 
 <style>

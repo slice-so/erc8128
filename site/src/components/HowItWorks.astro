@@ -4,19 +4,19 @@ const steps = [
     id: "sign",
     title: "Sign",
     description:
-      "The client signs with their wallet the request details — method, URL, headers, body, etc."
+      "The client signs the request details — method, URL, headers, body, etc."
   },
   {
     id: "send",
     title: "Send",
     description:
-      "The signed request is sent to the server, with the Ethereum address and signature attached."
+      "The signed request is sent to the server, with the client's Ethereum address and signature."
   },
   {
     id: "verify",
     title: "Verify",
     description:
-      "The server validates the signature and authenticates the request."
+      "The server verifies the signature is cryptographically bound to the request, and authenticates the client."
   }
 ]
 ---
@@ -71,7 +71,7 @@ const steps = [
       {
         steps.map((step, i) => (
           <div
-            class={`hiw-step relative group z-10 ${i < steps.length - 1 ? "md:border-r md:border-white/[0.05]" : ""}`}
+            class={`hiw-step relative group z-10 ${i < steps.length - 1 ? "md:border-r md:border-white/5" : ""}`}
             data-step={step.id}
           >
             <div class="md:px-8 lg:px-12">

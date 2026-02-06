@@ -59,7 +59,7 @@
   let dpr = 1;
   let angleX = 0.3;
   let angleY = 0;
-  let targetAngleX = 0.3;
+  let targetAngleX = -0.2;
   let targetAngleY = 0;
   let autoRotateY = 0;
   let isDragging = false;
@@ -172,7 +172,7 @@
   }
 
   const signals: TravelingSignal[] = [];
-  const MAX_SIGNALS = 16;
+  const MAX_SIGNALS = 15;
 
   function findRandomPath(minHops: number, maxHops: number): number[] | null {
     const start = Math.floor(Math.random() * NUM_POINTS);

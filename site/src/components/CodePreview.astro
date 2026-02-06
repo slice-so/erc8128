@@ -13,7 +13,8 @@
         <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text data-active:text-text data-active:bg-code-bg data-active:border-code-border" data-tab="verify">Verify (Server)</button>
       </div>
 
-      <div class="code-block active bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto hidden animate-fade-in relative" data-tab="sign">
+      <div class="code-blocks-container relative">
+      <div class="code-block active bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto relative" data-tab="sign">
         <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center z-10 hover:text-white hover:bg-white/10" data-code="sign" title="Copy code" aria-label="Copy code">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2"></rect>
@@ -37,7 +38,7 @@
 {"}"})</code></pre>
       </div>
 
-      <div class="code-block bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto hidden animate-fade-in relative" data-tab="verify">
+      <div class="code-block bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl p-8 overflow-x-auto relative" data-tab="verify">
         <button class="copy-code-btn absolute top-4 right-4 bg-transparent border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center z-10 hover:text-white hover:bg-white/10" data-code="verify" title="Copy code" aria-label="Copy code">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2"></rect>
@@ -59,6 +60,7 @@
 
 <span class="code-kw">if</span> (result.ok) {"{"}<br />  console.<span class="code-fn">log</span>(<span class="code-str">`Authenticated: <span class="code-kw">${"{"}</span>result.address<span class="code-kw">{"}"}</span>`</span>)
 {"}"}</code></pre>
+      </div>
       </div>
     </div>
 
@@ -83,23 +85,30 @@
 </section>
 
 <style>
-  .code-block.active {
-    display: block;
+  .code-blocks-container {
+    position: relative;
   }
-  
+
+  .code-block {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+
+  .code-block.active {
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+  }
+
   .code-tab.active {
     color: var(--text);
     background: var(--code-bg);
     border-color: var(--code-border);
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  
-  .animate-fade-in {
-    animation: fadeIn 0.3s var(--ease);
   }
 </style>
 
@@ -114,11 +123,6 @@
       document.querySelectorAll(".code-block").forEach((b) => {
         const isTarget = b.getAttribute("data-tab") === target;
         b.classList.toggle("active", isTarget);
-        if (isTarget) {
-          (b as HTMLElement).style.animation = "none";
-          (b as HTMLElement).offsetHeight;
-          (b as HTMLElement).style.animation = "";
-        }
       });
     });
   });
