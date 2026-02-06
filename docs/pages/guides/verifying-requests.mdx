@@ -28,6 +28,20 @@ if (result.ok) {
 }
 ```
 
+## Using createVerifierClient
+
+For repeated verification with the same dependencies, use [createVerifierClient](/api/createVerifierClient) to bind `verifyMessage` and `nonceStore`:
+
+```typescript
+import { createVerifierClient } from '@slicekit/erc8128'
+
+const verifier = createVerifierClient(verifyMessage, nonceStore, {
+  maxValiditySec: 120,
+})
+
+const result = await verifier.verifyRequest(request, { strictLabel: true })
+```
+
 ## Required Setup
 
 ### Nonce Store
@@ -75,18 +89,17 @@ Choose the appropriate policy based on your endpoint's security requirements:
 ```typescript [Strict (Mutations)]
 // For high-security endpoints that modify state
 const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
-  nonce: 'required',
+  replayable: false,
   maxValiditySec: 60,       // Short window
   maxNonceWindowSec: 60,
   clockSkewSec: 5,          // Small tolerance
-  enforceContentDigest: true,
 })
 ```
 
 ```typescript [Relaxed (Reads)]
 // For idempotent read operations
 const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
-  nonce: 'optional',        // Allow replayable signatures
+  replayable: true,         // Allow replayable signatures
   maxValiditySec: 300,      // Longer window
   clockSkewSec: 30,         // More tolerance
 })
@@ -117,28 +130,28 @@ const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
 
 :::
 
-### Required Components
+### Component Policies
 
-By default, the verifier enforces that signatures are **request-bound** — covering `@authority`, `@method`, `@path`, plus `@query` and `content-digest` when the request has a query string or body. This rejects all class-bound signatures.
+By default, the verifier enforces that signatures are **request-bound** — covering `@authority`, `@method`, `@path`, plus `@query` and `content-digest` when the request has a query string or body. This rejects all class-bound signatures. Non-replayable request-bound signatures always pass when their components match the required policy. Other cases depend on the configured policies and signature params (e.g. `replayable`, class-bound policy, timing, nonce window).
 
-Setting `requiredComponents` **replaces** this default check with a custom one. The verifier checks that the specified components appear as an ordered subsequence of the signed components. This is how you opt into accepting class-bound signatures — while request-bound signatures continue to be accepted since they cover more components and always satisfy the subsequence requirement:
+Use `additionalRequestBoundComponents` to require additional components alongside the default request-bound set. Use `classBoundPolicies` to opt into class-bound signatures by listing acceptable component sets (order does not matter):
 
 ```typescript
 // Default: rejects class-bound signatures (full request-bound check)
 const result = await verifyRequest(request, verifyMessageFn, nonceStore)
 
-// Accept class-bound: only require @authority and @method
+// Require custom headers in request-bound signatures
 const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
-  requiredComponents: ['@authority', '@method'],
+  additionalRequestBoundComponents: ['x-idempotency-key'],
 })
 
-// Require custom headers to be signed alongside standard components
+// Accept class-bound signatures that cover a minimal policy
 const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
-  requiredComponents: ['@authority', '@method', '@path', 'x-idempotency-key'],
+  classBoundPolicies: ['@authority', '@method'],
 })
 ```
 
-See [Server Enforcement](/concepts/request-binding#server-enforcement-with-requiredcomponents) for details on default behavior, custom components, and the difference between setting and not setting `requiredComponents`.
+See [Server Enforcement](/concepts/request-binding#server-enforcement-with-requestboundcomponents-and-classboundpolicies) for details on default behavior, custom components, and the difference between request-bound and class-bound verification.
 
 ## Framework Integration
 

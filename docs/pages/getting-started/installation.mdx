@@ -38,10 +38,12 @@ Everything is available from the main entry point — client functions, server f
 ```typescript
 import {
   // Client
+  createSignerClient,
   signRequest,
   signedFetch,
   
   // Server
+  createVerifierClient,
   verifyRequest,
   
   // Utilities

@@ -105,10 +105,7 @@ const signedRequest = await signRequest(
 During verification, the server checks that the `Content-Digest` header matches the actual body bytes. A mismatch indicates tampering.
 
 ```typescript
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  enforceContentDigest: true, // Default
-  ...
-})
+const result = await verifyRequest(request, verifyMessage, nonceStore)
 
 // If content-digest is in components:
 // 1. Header must exist
@@ -190,13 +187,16 @@ const signedRequest = await signRequest(
 // Signature covers: @authority + @method + @path + @query + content-digest + x-idempotency-key + x-request-id
 ```
 
-## Server Enforcement with `requiredComponents`
+## Server Enforcement with `additionalRequestBoundComponents` and `classBoundPolicies`
 
-The `requiredComponents` option on the verifier controls which components a signature must cover to be accepted. Understanding its behavior is important for configuring verification correctly.
+Verification behavior is controlled by two policy inputs:
 
-### Default Behavior (no `requiredComponents`)
+- `additionalRequestBoundComponents` adds required components **in addition to** the default request-bound set.
+- `classBoundPolicies` opts into class-bound signatures by listing acceptable component sets.
 
-When `requiredComponents` is **not set**, the verifier enforces the full **request-bound** check. This means the signature must cover the complete set of components that the ERC-8128 spec requires for the specific request:
+### Default Behavior (no policy fields)
+
+When neither field is set, the verifier enforces the full **request-bound** check. This means the signature must cover the complete set of components that the ERC-8128 spec requires for the specific request:
 
 - `@authority`, `@method`, `@path` — always required
 - `@query` — required if the request has a query string
@@ -210,82 +210,36 @@ const result = await verifyRequest(request, verifyMessage, nonceStore)
 // A class-bound signature (e.g. only @authority) would be rejected
 ```
 
-### Setting `requiredComponents`
+### Adding Extra Request-Bound Components
 
-When `requiredComponents` is set, it allows class-bound requests with the specified components, in addition to the default request-bound behaviour. The verifier checks that the specified components appear as an ordered subsequence of the signed components.
-
-```typescript
-// Accept signatures that cover at least @authority and @method
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  requiredComponents: ['@authority', '@method'],
-})
-// A class-bound signature with ['@authority', '@method'] would be accepted
-// A class-bound signature with only ['@authority'] would be rejected
-```
-
-### Is Setting All Defaults the Same as Not Setting Any?
-
-**No.** There is a subtle but important difference:
-
-- **Not set**: The verifier dynamically derives the required components from the request shape (adds `@query` if query is present, adds `content-digest` if body is present). This is the request-bound check.
-- **Set to `['@authority', '@method', '@path', '@query', 'content-digest']`**: The verifier checks for this exact ordered subsequence regardless of the request shape. Ordering is enforced — the components must appear in the same relative order in the signature's component list (via `isOrderedSubsequence`). A `GET` request without a body would still require `content-digest` to be signed, which is unlikely to be present.
-
-In practice, if you want the default request-bound behavior, simply don't set `requiredComponents`.
-
-### Custom Components
-
-You can require components beyond the standard set — including application-specific headers:
+Use `additionalRequestBoundComponents` to require additional components alongside the default set:
 
 ```typescript
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  requiredComponents: ['@authority', '@method', '@path', 'x-api-version'],
+  additionalRequestBoundComponents: ['x-api-version', 'x-idempotency-key'],
 })
 ```
 
-This requires the signature to cover `@authority`, `@method`, `@path`, *and* the `x-api-version` header. If the signer didn't include `x-api-version` in their signed components, verification fails.
+The signature must now cover the request-bound set **plus** `x-api-version` and `x-idempotency-key`. Order does not matter; the verifier checks set inclusion.
 
-Custom components are useful when:
-- Your API versions are path-independent and you need the version header to be tamper-proof
-- You use idempotency keys that must be bound to the signature
-- You have application-specific headers (like a scope or authorization context) that the verifier wants to use to group requests — similar to granular permission scopes on API keys
+### Accepting Class-Bound Signatures
+
+Use `classBoundPolicies` to opt in to class-bound signatures. Each policy list is an acceptable component set (order does not matter). If any policy is covered by the signed components, the signature can be accepted:
 
 ```typescript
-// Require a custom scope header to be signed
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  requiredComponents: ['@authority', 'x-scope'],
-  nonce: 'optional',
+  classBoundPolicies: [
+    ['@authority', '@method'],
+    ['@authority', '@path'],
+  ],
 })
 ```
 
-The signer must include these components when signing:
-
-```typescript
-const signed = await signRequest(
-  request,
-  signer,
-  { components: ['x-scope'] }  // Added alongside the default request-bound set
-)
-```
-
-### Ordered Subsequence Check
-
-When `requiredComponents` is set, the required components must appear in the same relative order within the signed components, but don't need to be contiguous. Extra components in the signature are allowed. This means request-bound signatures always satisfy the check (they include more components), while class-bound signatures pass only if they cover at least the required set in order.
-
-When `requiredComponents` is **not** set, the default request-bound check runs instead — which always accepts request-bound signatures and rejects class-bound ones.
-
-```typescript
-// Signed components: ['@authority', '@method', '@path', 'x-custom', 'content-digest']
-// Required:          ['@authority', '@path', 'content-digest']
-// ✅ Passes: all required appear in order
-
-// Signed components: ['@authority', 'content-digest', '@path']
-// Required:          ['@authority', '@path', 'content-digest']
-// ❌ Fails: @path appears after content-digest in signed, but before it in required
-```
+Request-bound signatures are **always** accepted when valid, even if `classBoundPolicies` is set. The verifier also requires `@authority` in every class-bound policy (it is added if missing).
 
 ## Best Practices
 
 1. **Use request-bound** as the default — it's the safest option
 2. **Sign idempotency keys** — if your API uses them
-3. **Be explicit about requirements** — configure `requiredComponents` on the server
+3. **Be explicit about requirements** — configure `additionalRequestBoundComponents` and `classBoundPolicies` on the server
 4. **Audit class-bound usage** — ensure you understand what's not being signed

@@ -49,14 +49,14 @@ const signer: EthHttpSigner = {
 }
 ```
 
-## Using createClient
+## Using createSignerClient
 
-For repeated requests, use [createClient](/api/createClient) to bind the signer:
+For repeated requests, use [createSignerClient](/api/createSignerClient) to bind the signer:
 
 ```typescript
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 
-const client = createClient(signer, {
+const client = createSignerClient(signer, {
   ttlSeconds: 120,
 })
 

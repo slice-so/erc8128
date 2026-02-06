@@ -20,7 +20,7 @@ npm install @slicekit/erc8128
 ### Sign a Request
 
 ```typescript
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const account = privateKeyToAccount('0x...')
@@ -31,7 +31,7 @@ const signer = {
   signMessage: (message) => account.signMessage({ message: { raw: message } }),
 }
 
-const client = createClient(signer)
+const client = createSignerClient(signer)
 
 const response = await client.fetch(
   'https://api.example.com/orders',
@@ -46,13 +46,15 @@ const response = await client.fetch(
 ### Verify a Request
 
 ```typescript
-import { verifyRequest } from '@slicekit/erc8128'
+import { createVerifierClient } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 
-const client = createPublicClient({ chain: mainnet, transport: http() })
+const publicClient = createPublicClient({ chain: mainnet, transport: http() })
 
-const result = await verifyRequest(request, client.verifyMessage, nonceStore)
+const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+
+const result = await verifier.verifyRequest(request)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address}`)
@@ -61,15 +63,25 @@ if (result.ok) {
 
 ## API
 
-### `createClient(signer, options?)`
+### `createSignerClient(signer, options?)`
 
 Creates a client with pre-configured signer.
 
 ```typescript
-const client = createClient(signer)
+const client = createSignerClient(signer)
 
 client.fetch(input, init?)      // Sign and send
 client.signRequest(input, init?) // Sign only
+```
+
+### `createVerifierClient(verifyMessage, nonceStore, policy?)`
+
+Creates a client with pre-configured verification dependencies.
+
+```typescript
+const verifier = createVerifierClient(verifyMessage, nonceStore)
+
+verifier.verifyRequest(request, policy?)
 ```
 
 ### `verifyRequest(request, verifyMessage, nonceStore, policy?)`
@@ -80,7 +92,16 @@ Verifies a signed request.
 
 ```typescript
 type VerifyResult =
-  | { ok: true; address: Address; chainId: number; label: string }
+  | {
+      ok: true
+      address: Address
+      chainId: number
+      label: string
+      components: string[]
+      params: SignatureParams
+      replayable: boolean
+      binding: "request-bound" | "class-bound"
+    }
   | { ok: false; reason: VerifyFailReason }
 ```
 
@@ -114,8 +135,9 @@ Signs and sends a request in one call.
 | `clockSkewSec` | `number` | `0` | Allowed clock drift |
 | `label` | `string` | — | Preferred signature label |
 | `strictLabel` | `boolean` | `false` | Require exact label match |
-| `requiredComponents` | `string[]` | — | Components that must be signed |
-| `enforceContentDigest` | `boolean` | `false` | Require body digest |
+| `replayable` | `boolean` | `false` | Allow replayable (nonce-less) signatures |
+| `additionalRequestBoundComponents` | `string[]` | — | Extra components required for request-bound |
+| `classBoundPolicies` | `string[] \| string[][]` | — | Acceptable class-bound component policies |
 
 ## Nonce Store
 

@@ -60,11 +60,14 @@ export type VerifyPolicy = {
   label?: string
   strictLabel?: boolean // default false
 
-  /** Optional override. If omitted => default Request-Bound set derived from request shape. */
-  requiredComponents?: string[]
+  /** Extra components required in addition to default request-bound set. */
+  additionalRequestBoundComponents?: string[]
 
-  /** Params policy */
-  nonce?: "required" | "optional" | "forbidden" // default "required"
+  /** Class-bound components policies (one list or a list of lists). @authority is always required. */
+  classBoundPolicies?: string[] | string[][]
+
+  /** Allow replayable (nonce-less) signatures (default false). */
+  replayable?: boolean
 
   /** Time policy */
   now?: () => number // unix seconds; default unixNow()
@@ -74,9 +77,6 @@ export type VerifyPolicy = {
 
   /** Replay protection */
   nonceKey?: (keyid: string, nonce: string) => string // default `${keyid}:${nonce}`
-
-  /** If true: if content-digest is covered, recompute and compare (default true) */
-  enforceContentDigest?: boolean
 }
 
 export type SignatureParams = {
@@ -90,12 +90,13 @@ export type SignatureParams = {
 export type VerifyResult =
   | {
       ok: true
-      kind: "eoa" | "sca"
       address: Address
       chainId: number
       label: string
       components: string[]
       params: SignatureParams
+      replayable: boolean
+      binding: BindingMode
     }
   | { ok: false; reason: VerifyFailReason; detail?: string }
 

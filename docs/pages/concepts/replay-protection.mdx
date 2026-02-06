@@ -108,7 +108,7 @@ const signedRequest = await signRequest(
 
 ```typescript [Server]
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  nonce: 'required',    // Default: reject requests without nonce
+  replayable: false,     // Reject requests without nonce
   maxNonceWindowSec: 60, // Optional: limit nonce validity window
   ...
 })
@@ -216,7 +216,7 @@ const signedRequest = await signRequest(
 ```typescript [Server]
 // Allow missing nonce, must implement early invalidation
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  nonce: 'optional',  // Accept with or without nonce
+  replayable: true,  // Accept with or without nonce
 })
 ```
 

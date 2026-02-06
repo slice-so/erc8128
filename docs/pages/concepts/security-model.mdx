@@ -70,8 +70,7 @@ expires=1618884533 → signature stops being valid
 **Configuration:**
 ```typescript
 {
-  nonce: 'required',
-  nonceStore: redisStore,
+  replayable: false,
   maxValiditySec: 60,
 }
 ```
@@ -172,17 +171,16 @@ Choose a policy tier based on the sensitivity of the endpoint — tighter constr
 ```typescript [High Security]
 // For payments and mutations
 {
-  nonce: 'required',
+  replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
-  enforceContentDigest: true,
 }
 ```
 
 ```typescript [Standard API]
 {
-  nonce: 'required',
+  replayable: false,
   maxValiditySec: 300,
   clockSkewSec: 30,
 }
@@ -190,7 +188,7 @@ Choose a policy tier based on the sensitivity of the endpoint — tighter constr
 
 ```typescript [Read-Only / Idempotent]
 {
-  nonce: 'optional',
+  replayable: true,
   maxValiditySec: 300,
   clockSkewSec: 60,
 }

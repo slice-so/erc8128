@@ -1,4 +1,4 @@
-# createClient
+# createSignerClient
 
 Create a client with a bound signer for convenient repeated use.
 
@@ -9,9 +9,9 @@ The client provides `signRequest`, `signedFetch`, and `fetch` methods that autom
 Create a client by passing a signer and optional default configuration. The returned client exposes `signRequest`, `signedFetch`, and `fetch` methods.
 
 ```typescript
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 
-const client = createClient(signer, {
+const client = createSignerClient(signer, {
   ttlSeconds: 120,
   replay: 'non-replayable',
 })
@@ -57,7 +57,7 @@ The signer to use for all requests.
 Default options for all requests. Can be overridden per-call.
 
 ```typescript
-const client = createClient(signer, {
+const client = createSignerClient(signer, {
   ttlSeconds: 300,
   replay: 'non-replayable',
   fetch: customFetch,

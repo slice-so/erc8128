@@ -43,7 +43,7 @@ Built on HTTP Message Signatures (RFC 9421) — the IETF standard for cryptograp
 Create a signer, wrap it in a client, and send an authenticated request in a few lines:
 
 ```typescript
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 import type { EthHttpSigner } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -57,7 +57,7 @@ const signer: EthHttpSigner = {
 }
 
 // Create a client
-const client = createClient(signer)
+const client = createSignerClient(signer)
 
 // Sign and send a request
 const response = await client.fetch('https://api.example.com/orders', {

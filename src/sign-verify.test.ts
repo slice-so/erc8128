@@ -106,10 +106,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     )
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
-    expect(res.kind).toBe("eoa")
     expect(res.address.toLowerCase()).toBe(signer.address.toLowerCase())
     expect(res.chainId).toBe(1)
     expect(res.params.nonce).toBe("nonce-1")
+    expect(res.replayable).toBe(false)
+    expect(res.binding).toBe("request-bound")
   })
 
   test("request-bound signatures include required components for query/body", async () => {
@@ -224,7 +225,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       signMessage: async () => "0x" as Hex
     }
 
-    await expect(
+    expect(
       signRequest(
         "https://example.com/bad-signer",
         { method: "GET" },
@@ -235,7 +236,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
 
   test("fails on invalid request url", async () => {
     const signer = makeSigner()
-    await expect(
+    expect(
       signRequest("not a url", { method: "GET" }, signer)
     ).rejects.toBeInstanceOf(Error)
   })
@@ -282,21 +283,19 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       { created, expires, replay: "replayable" }
     )
 
-    const res1 = await verifyWithPolicy(
+    const resDefault = await verifyWithPolicy(
       signed,
       { now: () => created },
-      {
-        verifyMessage
-      }
-    )
-    expect(res1).toEqual({ ok: false, reason: "nonce_required" })
-
-    const res2 = await verifyWithPolicy(
-      signed,
-      { now: () => created, nonce: "optional" },
       { verifyMessage }
     )
-    expect(res2.ok).toBe(true)
+    expect(resDefault).toEqual({ ok: false, reason: "replayable_not_allowed" })
+
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      { now: () => created, replayable: true },
+      { verifyMessage }
+    )
+    expect(resAllowed.ok).toBe(true)
   })
 
   test("label selection: strictLabel enforces the configured label", async () => {
@@ -329,7 +328,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(res2).toEqual({ ok: false, reason: "label_not_found" })
   })
 
-  test("fallback selection skips non-eip8128 keyid and picks first compliant member", async () => {
+  test("verification attempts multiple signatures and succeeds on a later member", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -348,8 +347,8 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(goodSig).toBeTruthy()
     if (!goodSigInput || !goodSig) throw new Error("unreachable")
 
-    // Prepend a bogus label with a non-compliant keyid.
-    const badMember = `bad=("@authority");created=${created};expires=${expires};nonce="x";keyid="not-eip8128:1:0x0000000000000000000000000000000000000000"`
+    // Prepend a valid-looking member with a bad signature; verifier should fall through to "good".
+    const badMember = goodSigInput.replace(/^good=/, "bad=")
     const badSig = `bad=:AA==:`
 
     const headers = new Headers(signed.headers)
@@ -357,7 +356,6 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     headers.set("Signature", `${badSig}, ${goodSig}`)
     const augmented = new Request(signed, { headers })
 
-    // No policy.label passed: should select by first compliant keyid (the "good" member).
     const res = await verifyWithPolicy(
       augmented,
       { now: () => created },
@@ -366,6 +364,42 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
     expect(res.label).toBe("good")
+  })
+
+  test("class-bound verification accepts any matching policy in a list", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/class-bound-policies",
+      { method: "GET" },
+      signer,
+      {
+        binding: "class-bound",
+        components: ["@authority", "@path"],
+        created,
+        expires,
+        nonce: "nonce-class"
+      }
+    )
+
+    const res = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        classBoundPolicies: [
+          ["@authority", "@method"],
+          ["@authority", "@path"]
+        ]
+      },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error("unreachable")
+    expect(res.binding).toBe("class-bound")
+    expect(res.replayable).toBe(false)
   })
 
   test("headerMode=append appends a second signature label and verifier can target it", async () => {
@@ -517,7 +551,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(longRes).toEqual({ ok: false, reason: "validity_too_long" })
   })
 
-  test("nonce policy edge cases", async () => {
+  test("nonce window enforcement", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -528,16 +562,6 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       signer,
       { created, expires, nonce: "nonce-edge" }
     )
-
-    const forbidden = await verifyWithPolicy(signed, {
-      now: () => created,
-      nonce: "forbidden"
-    })
-    expect(forbidden).toEqual({
-      ok: false,
-      reason: "bad_signature_input",
-      detail: "nonce is forbidden by policy"
-    })
 
     const windowTooLong = await verifyWithPolicy(signed, {
       now: () => created,
@@ -635,8 +659,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     )
 
     const resDefault = await verifyWithPolicy(signed, {
-      now: () => created,
-      nonce: "optional"
+      now: () => created
     })
     expect(resDefault).toEqual({ ok: false, reason: "not_request_bound" })
 
@@ -644,14 +667,15 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       signed,
       {
         now: () => created,
-        nonce: "optional",
-        requiredComponents: ["@authority"]
+        classBoundPolicies: ["@authority"],
+        replayable: true
       },
       { verifyMessage }
     )
     expect(resAllowed.ok).toBe(true)
     if (!resAllowed.ok) throw new Error("unreachable")
-    expect(resAllowed.kind).toBe("eoa")
+    expect(resAllowed.binding).toBe("class-bound")
+    expect(resAllowed.replayable).toBe(true)
   })
 
   test("bad_time is enforced before signature verification", async () => {

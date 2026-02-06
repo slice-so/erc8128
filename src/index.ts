@@ -1,4 +1,8 @@
-export { type Client, type ClientOptions, createClient } from "./client.js"
+export {
+  type Client,
+  type ClientOptions,
+  createSignerClient
+} from "./client.js"
 export { formatKeyId, parseKeyId } from "./lib/keyId.js"
 export {
   type BindingMode,
@@ -15,4 +19,9 @@ export {
   type VerifyResult
 } from "./lib/types.js"
 export { signedFetch, signRequest } from "./sign.js"
+export {
+  createVerifierClient,
+  type VerifierClient,
+  type VerifierClientOptions
+} from "./verifierClient.js"
 export { verifyRequest } from "./verify.js"

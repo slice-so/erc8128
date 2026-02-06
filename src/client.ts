@@ -63,7 +63,7 @@ function splitInitAndOpts<TOpts extends SignOptions>(
   return { opts: initOrOpts as TOpts | undefined }
 }
 
-export function createClient(
+export function createSignerClient(
   signer: EthHttpSigner,
   defaults?: ClientOptions
 ): Client {

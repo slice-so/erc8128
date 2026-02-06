@@ -42,8 +42,9 @@ export default defineConfig({
       items: [
         { text: "signRequest", link: "/api/signRequest" },
         { text: "signedFetch", link: "/api/signedFetch" },
-        { text: "createClient", link: "/api/createClient" },
+        { text: "createSignerClient", link: "/api/createSignerClient" },
         { text: "verifyRequest", link: "/api/verifyRequest" },
+        { text: "createVerifierClient", link: "/api/createVerifierClient" },
         { text: "formatKeyId", link: "/api/formatKeyId" },
         { text: "parseKeyId", link: "/api/parseKeyId" },
         { text: "Types", link: "/api/types" }

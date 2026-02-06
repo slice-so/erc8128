@@ -119,7 +119,7 @@ A class-bound signature authorizes a *class of requests* rather than a single co
 - Reduces signing and verification overhead for high-frequency, low-risk operations
 - Enables broad authorization patterns (e.g., "any GET on this API")
 
-The signer chooses to produce a class-bound signature, but **the verifier decides whether to accept it**. By default, verifiers reject class-bound signatures — they must explicitly opt in via `requiredComponents`. See [Request Binding](/concepts/request-binding#class-bound-signatures) for details.
+The signer chooses to produce a class-bound signature, but **the verifier decides whether to accept it**. By default, verifiers reject class-bound signatures — they must explicitly opt in via `classBoundPolicies`. See [Request Binding](/concepts/request-binding#class-bound-signatures) for details.
 
 :::info
 Class-bound signatures sign fewer components, which means the unsigned parts of the request are not integrity-protected. The verifier and signer decide together whether this tradeoff is appropriate for their use case.

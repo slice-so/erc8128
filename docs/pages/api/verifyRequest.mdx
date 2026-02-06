@@ -32,9 +32,10 @@ if (result.ok) {
   // Success — access verified data
   result.address   // Ethereum address
   result.chainId   // Chain ID
-  result.kind      // "eoa" or "sca"
   result.label     // Signature label
   result.components // Signed components
+  result.replayable // true if nonce-less
+  result.binding   // "request-bound" or "class-bound"
 } else {
   // Failure — check reason
   result.reason    // VerifyFailReason
@@ -87,17 +88,16 @@ These examples show strict, relaxed, and custom-component verification policies.
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
   label: 'eth',
   strictLabel: true,
-  nonce: 'required',
+  replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
-  enforceContentDigest: true,
 })
 ```
 
 ```typescript [Relaxed Policy]
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  nonce: 'optional',
+  replayable: true,
   maxValiditySec: 300,
   clockSkewSec: 30,
 })
@@ -105,8 +105,8 @@ const result = await verifyRequest(request, verifyMessage, nonceStore, {
 
 ```typescript [Custom Components]
 const result = await verifyRequest(request, verifyMessage, nonceStore, {
-  requiredComponents: ['@authority', 'x-custom-header'],
-  nonce: 'optional',
+  additionalRequestBoundComponents: ['x-custom-header'],
+  classBoundPolicies: ['@authority', 'x-custom-header'],
 })
 ```
 

@@ -172,16 +172,21 @@ type VerifyPolicy = {
   /** If true, require exact label match (default: false) */
   strictLabel?: boolean
   
-  /** 
-   * Override default required components.
-   * When set, accepts class-bound signatures covering at least 
-   * these components (as an ordered subsequence), in addition to 
-   * request-bound ones. Can include custom headers (e.g., 'x-idempotency-key').
+  /**
+   * Extra components required in addition to the default request-bound set.
+   * Use this for custom headers like 'x-idempotency-key'.
    */
-  requiredComponents?: string[]
+  additionalRequestBoundComponents?: string[]
   
-  /** Nonce handling (default: "required") */
-  nonce?: "required" | "optional" | "forbidden"
+  /**
+   * Class-bound policies (one list or a list of lists).
+   * If any policy list is covered by the signed components, the signature is accepted.
+   * `@authority` is always required (added if missing).
+   */
+  classBoundPolicies?: string[] | string[][]
+  
+  /** Allow replayable (nonce-less) signatures (default: false) */
+  replayable?: boolean
   
   /** Current time function (default: Date.now() / 1000) */
   now?: () => number
@@ -197,9 +202,6 @@ type VerifyPolicy = {
   
   /** Custom key generator for nonce storage */
   nonceKey?: (keyid: string, nonce: string) => string
-  
-  /** Verify Content-Digest if present (default: true) */
-  enforceContentDigest?: boolean
 }
 ```
 
@@ -243,12 +245,13 @@ Result of [verifyRequest](/api/verifyRequest).
 type VerifyResult =
   | {
       ok: true
-      kind: "eoa" | "sca"
       address: Address
       chainId: number
       label: string
       components: string[]
       params: SignatureParams
+      replayable: boolean
+      binding: BindingMode
     }
   | {
       ok: false
@@ -262,12 +265,13 @@ type VerifyResult =
 | Property | Type | Description |
 |----------|------|-------------|
 | `ok` | `true` | Verification succeeded |
-| `kind` | `"eoa" \| "sca"` | Account type (EOA or smart contract account) |
 | `address` | `Address` | Verified Ethereum address |
 | `chainId` | `number` | Chain ID from keyid |
 | `label` | `string` | Signature label that was verified |
 | `components` | `string[]` | Components that were signed |
 | `params` | `SignatureParams` | Parsed signature parameters |
+| `replayable` | `boolean` | Whether the signature is replayable (nonce-less) |
+| `binding` | `BindingMode` | Binding mode used by the signature |
 
 ### Failure Properties
 
@@ -311,6 +315,8 @@ type VerifyFailReason =
   | "expired"
   | "validity_too_long"
   | "nonce_required"
+  | "replayable_not_allowed"
+  | "class_bound_not_allowed"
   | "nonce_window_too_long"
   | "replay"
   | "not_request_bound"
@@ -324,7 +330,7 @@ type VerifyFailReason =
 
 ## Client
 
-Return type of [createClient](/api/createClient). Provides bound methods for signing requests.
+Return type of [createSignerClient](/api/createSignerClient). Provides bound methods for signing requests.
 
 ```typescript
 type Client = {
@@ -355,10 +361,38 @@ type Client = {
 
 ## ClientOptions
 
-Options for [createClient](/api/createClient) and client methods. Extends [SignOptions](#signoptions).
+Options for [createSignerClient](/api/createSignerClient) and client methods. Extends [SignOptions](#signoptions).
 
 ```typescript
 type ClientOptions = SignOptions & { fetch?: typeof fetch }
+```
+
+---
+
+## VerifierClient
+
+Return type of [createVerifierClient](/api/createVerifierClient). Provides a bound method for verifying requests.
+
+```typescript
+type VerifierClient = {
+  verifyRequest: (request: Request, policy?: VerifyPolicy) => Promise<VerifyResult>
+}
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `verifyRequest` | Verify a signed request |
+
+---
+
+## VerifierClientOptions
+
+Options for [createVerifierClient](/api/createVerifierClient) and client methods. Extends [VerifyPolicy](#verifypolicy).
+
+```typescript
+type VerifierClientOptions = VerifyPolicy
 ```
 
 ---

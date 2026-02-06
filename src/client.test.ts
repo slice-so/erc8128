@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createClient } from "./index.js"
+import { createSignerClient } from "./index.js"
 import type { Address, Hex } from "./lib/types.js"
 
 function makeSigner() {
@@ -13,7 +13,7 @@ function makeSigner() {
 describe("EIP-8128 client", () => {
   test("signRequest merges defaults with per-call options", async () => {
     const signer = makeSigner()
-    const client = createClient(signer, {
+    const client = createSignerClient(signer, {
       created: 1_700_000_000,
       expires: 1_700_000_060,
       nonce: "nonce-default"
@@ -52,7 +52,7 @@ describe("EIP-8128 client", () => {
       { preconnect: () => undefined }
     )
 
-    const client = createClient(signer, {
+    const client = createSignerClient(signer, {
       fetch: fetchStub,
       created: 1_700_000_000,
       expires: 1_700_000_060,
