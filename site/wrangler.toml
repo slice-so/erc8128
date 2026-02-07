@@ -1,0 +1,8 @@
+name = "erc8128-site"
+compatibility_date = "2025-01-01"
+
+# Cloudflare Pages static site — no Workers needed
+# Deploy: `npx wrangler pages deploy dist`
+# Or connect repo in Cloudflare dashboard with:
+#   Build command: cd packages/erc8128/site && bun install && bun run build
+#   Build output: packages/erc8128/site/dist

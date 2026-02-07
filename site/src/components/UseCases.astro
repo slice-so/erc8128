@@ -1,0 +1,52 @@
+---
+const useCases = [
+  {
+    title: "Open APIs",
+    description:
+      "Serve authenticated requests from anyone with an Ethereum account. Lower the barrier to entry without compromising security."
+  },
+  {
+    title: "AI Agents",
+    description:
+      "Agents authenticate to APIs and each other with wallet-based credentials. Pair with ERC-8004 to verify reputation and permissions onchain."
+  },
+  {
+    title: "Onchain Commerce",
+    description:
+      "Authenticate buyers with the same wallet that pays onchain. Unified identity from browse to checkout, tamper-proof by design."
+  },
+  {
+    title: "Security-Critical Endpoints",
+    description:
+      "Ideal for services where compromise isn't an option. Every request requires a non-replayable proof tied to the sender."
+  }
+]
+---
+
+<section class="border-b border-border py-20 px-4 md:py-20 md:px-12 relative overflow-hidden">
+  <div class="max-w-7xl mx-auto relative z-10">
+    <div class="mb-12">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
+        Use Cases
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
+      {
+        useCases.map((useCase, i) => (
+          <div class={`p-10 flex flex-col ${
+            i % 2 === 0 ? 'md:border-r border-gray-700' : ''
+          } ${
+            i < 2 ? 'border-b border-gray-700' : ''
+          } ${
+            i < useCases.length - 1 ? 'max-md:border-b max-md:border-gray-700' : ''
+          }`}>
+            <h3 class="text-xl font-bold uppercase mb-4">{useCase.title}</h3>
+            <p class="text-base opacity-70 leading-[1.7]">{useCase.description}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>

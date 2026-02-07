@@ -1,0 +1,31 @@
+---
+import CodePreview from "../components/CodePreview.astro"
+import CTA from "../components/CTA.astro"
+import Features from "../components/Features.astro"
+import Footer from "../components/Footer.astro"
+import Hero from "../components/Hero.astro"
+import HowItWorks from "../components/HowItWorks.astro"
+import Nav from "../components/Nav.astro"
+import Resources from "../components/Resources.astro"
+import SecurityCallout from "../components/SecurityCallout.astro"
+import UseCases from "../components/UseCases.astro"
+import WhatIs from "../components/WhatIs.astro"
+import Layout from "../layouts/Layout.astro"
+---
+
+<Layout
+  title="ERC-8128 | Ethereum Identity for the Web"
+  description="ERC-8128 turns Ethereum accounts into web-native identities. Authenticate HTTP requests with your address—no API keys, no signups, no friction."
+>
+  <Nav />
+  <Hero />
+  <WhatIs />
+  <HowItWorks />
+  <Features />
+  <UseCases />
+  <SecurityCallout />
+  <CodePreview />
+  <CTA />
+  <Resources />
+  <Footer />
+</Layout>
