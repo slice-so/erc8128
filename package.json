@@ -20,6 +20,11 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "development": {
+        "types": "./src/index.ts",
+        "import": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
@@ -30,6 +35,11 @@
   ],
   "dependencies": {
     "@noble/hashes": "^1.8.0"
+  },
+  "devDependencies": {
+    "@noble/secp256k1": "^1.7.2",
+    "@slice/typescript-config": "workspace:*",
+    "viem": "catalog:"
   },
   "peerDependencies": {},
   "repository": {
