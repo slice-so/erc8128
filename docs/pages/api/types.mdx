@@ -375,7 +375,11 @@ Return type of [createVerifierClient](/api/createVerifierClient). Provides a bou
 
 ```typescript
 type VerifierClient = {
-  verifyRequest: (request: Request, policy?: VerifyPolicy) => Promise<VerifyResult>
+  verifyRequest: (
+    request: Request,
+    policy?: VerifyPolicy,
+    setHeaders?: (name: string, value: string) => void
+  ) => Promise<VerifyResult>
 }
 ```
 

@@ -1,5 +1,6 @@
 import type {
   NonceStore,
+  SetHeadersFn,
   VerifyMessageFn,
   VerifyPolicy,
   VerifyResult
@@ -11,7 +12,8 @@ export type VerifierClientOptions = VerifyPolicy
 export type VerifierClient = {
   verifyRequest: (
     request: Request,
-    policy?: VerifyPolicy
+    policy?: VerifyPolicy,
+    setHeaders?: SetHeadersFn
   ) => Promise<VerifyResult>
 }
 
@@ -24,10 +26,11 @@ export function createVerifierClient(
 
   const verifyRequestBound: VerifierClient["verifyRequest"] = async (
     request,
-    policy
+    policy,
+    setHeaders
   ) => {
     const merged = { ...base, ...policy }
-    return verifyRequest(request, verifyMessage, nonceStore, merged)
+    return verifyRequest(request, verifyMessage, nonceStore, merged, setHeaders)
   }
 
   return { verifyRequest: verifyRequestBound }

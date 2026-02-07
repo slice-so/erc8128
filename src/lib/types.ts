@@ -15,6 +15,8 @@ export type VerifyMessageFn = (
   args: VerifyMessageArgs
 ) => boolean | Promise<boolean>
 
+export type SetHeadersFn = (name: string, value: string) => void
+
 export type BindingMode = "request-bound" | "class-bound"
 export type ReplayMode = "non-replayable" | "replayable"
 export type ContentDigestMode = "auto" | "recompute" | "require" | "off"

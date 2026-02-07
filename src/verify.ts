@@ -1,4 +1,5 @@
 import { verifyContentDigest } from "./lib/engine/contentDigest.js"
+import { quoteSfString } from "./lib/engine/serializations.js"
 import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders.js"
 import { parseKeyId } from "./lib/keyId.js"
 import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound.js"
@@ -10,6 +11,7 @@ import {
 import type {
   Address,
   NonceStore,
+  SetHeadersFn,
   VerifyMessageFn,
   VerifyPolicy,
   VerifyResult
@@ -32,11 +34,48 @@ const MAX_SIGNATURE_VERIFICATIONS = 3
 
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
 
+function serializeAcceptSignatureValue(
+  components: string[],
+  requireNonce: boolean
+) {
+  const items = components.map((c) => quoteSfString(c)).join(" ")
+  let out = `(${items})`
+  out += `;keyid;created;expires`
+  if (requireNonce) out += `;nonce`
+  return out
+}
+
+function buildAcceptSignatureHeader(args: {
+  requestBoundRequired: string[]
+  classBoundPolicies: string[][]
+  requireNonce: boolean
+}): string {
+  const { requestBoundRequired, classBoundPolicies, requireNonce } = args
+  const entries: string[] = []
+  const seen = new Set<string>()
+  let index = 1
+
+  const addEntry = (components: string[]) => {
+    const key = components.join("\u0000")
+    if (seen.has(key)) return
+    seen.add(key)
+    const value = serializeAcceptSignatureValue(components, requireNonce)
+    entries.push(`sig${index}=${value}`)
+    index++
+  }
+
+  addEntry(requestBoundRequired)
+  for (const policy of classBoundPolicies) addEntry(policy)
+
+  return entries.join(", ")
+}
+
 export async function verifyRequest(
   request: Request,
   verifyMessage: VerifyMessageFn,
   nonceStore: NonceStore,
-  policy?: VerifyPolicy
+  policy?: VerifyPolicy,
+  setHeaders?: SetHeadersFn
 ): Promise<VerifyResult> {
   const resolvedPolicy = {
     ...policy,
@@ -45,6 +84,39 @@ export async function verifyRequest(
   }
   const labelPref = resolvedPolicy.label
   const strictLabel = resolvedPolicy.strictLabel ?? false
+
+  const now = resolvedPolicy.now?.() ?? unixNow()
+  const skew = resolvedPolicy.clockSkewSec ?? 0
+  const allowReplayable = resolvedPolicy.replayable ?? false
+
+  const url = sanitizeUrl(request.url)
+  const hasQuery = url.search.length > 0
+  const hasBody = request.body != null
+
+  const requestBoundExtras = normalizeComponentsList(
+    resolvedPolicy.additionalRequestBoundComponents
+  )
+  const requestBoundRequired = requiredRequestBoundComponents(
+    { hasQuery, hasBody },
+    requestBoundExtras
+  )
+
+  const classBoundPolicies = normalizeClassBoundPolicies(
+    resolvedPolicy.classBoundPolicies
+  ).map((policy) => ensureAuthority(policy))
+
+  if (setHeaders) {
+    try {
+      const acceptSignature = buildAcceptSignatureHeader({
+        requestBoundRequired,
+        classBoundPolicies,
+        requireNonce: !allowReplayable
+      })
+      setHeaders("Accept-Signature", acceptSignature)
+    } catch {
+      // Avoid breaking verification flow if header serialization fails.
+    }
+  }
 
   const sigInputHeader = request.headers.get("Signature-Input")
   const sigHeader = request.headers.get("Signature")
@@ -68,26 +140,6 @@ export async function verifyRequest(
     })
     .filter((entry): entry is VerifyCandidate<ParsedKeyId> => entry != null)
   if (validCandidates.length === 0) return { ok: false, reason: "bad_keyid" }
-
-  const now = resolvedPolicy.now?.() ?? unixNow()
-  const skew = resolvedPolicy.clockSkewSec ?? 0
-  const allowReplayable = resolvedPolicy.replayable ?? false
-
-  const url = sanitizeUrl(request.url)
-  const hasQuery = url.search.length > 0
-  const hasBody = request.body != null
-
-  const requestBoundExtras = normalizeComponentsList(
-    resolvedPolicy.additionalRequestBoundComponents
-  )
-  const requestBoundRequired = requiredRequestBoundComponents(
-    { hasQuery, hasBody },
-    requestBoundExtras
-  )
-
-  const classBoundPolicies = normalizeClassBoundPolicies(
-    resolvedPolicy.classBoundPolicies
-  ).map((policy) => ensureAuthority(policy))
 
   const { attempts, sawClassBound } = buildAttempts(validCandidates, {
     hasQuery,

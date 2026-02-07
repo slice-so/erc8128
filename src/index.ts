@@ -12,6 +12,7 @@ export {
   type HeaderMode,
   type NonceStore,
   type ReplayMode,
+  type SetHeadersFn,
   type SignatureParams,
   type SignOptions,
   type VerifyFailReason,

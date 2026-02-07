@@ -81,10 +81,10 @@ Creates a client with pre-configured verification dependencies.
 ```typescript
 const verifier = createVerifierClient(verifyMessage, nonceStore)
 
-verifier.verifyRequest(request, policy?)
+verifier.verifyRequest(request, policy?, setHeaders?)
 ```
 
-### `verifyRequest(request, verifyMessage, nonceStore, policy?)`
+### `verifyRequest(request, verifyMessage, nonceStore, policy?, setHeaders?)`
 
 Verifies a signed request.
 

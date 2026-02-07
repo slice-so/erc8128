@@ -50,7 +50,8 @@ verifyRequest(
   request: Request,
   verifyMessage: VerifyMessageFn,
   nonceStore: NonceStore,
-  policy?: VerifyPolicy
+  policy?: VerifyPolicy,
+  setHeaders?: (name: string, value: string) => void
 ): Promise<VerifyResult>
 ```
 
@@ -77,6 +78,12 @@ Replay protection store for non-replayable requests.
 - **Type:** [`VerifyPolicy`](/api/types#verifypolicy)
 
 Verification policy with rules for validation.
+
+### setHeaders (optional)
+
+- **Type:** `(name: string, value: string) => void`
+
+Callback to set response headers. When provided, `verifyRequest` sets `Accept-Signature` with the required components for each supported policy.
 
 ## Examples
 
