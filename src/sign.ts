@@ -12,7 +12,7 @@ import {
 import { formatKeyId } from "./lib/keyId.js"
 import { resolveNonce } from "./lib/nonce.js"
 import {
-  Eip8128Error,
+  Erc8128Error,
   type EthHttpSigner,
   type SignatureParams,
   type SignOptions
@@ -142,7 +142,7 @@ export async function signRequest(
   const sigHex = await signer.signMessage(M)
   const sigBytes = hexToBytes(sigHex)
   if (sigBytes.length === 0)
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "UNSUPPORTED_REQUEST",
       "Signer returned empty signature."
     )
@@ -206,7 +206,7 @@ export async function signedFetch(
   const req = await signRequest(input, init, signer, resolvedOpts)
   const f = resolvedOpts?.fetch ?? globalThis.fetch
   if (typeof f !== "function")
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "UNSUPPORTED_REQUEST",
       "No fetch implementation available. Provide opts.fetch."
     )

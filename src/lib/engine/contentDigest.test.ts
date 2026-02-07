@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Eip8128Error } from "../types.js"
+import { Erc8128Error } from "../types.js"
 import {
   parseContentDigest,
   setContentDigestHeader,
@@ -86,7 +86,7 @@ describe("setContentDigestHeader", () => {
       body: "hello"
     })
     await expect(setContentDigestHeader(req, "require")).rejects.toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 
@@ -96,7 +96,7 @@ describe("setContentDigestHeader", () => {
       body: "hello"
     })
     await expect(setContentDigestHeader(req, "off")).rejects.toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 

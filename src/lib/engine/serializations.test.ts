@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Eip8128Error } from "../types.js"
+import { Erc8128Error } from "../types.js"
 import {
   appendDictionaryMember,
   assertSignatureParamsForSerialization,
@@ -30,9 +30,9 @@ describe("quoteSfString", () => {
   })
 
   test("throws on control characters", () => {
-    expect(() => quoteSfString("a\x00b")).toThrow(Eip8128Error)
-    expect(() => quoteSfString("a\x1fb")).toThrow(Eip8128Error)
-    expect(() => quoteSfString("a\x7fb")).toThrow(Eip8128Error)
+    expect(() => quoteSfString("a\x00b")).toThrow(Erc8128Error)
+    expect(() => quoteSfString("a\x1fb")).toThrow(Erc8128Error)
+    expect(() => quoteSfString("a\x7fb")).toThrow(Erc8128Error)
   })
 
   test("allows visible ASCII and space", () => {
@@ -152,7 +152,7 @@ describe("resolveComponents", () => {
         hasQuery: false,
         hasBody: false
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("class-bound: prepends @authority if not included", () => {
@@ -184,7 +184,7 @@ describe("assertSignatureParamsForSerialization", () => {
       assertSignatureParamsForSerialization({
         created: 1700000000,
         expires: 1700000060,
-        keyid: "eip8128:1:0x0000000000000000000000000000000000000001"
+        keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
       })
     ).not.toThrow()
   })
@@ -196,7 +196,7 @@ describe("assertSignatureParamsForSerialization", () => {
         expires: 100,
         keyid: "k"
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("throws when expires is not integer", () => {
@@ -206,7 +206,7 @@ describe("assertSignatureParamsForSerialization", () => {
         expires: 100.5,
         keyid: "k"
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("throws when expires <= created", () => {
@@ -216,7 +216,7 @@ describe("assertSignatureParamsForSerialization", () => {
         expires: 100,
         keyid: "k"
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
 
     expect(() =>
       assertSignatureParamsForSerialization({
@@ -224,7 +224,7 @@ describe("assertSignatureParamsForSerialization", () => {
         expires: 50,
         keyid: "k"
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("throws when keyid is empty", () => {
@@ -234,7 +234,7 @@ describe("assertSignatureParamsForSerialization", () => {
         expires: 200,
         keyid: ""
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 })
 
@@ -245,11 +245,11 @@ describe("serializeSignatureParamsInnerList", () => {
       {
         created: 1700000000,
         expires: 1700000060,
-        keyid: "eip8128:1:0x0000000000000000000000000000000000000001"
+        keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
       }
     )
     expect(result).toBe(
-      '("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="eip8128:1:0x0000000000000000000000000000000000000001"'
+      '("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="erc8128:1:0x0000000000000000000000000000000000000001"'
     )
   })
 
@@ -258,7 +258,7 @@ describe("serializeSignatureParamsInnerList", () => {
       created: 1700000000,
       expires: 1700000060,
       nonce: "abc123",
-      keyid: "eip8128:1:0x0000000000000000000000000000000000000001"
+      keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
     })
     expect(result).toContain(';nonce="abc123"')
   })
@@ -268,7 +268,7 @@ describe("serializeSignatureParamsInnerList", () => {
       created: 1700000000,
       expires: 1700000060,
       tag: "my-tag",
-      keyid: "eip8128:1:0x0000000000000000000000000000000000000001"
+      keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
     })
     expect(result).toContain(';tag="my-tag"')
   })
@@ -304,10 +304,10 @@ describe("serializeSignatureInputHeader", () => {
 
   test("throws on invalid label", () => {
     expect(() => serializeSignatureInputHeader("UPPER", "value")).toThrow(
-      Eip8128Error
+      Erc8128Error
     )
     expect(() => serializeSignatureInputHeader("123", "value")).toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 })
@@ -318,12 +318,12 @@ describe("serializeSignatureHeader", () => {
   })
 
   test("throws on invalid base64", () => {
-    expect(() => serializeSignatureHeader("eth", "!!!")).toThrow(Eip8128Error)
+    expect(() => serializeSignatureHeader("eth", "!!!")).toThrow(Erc8128Error)
   })
 
   test("throws on invalid label", () => {
     expect(() => serializeSignatureHeader("BAD", "aGVsbG8=")).toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 })

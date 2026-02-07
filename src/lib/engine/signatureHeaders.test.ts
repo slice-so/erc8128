@@ -7,8 +7,8 @@ function makeHeaders(label: string, keyid: string, sigB64 = "AAAA") {
   return { sigInput, sig }
 }
 
-const EIP_KEYID = "eip8128:1:0x0000000000000000000000000000000000000001"
-const NON_EIP_KEYID = "not-eip8128:1:0x0000000000000000000000000000000000000001"
+const EIP_KEYID = "erc8128:1:0x0000000000000000000000000000000000000001"
+const NON_EIP_KEYID = "not-erc8128:1:0x0000000000000000000000000000000000000001"
 
 describe("selectSignatureFromHeaders", () => {
   test("selects by preferred label", () => {

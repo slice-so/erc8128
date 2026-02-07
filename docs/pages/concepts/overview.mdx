@@ -49,7 +49,7 @@ The "message" being signed is an RFC 9421 **signature base** — a canonical rep
 "@path": /orders
 "@query": ?market=ETH-USD
 "content-digest": sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
-"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0x1234...abcd"
+"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="erc8128:1:0x1234...abcd"
 ```
 
 This is signed as an Ethereum message (EIP-191).
@@ -70,7 +70,7 @@ Example:
 POST /orders HTTP/1.1
 Host: api.example.com
 Content-Type: application/json
-Signature-Input: eth=("@authority" "@method" "@path" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0x1234...abcd"
+Signature-Input: eth=("@authority" "@method" "@path" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="erc8128:1:0x1234...abcd"
 Signature: eth=:MEUCIQDXtPCJ5...base64...:
 Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 
@@ -82,13 +82,13 @@ Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 The `keyid` identifies the signer:
 
 ```
-eip8128:<chainId>:<address>
+erc8128:<chainId>:<address>
 ```
 
 Examples:
-- `eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045` — Ethereum mainnet
-- `eip8128:8453:0x1234...abcd` — Base
-- `eip8128:42161:0x1234...abcd` — Arbitrum
+- `erc8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045` — Ethereum mainnet
+- `erc8128:8453:0x1234...abcd` — Base
+- `erc8128:42161:0x1234...abcd` — Arbitrum
 
 ## Security Properties
 

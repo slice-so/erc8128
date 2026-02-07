@@ -1,4 +1,4 @@
-import { Eip8128Error, type VerifyPolicy, type VerifyResult } from "../types.js"
+import { Erc8128Error, type VerifyPolicy, type VerifyResult } from "../types.js"
 import {
   parseSignatureDictionary,
   parseSignatureInputDictionary
@@ -22,9 +22,9 @@ export type SelectedSignature = {
  * Parse `Signature-Input` + `Signature` headers and select candidate signatures to verify.
  *
  * Selection rules:
- * - If `policy.label` is provided and present, it is ordered first.
+ * - Include all members that have a matching Signature entry in header order.
  * - If `strictLabel=true` and the label is missing (or has no Signature entry), return label_not_found.
- * - Otherwise, include all members that have a matching Signature entry in header order.
+ * - If `strictLabel=true` and the label exists, only return members for that label.
  *
  * Never throws for parse errors; returns `{ ok: false, reason: "bad_signature_input" }` instead.
  */
@@ -44,22 +44,10 @@ export function selectSignatureFromHeaders(args: {
     const parsedSigs = parseSignatureDictionary(signatureHeader)
 
     const candidates: SelectedSignature[] = []
-    let preferredAdded = false
 
     for (const cand of parsedInputs) {
       const s = parsedSigs.get(cand.label)
       if (!s) continue
-      if (labelPref != null && cand.label === labelPref) {
-        candidates.unshift({
-          label: cand.label,
-          components: cand.components,
-          params: cand.params,
-          signatureParamsValue: cand.signatureParamsValue,
-          sigB64: s
-        })
-        preferredAdded = true
-        continue
-      }
       candidates.push({
         label: cand.label,
         components: cand.components,
@@ -69,19 +57,25 @@ export function selectSignatureFromHeaders(args: {
       })
     }
 
-    if (labelPref != null && strictLabel && !preferredAdded) {
+    if (candidates.length === 0) {
       return { ok: false, result: { ok: false, reason: "label_not_found" } }
     }
 
-    if (candidates.length === 0) {
-      return { ok: false, result: { ok: false, reason: "label_not_found" } }
+    if (labelPref != null && strictLabel) {
+      const strictCandidates = candidates.filter(
+        (candidate) => candidate.label === labelPref
+      )
+      if (strictCandidates.length === 0) {
+        return { ok: false, result: { ok: false, reason: "label_not_found" } }
+      }
+      return { ok: true, selected: strictCandidates }
     }
 
     return { ok: true, selected: candidates }
   } catch (err) {
     const detail =
       err instanceof Error ? err.message : "Failed to parse signature headers."
-    if (err instanceof Eip8128Error && err.code === "PARSE_ERROR")
+    if (err instanceof Erc8128Error && err.code === "PARSE_ERROR")
       return {
         ok: false,
         result: { ok: false, reason: "bad_signature_input", detail }

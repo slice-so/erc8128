@@ -9,7 +9,7 @@ Pass a keyid string to extract the chain ID and address. Returns `null` if the f
 ```typescript
 import { parseKeyId } from '@slicekit/erc8128'
 
-const result = parseKeyId('eip8128:1:0xabc123...')
+const result = parseKeyId('erc8128:1:0xabc123...')
 // { chainId: 1, address: '0xabc123...' }
 
 const invalid = parseKeyId('invalid')

@@ -157,15 +157,15 @@ See [Server Enforcement](/concepts/request-binding#server-enforcement-with-addit
 The component order in signatures does not affect verification — the library reads component order from the signature inputs. This allows clients to produce signatures with components in any order, and verifiers to accept them as long as the required components are present.
 :::
 
-### Signature Selection Priority
+### Signature Selection Order
 
-When a request contains multiple signatures (multiple labels in the headers), the verifier evaluates them in priority order:
+When a request contains multiple signatures (multiple labels in the headers), the verifier:
 
-1. **Request-bound signatures first** — Verified before class-bound signatures
-2. **Less restrictive class-bound policies** — When multiple class-bound policies match, the one with fewer required components is tried first
-3. **Header order** — Within the same priority tier, signatures are tried in the order they appear in the headers
+1. Filters to EIP-8128 keyIds
+2. Filters to signatures allowed by your request-bound/class-bound policies
+3. Verifies the remaining candidates in the exact order they appear in `Signature-Input`
 
-The first signature that passes all checks (cryptographic verification, time bounds, nonce, component policy) is accepted. This prioritization ensures the most specific authorization is used when available, while still accepting broader authorizations when configured.
+The first signature that passes all checks (cryptographic verification, time bounds, nonce, component policy) is accepted.
 
 ## Framework Integration
 

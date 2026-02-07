@@ -7,7 +7,7 @@ export { formatKeyId, parseKeyId } from "./lib/keyId.js"
 export {
   type BindingMode,
   type ContentDigestMode,
-  Eip8128Error,
+  Erc8128Error,
   type EthHttpSigner,
   type HeaderMode,
   type NonceStore,

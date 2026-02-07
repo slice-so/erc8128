@@ -188,6 +188,9 @@ type VerifyPolicy = {
   /** Allow replayable (nonce-less) signatures (default: false) */
   replayable?: boolean
   
+  /** Maximum number of signatures to verify (default: 3) */
+  maxSignatureVerifications?: number
+  
   /** Current time function (default: Date.now() / 1000) */
   now?: () => number
   
@@ -402,22 +405,22 @@ type VerifierClientOptions = VerifyPolicy
 
 ---
 
-## Eip8128Error
+## Erc8128Error
 
 Custom error class for ERC-8128 operations.
 
 ```typescript
-class Eip8128Error extends Error {
-  code: Eip8128ErrorCode
+class Erc8128Error extends Error {
+  code: Erc8128ErrorCode
 }
 ```
 
-## Eip8128ErrorCode
+## Erc8128ErrorCode
 
-Error codes for `Eip8128Error`.
+Error codes for `Erc8128Error`.
 
 ```typescript
-type Eip8128ErrorCode =
+type Erc8128ErrorCode =
   | "CRYPTO_UNAVAILABLE"   // WebCrypto not available
   | "INVALID_OPTIONS"      // Bad sign options
   | "UNSUPPORTED_REQUEST"  // Can't sign this request
@@ -430,15 +433,15 @@ type Eip8128ErrorCode =
 
 ### Example
 
-Catch `Eip8128Error` to handle specific error codes during signing or verification:
+Catch `Erc8128Error` to handle specific error codes during signing or verification:
 
 ```typescript
-import { signRequest, Eip8128Error } from '@slicekit/erc8128'
+import { signRequest, Erc8128Error } from '@slicekit/erc8128'
 
 try {
   const signedRequest = await signRequest({ input, signer })
 } catch (error) {
-  if (error instanceof Eip8128Error) {
+  if (error instanceof Erc8128Error) {
     console.error(`Error (${error.code}): ${error.message}`)
   }
   throw error

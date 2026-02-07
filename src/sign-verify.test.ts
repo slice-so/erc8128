@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { Eip8128Error, signRequest, verifyRequest } from "./index.js"
+import { Erc8128Error, signRequest, verifyRequest } from "./index.js"
 import type { Address, Hex, VerifyPolicy } from "./lib/types.js"
 
 const publicClient = createPublicClient({
@@ -94,7 +94,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     const sigInput = signed.headers.get("Signature-Input")
     const sig = signed.headers.get("Signature")
     expect(sigInput).toMatch(
-      /^eth=\(.+\);created=\d+;expires=\d+;nonce="[^"]+";keyid="eip8128:\d+:0x[0-9a-f]{40}"$/
+      /^eth=\(.+\);created=\d+;expires=\d+;nonce="[^"]+";keyid="erc8128:\d+:0x[0-9a-f]{40}"$/
     )
     expect(sig).toMatch(/^eth=:[A-Za-z0-9+/]+={0,2}:$/)
 
@@ -231,7 +231,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
         { method: "GET" },
         badSigner
       )
-    ).rejects.toBeInstanceOf(Eip8128Error)
+    ).rejects.toBeInstanceOf(Erc8128Error)
   })
 
   test("fails on invalid request url", async () => {
@@ -364,6 +364,52 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
     expect(res.label).toBe("good")
+
+    const limited = await verifyWithPolicy(
+      augmented,
+      { now: () => created, maxSignatureVerifications: 1 },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
+    expect(limited).toEqual({ ok: false, reason: "bad_signature" })
+  })
+
+  test("signature selection respects Signature-Input order across bindings", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const classBound = await signRequest(
+      "https://example.com/order",
+      { method: "GET" },
+      signer,
+      {
+        binding: "class-bound",
+        components: ["@authority"],
+        created,
+        expires,
+        nonce: "nonce-class",
+        label: "class"
+      }
+    )
+
+    const combined = await signRequest(classBound, signer, {
+      created,
+      expires,
+      nonce: "nonce-request",
+      label: "request",
+      headerMode: "append"
+    })
+
+    const res = await verifyWithPolicy(
+      combined,
+      { now: () => created, classBoundPolicies: ["@authority"] },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error("unreachable")
+    expect(res.label).toBe("class")
+    expect(res.binding).toBe("class-bound")
   })
 
   test("class-bound verification accepts any matching policy in a list", async () => {
@@ -514,7 +560,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       method: "GET",
       headers: {
         "Signature-Input":
-          'sig=("@authority");created=1700000000;expires=1700000060;keyid="not-eip8128:1:0x0000000000000000000000000000000000000000"',
+          'sig=("@authority");created=1700000000;expires=1700000060;keyid="not-erc8128:1:0x0000000000000000000000000000000000000000"',
         Signature: "sig=:AA==:"
       }
     })
@@ -641,7 +687,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
         signer,
         { binding: "class-bound" }
       )
-    ).rejects.toBeInstanceOf(Eip8128Error)
+    ).rejects.toBeInstanceOf(Erc8128Error)
 
     const created = 1_700_000_000
     const expires = created + 60

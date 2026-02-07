@@ -71,6 +71,9 @@ export type VerifyPolicy = {
   /** Allow replayable (nonce-less) signatures (default false). */
   replayable?: boolean
 
+  /** Maximum number of signatures to verify (default 3). */
+  maxSignatureVerifications?: number
+
   /** Time policy */
   now?: () => number // unix seconds; default unixNow()
   clockSkewSec?: number // default 0; allow +/- drift when checking created/expires
@@ -124,7 +127,7 @@ export type VerifyFailReason =
   | "bad_signature_bytes"
   | "bad_signature_check"
 
-export class Eip8128Error extends Error {
+export class Erc8128Error extends Error {
   constructor(
     public code:
       | "CRYPTO_UNAVAILABLE"
@@ -138,6 +141,6 @@ export class Eip8128Error extends Error {
     message: string
   ) {
     super(message)
-    this.name = "Eip8128Error"
+    this.name = "Erc8128Error"
   }
 }

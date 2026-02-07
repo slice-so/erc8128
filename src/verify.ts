@@ -30,7 +30,7 @@ import {
   type VerifyCandidate
 } from "./lib/verifyUtils.js"
 
-const MAX_SIGNATURE_VERIFICATIONS = 3
+const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
 
@@ -155,20 +155,18 @@ export async function verifyRequest(
     return { ok: false, reason: "not_request_bound" }
   }
 
-  const orderedAttempts = attempts
-    .map((attempt, index) => ({ ...attempt, index }))
-    .sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === "request-bound" ? -1 : 1
-      if (a.kind === "class-bound" && a.policyLength !== b.policyLength)
-        return a.policyLength - b.policyLength
-      return a.index - b.index
-    })
+  const maxSignatureVerifications =
+    typeof resolvedPolicy.maxSignatureVerifications === "number" &&
+    Number.isFinite(resolvedPolicy.maxSignatureVerifications) &&
+    resolvedPolicy.maxSignatureVerifications > 0
+      ? Math.floor(resolvedPolicy.maxSignatureVerifications)
+      : DEFAULT_MAX_SIGNATURE_VERIFICATIONS
 
   let lastFailure: VerifyResult = { ok: false, reason: "bad_signature" }
   let tried = 0
 
-  for (const attempt of orderedAttempts) {
-    if (tried >= MAX_SIGNATURE_VERIFICATIONS) break
+  for (const attempt of attempts) {
+    if (tried >= maxSignatureVerifications) break
     tried++
 
     const { candidate, key } = attempt.candidate

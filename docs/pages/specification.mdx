@@ -9,7 +9,7 @@ ERC-8128 defines how Ethereum accounts sign HTTP requests using RFC 9421 (HTTP M
 ERC-8128 is a profile of RFC 9421 that specifies:
 
 1. **Signature algorithm**: Ethereum message signing (EIP-191)
-2. **Key identification**: `eip8128:<chainId>:<address>` format
+2. **Key identification**: `erc8128:<chainId>:<address>` format
 3. **Default components**: Request-bound signing
 4. **Replay protection**: Nonce-based with time bounds
 
@@ -20,13 +20,13 @@ ERC-8128 is a profile of RFC 9421 that specifies:
 Structured Dictionary (RFC 8941) listing signed components and parameters:
 
 ```
-Signature-Input: eth=("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+Signature-Input: eth=("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="erc8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
 ```
 
 **Required parameters:**
 - `created` — Unix timestamp when signature was created
 - `expires` — Unix timestamp when signature expires
-- `keyid` — Signer identifier in `eip8128:<chainId>:<address>` format
+- `keyid` — Signer identifier in `erc8128:<chainId>:<address>` format
 
 **Optional parameters:**
 - `nonce` — Unique value for replay protection
@@ -53,7 +53,7 @@ Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 The `keyid` parameter identifies the signer using an ERC-8128-specific URI format:
 
 ```
-eip8128:<chainId>:<address>
+erc8128:<chainId>:<address>
 ```
 
 - `chainId`: Decimal integer (e.g., `1` for Ethereum mainnet)
@@ -61,9 +61,9 @@ eip8128:<chainId>:<address>
 
 **Examples:**
 ```
-eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045
-eip8128:8453:0x1234567890abcdef1234567890abcdef12345678
-eip8128:42161:0xABCDEF1234567890ABCDEF1234567890ABCDEF12
+erc8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045
+erc8128:8453:0x1234567890abcdef1234567890abcdef12345678
+erc8128:42161:0xABCDEF1234567890ABCDEF1234567890ABCDEF12
 ```
 
 ## Signature Base
@@ -76,7 +76,7 @@ The message signed is an RFC 9421 signature base — a canonical representation 
 "@path": /orders
 "@query": ?market=ETH-USD
 "content-digest": sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
-"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="erc8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
 ```
 
 This is then signed as an Ethereum message:

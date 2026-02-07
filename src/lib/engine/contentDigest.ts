@@ -1,4 +1,4 @@
-import { type ContentDigestMode, Eip8128Error } from "../types.js"
+import { type ContentDigestMode, Erc8128Error } from "../types.js"
 import { base64Encode, readBodyBytes, sha256 } from "../utilities.js"
 
 /**
@@ -18,13 +18,13 @@ export async function setContentDigestHeader(
   const existing = headers.get("content-digest")
 
   if (mode === "off") {
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "DIGEST_REQUIRED",
       "content-digest is required by covered components, but contentDigest='off'."
     )
   }
   if (mode === "require" && !existing) {
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "DIGEST_REQUIRED",
       "content-digest is required but missing."
     )

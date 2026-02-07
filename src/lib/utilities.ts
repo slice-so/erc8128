@@ -1,6 +1,6 @@
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2"
 import type { EthHttpSigner, Hex } from "./types.js"
-import { Eip8128Error } from "./types.js"
+import { Erc8128Error } from "./types.js"
 
 const BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -32,7 +32,7 @@ export function sanitizeUrl(url: string): URL {
   try {
     return new URL(url)
   } catch {
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "UNSUPPORTED_REQUEST",
       `Request.url must be absolute (got: ${url}).`
     )
@@ -50,7 +50,7 @@ export function utf8Encode(s: string): Uint8Array {
 export function randomBytes(n: number): Uint8Array {
   const cryptoObj = globalThis.crypto
   if (!cryptoObj?.getRandomValues)
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "CRYPTO_UNAVAILABLE",
       "crypto.getRandomValues required."
     )
@@ -65,7 +65,7 @@ export async function readBodyBytes(request: Request): Promise<Uint8Array> {
     const ab = await clone.arrayBuffer()
     return new Uint8Array(ab)
   } catch {
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "BODY_READ_FAILED",
       "Failed to read request body (stream locked/disturbed)."
     )
@@ -139,7 +139,7 @@ export function base64UrlEncode(bytes: Uint8Array): string {
 export function hexToBytes(hex: Hex): Uint8Array {
   const h = hex.slice(2)
   if (h.length % 2 !== 0)
-    throw new Eip8128Error("UNSUPPORTED_REQUEST", "Invalid hex length.")
+    throw new Erc8128Error("UNSUPPORTED_REQUEST", "Invalid hex length.")
   const out = new Uint8Array(h.length / 2)
   for (let i = 0; i < out.length; i++)
     out[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16)

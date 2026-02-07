@@ -249,15 +249,15 @@ const signedRequest = await signRequest(
 
 ## Error Handling
 
-Catch `Eip8128Error` to handle signing failures with structured error codes.
+Catch `Erc8128Error` to handle signing failures with structured error codes.
 
 ```typescript
-import { signRequest, Eip8128Error } from '@slicekit/erc8128'
+import { signRequest, Erc8128Error } from '@slicekit/erc8128'
 
 try {
   const signedRequest = await signRequest(input, signer)
 } catch (error) {
-  if (error instanceof Eip8128Error) {
+  if (error instanceof Erc8128Error) {
     console.error(`Signing failed: ${error.code} - ${error.message}`)
   }
   throw error

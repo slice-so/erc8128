@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Eip8128Error } from "../types.js"
+import { Erc8128Error } from "../types.js"
 import {
   assertLabel,
   parseSignatureDictionary,
@@ -17,27 +17,27 @@ describe("assertLabel", () => {
   })
 
   test("rejects uppercase labels", () => {
-    expect(() => assertLabel("ETH")).toThrow(Eip8128Error)
-    expect(() => assertLabel("Eth")).toThrow(Eip8128Error)
+    expect(() => assertLabel("ETH")).toThrow(Erc8128Error)
+    expect(() => assertLabel("Eth")).toThrow(Erc8128Error)
   })
 
   test("rejects labels starting with number", () => {
-    expect(() => assertLabel("1eth")).toThrow(Eip8128Error)
+    expect(() => assertLabel("1eth")).toThrow(Erc8128Error)
   })
 
   test("rejects empty string", () => {
-    expect(() => assertLabel("")).toThrow(Eip8128Error)
+    expect(() => assertLabel("")).toThrow(Erc8128Error)
   })
 
   test("rejects labels with spaces", () => {
-    expect(() => assertLabel("my label")).toThrow(Eip8128Error)
+    expect(() => assertLabel("my label")).toThrow(Erc8128Error)
   })
 })
 
 describe("parseSignatureInputDictionary", () => {
   test("parses single member", () => {
     const input =
-      'eth=("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="eip8128:1:0x0000000000000000000000000000000000000001"'
+      'eth=("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="erc8128:1:0x0000000000000000000000000000000000000001"'
     const result = parseSignatureInputDictionary(input)
     expect(result).toHaveLength(1)
     expect(result[0].label).toBe("eth")
@@ -45,7 +45,7 @@ describe("parseSignatureInputDictionary", () => {
     expect(result[0].params.created).toBe(1700000000)
     expect(result[0].params.expires).toBe(1700000060)
     expect(result[0].params.keyid).toBe(
-      "eip8128:1:0x0000000000000000000000000000000000000001"
+      "erc8128:1:0x0000000000000000000000000000000000000001"
     )
   })
 
@@ -74,7 +74,7 @@ describe("parseSignatureInputDictionary", () => {
 
   test("throws on missing = in member", () => {
     expect(() => parseSignatureInputDictionary("not-a-dictionary")).toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 
@@ -83,7 +83,7 @@ describe("parseSignatureInputDictionary", () => {
       parseSignatureInputDictionary(
         'BAD=("@authority");created=100;expires=200;keyid="k"'
       )
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("throws on missing inner list open paren", () => {
@@ -91,18 +91,18 @@ describe("parseSignatureInputDictionary", () => {
       parseSignatureInputDictionary(
         'eth="@authority";created=100;expires=200;keyid="k"'
       )
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("throws on empty inner list", () => {
     expect(() =>
       parseSignatureInputDictionary('eth=();created=100;expires=200;keyid="k"')
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("throws on missing created/expires/keyid", () => {
     expect(() => parseSignatureInputDictionary('eth=("@authority")')).toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 
@@ -144,20 +144,20 @@ describe("parseSignatureDictionary", () => {
   })
 
   test("throws on missing = in member", () => {
-    expect(() => parseSignatureDictionary("garbage")).toThrow(Eip8128Error)
+    expect(() => parseSignatureDictionary("garbage")).toThrow(Erc8128Error)
   })
 
   test("throws on invalid binary item (no colons)", () => {
-    expect(() => parseSignatureDictionary("eth=hello")).toThrow(Eip8128Error)
+    expect(() => parseSignatureDictionary("eth=hello")).toThrow(Erc8128Error)
   })
 
   test("throws on invalid base64 in binary item", () => {
-    expect(() => parseSignatureDictionary("eth=:!!!:")).toThrow(Eip8128Error)
+    expect(() => parseSignatureDictionary("eth=:!!!:")).toThrow(Erc8128Error)
   })
 
   test("throws on invalid label", () => {
     expect(() => parseSignatureDictionary("BAD=:aGVsbG8=:")).toThrow(
-      Eip8128Error
+      Erc8128Error
     )
   })
 })
