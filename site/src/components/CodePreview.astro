@@ -22,18 +22,21 @@
           </svg>
         </button>
         <pre class="font-mono text-[13px] leading-[1.75] text-white/60"><code><span class="code-cm">// Create a client and sign requests</span>
-<span class="code-kw">import</span> {"{"} <span class="code-fn">createClient</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createSignerClient</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
 <span class="code-kw">import</span> {"{"} <span class="code-fn">privateKeyToAccount</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'viem/accounts'</span>
 
 <span class="code-kw">const</span> account = <span class="code-fn">privateKeyToAccount</span>(<span class="code-str">'0x...'</span>)
-<span class="code-kw">const</span> client = <span class="code-fn">createClient</span>({"{"}
+<span class="code-kw">const</span> signer = {"{"}
   chainId: <span class="code-num">1</span>,
   address: account.address,
   signMessage: (msg) =&gt; account.<span class="code-fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
 {"}"})
 
+<span class="code-kw">const</span> client = <span class="code-fn">createSignerClient</span>(signer)
+
 <span class="code-kw">const</span> response = <span class="code-kw">await</span> client.<span class="code-fn">fetch</span>(
   <span class="code-str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="code-str">'POST'</span>,
+  headers: {"{"} <span class="code-str">'Content-Type'</span>: <span class="code-str">'application/json'</span> {"}"},
   body: <span class="code-fn">JSON.stringify</span>({"{"} amount: <span class="code-str">'100'</span> {"}"}),
 {"}"})</code></pre>
       </div>
@@ -46,17 +49,18 @@
           </svg>
         </button>
         <pre class="font-mono text-[13px] leading-[1.75] text-white/60"><code><span class="code-cm">// Verify incoming signed requests</span>
-<span class="code-kw">import</span> {"{"} <span class="code-fn">verifyRequest</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createVerifierClient</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
 <span class="code-kw">import</span> {"{"} <span class="code-fn">createPublicClient</span>, <span class="code-fn">http</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'viem'</span>
 <span class="code-kw">import</span> {"{"} mainnet {"}"} <span class="code-kw">from</span> <span class="code-str">'viem/chains'</span>
+<span class="code-kw">import</span> {"{"} nonceStore {"}"} <span class="code-kw">from</span> <span class="code-str">'./nonceStore'</span>
 
-<span class="code-kw">const</span> viemClient = <span class="code-fn">createPublicClient</span>({"{"}<br />  chain: mainnet,
+<span class="code-kw">const</span> publicClient = <span class="code-fn">createPublicClient</span>({"{"}<br />  chain: mainnet,
   transport: <span class="code-fn">http</span>(),
 {"}"})
 
-<span class="code-kw">const</span> result = <span class="code-kw">await</span> <span class="code-fn">verifyRequest</span>(request, {"{"}<br />  nonceStore,
-  verifyMessage: viemClient.verifyMessage,
-{"}"})
+<span class="code-kw">const</span> verifier = <span class="code-fn">createVerifierClient</span>(publicClient.verifyMessage, nonceStore)
+
+<span class="code-kw">const</span> result = <span class="code-kw">await</span> verifier.<span class="code-fn">verifyRequest</span>(request)
 
 <span class="code-kw">if</span> (result.ok) {"{"}<br />  console.<span class="code-fn">log</span>(<span class="code-str">`Authenticated: <span class="code-kw">${"{"}</span>result.address<span class="code-kw">{"}"}</span>`</span>)
 {"}"}</code></pre>
@@ -129,34 +133,37 @@
 
   // Code snippets for copy
   const codeSnippets: Record<string, string> = {
-    sign: `import { createClient } from '@slicekit/erc8128'
+    sign: `import { createSignerClient } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const account = privateKeyToAccount('0x...')
-const client = createClient({
+const signer = {
   chainId: 1,
   address: account.address,
   signMessage: (msg) => account.signMessage({ message: { raw: msg } }),
-})
+}
+
+const client = createSignerClient(signer)
 
 const response = await client.fetch(
   'https://api.example.com/orders', {
   method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ amount: '100' }),
 })`,
-    verify: `import { verifyRequest } from '@slicekit/erc8128'
+    verify: `import { createVerifierClient } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
+import { nonceStore } from './nonceStore'
 
-const viemClient = createPublicClient({
+const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
 })
 
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage: viemClient.verifyMessage,
-})
+const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+
+const result = await verifier.verifyRequest(request)
 
 if (result.ok) {
   console.log(\`Authenticated: \${result.address}\`)
