@@ -1,24 +1,24 @@
 ---
 const useCases = [
   {
-    title: "AI Agents Calling APIs",
+    title: "Open APIs",
     description:
-      "Agents authenticate to any ERC-8128 endpoint using their on-chain identity. No API keys to provision, rotate, or revoke. The agent's address is the credential."
+      "Serve authenticated requests from anyone with an Ethereum account. Lower the barrier to entry without compromising security."
   },
   {
-    title: "Keyless API Access",
+    title: "AI Agents",
     description:
-      "Replace API key management with wallet-based auth. Consumers sign requests directly—servers verify the signature and look up permissions by address."
+      "Agents authenticate to APIs and each other with wallet-based credentials. Pair with ERC-8004 to verify reputation and permissions onchain."
   },
   {
-    title: "Cross-Service Auth Without Signups",
+    title: "Onchain Commerce",
     description:
-      "One identity, every service. Users authenticate to new APIs and platforms without creating accounts. The server sees a verified Ethereum address on every request."
+      "Payment and order APIs where every request is signed by the buyer's wallet. Tamper-proof by design, natural fit for crypto-native commerce."
   },
   {
-    title: "Machine-to-Machine Auth",
+    title: "Security-Critical Endpoints",
     description:
-      "Autonomous services, bots, and infrastructure authenticate to each other with cryptographic identity. No shared secrets, no certificate authorities, no manual key distribution."
+      "Ideal for services where compromise isn't an option. Every request is a non-replayable proof tied to the sender."
   }
 ]
 ---

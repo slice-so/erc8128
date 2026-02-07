@@ -4,19 +4,19 @@ const steps = [
     id: "sign",
     title: "Sign",
     description:
-      "The client signs the request details — method, URL, headers, body, etc."
+      "The client signs the request — URL, body, expiry, nonce — choosing the security posture."
   },
   {
     id: "send",
     title: "Send",
     description:
-      "The signed request is sent to the server, with the client's Ethereum address and signature."
+      "The signed request is sent with the client's Ethereum address and signature."
   },
   {
     id: "verify",
     title: "Verify",
     description:
-      "The server verifies the signature is cryptographically bound to the request, and authenticates the client."
+      "The server verifies the signature binds to the request, and authenticates the client."
   }
 ]
 ---
@@ -66,7 +66,7 @@ const steps = [
           transform="translate(800 0) scale(-1 1)"
         />
       </svg>
-      <div class="hiw-line-sig hidden md:block" id="hiw-line-sig">0xA9f2d...</div>
+      <!-- <div class="hiw-line-sig hidden md:block" id="hiw-line-sig">0xA9f2d...</div> -->
 
       {
         steps.map((step, i) => (
@@ -311,12 +311,6 @@ const steps = [
   .verify-illustration,
   .verify-illustration svg {
     overflow: visible;
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .group:hover .illustration-container {
-      transform: scale(1.015);
-    }
   }
 
   /* ═══════════════════════════════════════════════════════════
