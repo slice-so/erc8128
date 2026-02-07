@@ -32,9 +32,9 @@
   signMessage: (msg) =&gt; account.<span class="code-fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
 {"}"})
 
-<span class="code-kw">const</span> client = <span class="code-fn">createSignerClient</span>(signer)
+<span class="code-kw">const</span> signerClient = <span class="code-fn">createSignerClient</span>(signer)
 
-<span class="code-kw">const</span> response = <span class="code-kw">await</span> client.<span class="code-fn">fetch</span>(
+<span class="code-kw">const</span> response = <span class="code-kw">await</span> signerClient.<span class="code-fn">fetch</span>(
   <span class="code-str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="code-str">'POST'</span>,
   headers: {"{"} <span class="code-str">'Content-Type'</span>: <span class="code-str">'application/json'</span> {"}"},
   body: <span class="code-fn">JSON.stringify</span>({"{"} amount: <span class="code-str">'100'</span> {"}"}),
@@ -143,9 +143,9 @@ const signer = {
   signMessage: (msg) => account.signMessage({ message: { raw: msg } }),
 }
 
-const client = createSignerClient(signer)
+const signerClient = createSignerClient(signer)
 
-const response = await client.fetch(
+const response = await signerClient.fetch(
   'https://api.example.com/orders', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -161,9 +161,9 @@ const publicClient = createPublicClient({
   transport: http(),
 })
 
-const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+const verifierClient = createVerifierClient(publicClient.verifyMessage, nonceStore)
 
-const result = await verifier.verifyRequest(request)
+const result = await verifierClient.verifyRequest(request)
 
 if (result.ok) {
   console.log(\`Authenticated: \${result.address}\`)

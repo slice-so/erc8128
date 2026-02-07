@@ -1,22 +1,22 @@
 ---
 const resources = [
   {
-    href: "https://erc8128-docs.vercel.app/",
-    label: "DOCUMENTATION",
-    title: "Guides & References",
-    desc: "Complete security model and API reference for signing and verifying requests."
+    href: "https://github.com/slice-so/erc8128",
+    label: "LIBRARY",
+    title: "Open Source Library",
+    desc: "ERC-8128 implementation in Typescript with full test coverage."
   },
   {
-    href: "https://github.com/slice-so/erc8128",
-    label: "GITHUB LIBRARY",
-    title: "Open Source SDK",
-    desc: "TypeScript implementation with full test coverage and server middleware."
+    href: "https://erc8128.slice.so/",
+    label: "GUIDES & REFERENCES",
+    title: "Documentation",
+    desc: "Library reference and spec overview for signing and verifying requests."
   },
   {
     href: "https://t.me/ethhttpmessagesignatures",
     label: "COMMUNITY",
     title: "Telegram Group",
-    desc: "Join developers building with ERC8128—ask questions, share implementations."
+    desc: "Join the core team and developers building with ERC-8128."
   },
   {
     href: "https://ethereum-magicians.org/t/erc-8128-signed-http-requests-with-ethereum/27515",
@@ -32,14 +32,14 @@ const resources = [
     resources.map((r, i) => (
       <a
         href={r.href}
-        class={`block p-10 text-text border-b border-border transition-colors duration-300 no-underline hover:bg-surface-elevated hover:opacity-100 lg:border-b-0 last:border-b-0 ${i < resources.length - 1 ? 'lg:border-r lg:border-border' : ''} ${i % 2 === 0 ? 'md:border-r md:border-border md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}
+        class={`block p-8 text-text border-b border-border transition-colors duration-300 no-underline hover:bg-surface-elevated hover:opacity-100 lg:border-b-0 last:border-b-0 ${i < resources.length - 1 ? 'lg:border-r lg:border-border' : ''} ${i % 2 === 0 ? 'md:border-r md:border-border md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}
         target="_blank"
         rel="noopener noreferrer"
       >
         <div class="font-mono text-xs opacity-50 mb-6 transition-all duration-300 hover:text-white hover:opacity-100 resource-label">{r.label}</div>
         <div class="text-xl font-bold mb-3">{r.title}</div>
         <p class="text-base opacity-60 leading-[1.7]">{r.desc}</p>
-        <div class="mt-8 text-lg">→</div>
+        <div class=" text-right text-lg">→</div>
       </a>
     ))
   }
