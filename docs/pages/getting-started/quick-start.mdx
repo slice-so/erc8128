@@ -4,6 +4,8 @@ Learn to sign and verify HTTP requests with ERC-8128 in 5 minutes.
 
 ## 1. Install
 
+Add `@slicekit/erc8128` to your project:
+
 :::code-group
 
 ```bash [bun]
@@ -26,6 +28,8 @@ yarn add @slicekit/erc8128
 
 ## 2. Sign a Request
 
+Create a signer from an Ethereum account, wrap it in a client, and use `client.fetch` to sign and send requests.
+
 :::code-group
 
 ```typescript [main.ts]
@@ -42,10 +46,10 @@ const response = await client.fetch(
 ```
 
 ```typescript [client.ts]
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 import { signer } from './signer'
 
-export const client = createClient(signer)
+export const client = createSignerClient(signer)
 ```
 
 ```typescript [signer.ts]
@@ -72,17 +76,14 @@ The signed request has these headers added:
 
 ## 3. Verify Request
 
+On the server, use `createVerifierClient` to bind a nonce store and a message verification function. The result contains the authenticated address and chain ID.
+
 :::code-group
 
 ```typescript [verify.ts]
-import { verifyRequest } from '@slicekit/erc8128'
-import { publicClient } from './client'
-import { nonceStore } from './nonce'
+import { verifier } from './client'
 
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage: publicClient.verifyMessage,
-})
+const result = await verifier.verifyRequest(request)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
@@ -92,13 +93,20 @@ if (result.ok) {
 ```
 
 ```typescript [client.ts]
+import { createVerifierClient } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
+import { nonceStore } from './nonce'
 
 export const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
 })
+
+export const verifier = createVerifierClient(
+  publicClient.verifyMessage,
+  nonceStore
+)
 ```
 
 ```typescript [nonce.ts]

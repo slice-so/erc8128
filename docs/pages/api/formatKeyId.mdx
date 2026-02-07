@@ -4,18 +4,20 @@ Format a chain ID and address into an ERC-8128 keyid.
 
 ## Usage
 
+Pass a chain ID and Ethereum address to produce the canonical `erc8128:<chainId>:<address>` string.
+
 ```typescript
 import { formatKeyId } from '@slicekit/erc8128'
 
 const keyid = formatKeyId(1, '0xAbc123...')
-// "eip8128:1:0xabc123..."
+// "erc8128:1:0xabc123..."
 ```
 
 ## Returns
 
 `string`
 
-The formatted keyid string in the format `eip8128:<chainId>:<address>`.
+The formatted keyid string in the format `erc8128:<chainId>:<address>`.
 
 ## Parameters
 

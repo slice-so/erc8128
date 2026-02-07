@@ -1,47 +1,86 @@
+import { buildAcceptSignatureHeader } from "./lib/acceptSignature.js"
 import { verifyContentDigest } from "./lib/engine/contentDigest.js"
-import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase.js"
 import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders.js"
 import { parseKeyId } from "./lib/keyId.js"
+import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound.js"
 import {
-  isOrderedSubsequence,
-  isRequestBoundForThisRequest
-} from "./lib/policies/isRequestBound.js"
-import type { Address, VerifyPolicy, VerifyResult } from "./lib/types.js"
+  ensureAuthority,
+  normalizeClassBoundPolicies,
+  normalizeComponentsList
+} from "./lib/policies/normalizePolicies.js"
+import type {
+  Address,
+  NonceStore,
+  SetHeadersFn,
+  VerifyMessageFn,
+  VerifyPolicy,
+  VerifyResult
+} from "./lib/types.js"
 import {
   base64Decode,
   bytesToHex,
   sanitizeUrl,
-  toRequest,
   unixNow
 } from "./lib/utilities.js"
+import {
+  buildAttempts,
+  buildSignatureBase,
+  runNonceChecks,
+  runTimeChecks,
+  type VerifyCandidate
+} from "./lib/verifyUtils.js"
 
-const DEFAULT_MAX_VALIDITY_SEC = 300
+const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
+
+type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
 
 export async function verifyRequest(
-  input: RequestInfo,
-  policy?: VerifyPolicy
-): Promise<VerifyResult>
-export async function verifyRequest(
-  input: RequestInfo,
-  init: RequestInit | undefined,
-  policy?: VerifyPolicy
-): Promise<VerifyResult>
-export async function verifyRequest(
-  input: RequestInfo,
-  initOrPolicy?: RequestInit | VerifyPolicy,
-  policy?: VerifyPolicy
+  request: Request,
+  verifyMessage: VerifyMessageFn,
+  nonceStore: NonceStore,
+  policy?: VerifyPolicy,
+  setHeaders?: SetHeadersFn
 ): Promise<VerifyResult> {
-  const hasPolicyArg = policy !== undefined
-  const init = hasPolicyArg
-    ? (initOrPolicy as RequestInit | undefined)
-    : undefined
-  const resolvedPolicy = hasPolicyArg
-    ? (policy as VerifyPolicy)
-    : ((initOrPolicy as VerifyPolicy | undefined) ?? {})
-
-  const request = toRequest(input, init)
+  const resolvedPolicy = {
+    ...policy,
+    verifyMessage,
+    nonceStore
+  }
   const labelPref = resolvedPolicy.label
   const strictLabel = resolvedPolicy.strictLabel ?? false
+
+  const now = resolvedPolicy.now?.() ?? unixNow()
+  const skew = resolvedPolicy.clockSkewSec ?? 0
+  const allowReplayable = resolvedPolicy.replayable ?? false
+
+  const url = sanitizeUrl(request.url)
+  const hasQuery = url.search.length > 0
+  const hasBody = request.body != null
+
+  const requestBoundExtras = normalizeComponentsList(
+    resolvedPolicy.additionalRequestBoundComponents
+  )
+  const requestBoundRequired = requiredRequestBoundComponents(
+    { hasQuery, hasBody },
+    requestBoundExtras
+  )
+
+  const classBoundPolicies = normalizeClassBoundPolicies(
+    resolvedPolicy.classBoundPolicies
+  ).map((policy) => ensureAuthority(policy))
+
+  if (setHeaders) {
+    try {
+      const acceptSignature = buildAcceptSignatureHeader({
+        requestBoundRequired,
+        classBoundPolicies,
+        requireNonce: !allowReplayable
+      })
+      setHeaders("Accept-Signature", acceptSignature)
+    } catch {
+      // Avoid breaking verification flow if header serialization fails.
+    }
+  }
 
   const sigInputHeader = request.headers.get("Signature-Input")
   const sigHeader = request.headers.get("Signature")
@@ -55,161 +94,188 @@ export async function verifyRequest(
   })
   if (!selected.ok) return selected.result
 
-  const { components, params, signatureParamsValue, sigB64, label } =
-    selected.selected
+  const candidates = selected.selected
 
-  // Keyid parse
-  const key = parseKeyId(params.keyid)
-  if (!key) return { ok: false, reason: "bad_keyid" }
-  const { chainId, address } = key
-
-  // Time checks
-  const now = resolvedPolicy.now?.() ?? unixNow()
-  const skew = resolvedPolicy.clockSkewSec ?? 0
-
-  if (
-    !Number.isInteger(params.created) ||
-    !Number.isInteger(params.expires) ||
-    params.expires <= params.created
-  ) {
-    return { ok: false, reason: "bad_time" }
-  }
-  if (now + skew < params.created) return { ok: false, reason: "not_yet_valid" }
-  if (now - skew > params.expires) return { ok: false, reason: "expired" }
-
-  // Enforce a bounded validity window by default.
-  // Note: treat null/undefined/NaN as "use default" (no bypass).
-  const maxValiditySec = resolvedPolicy.maxValiditySec
-  const maxValidity =
-    typeof maxValiditySec === "number" && Number.isFinite(maxValiditySec)
-      ? maxValiditySec
-      : DEFAULT_MAX_VALIDITY_SEC
-  if (params.expires - params.created > maxValidity) {
-    return { ok: false, reason: "validity_too_long" }
-  }
-
-  // Nonce policy (replay vs non-replayable)
-  const hasNonce = typeof params.nonce === "string" && params.nonce.length > 0
-  const noncePolicy = resolvedPolicy.nonce ?? "required"
-
-  if (noncePolicy === "required" && !hasNonce)
-    return { ok: false, reason: "nonce_required" }
-  if (noncePolicy === "forbidden" && hasNonce)
-    return {
-      ok: false,
-      reason: "bad_signature_input",
-      detail: "nonce is forbidden by policy"
-    }
-
-  // Nonce window enforcement (optional)
-  if (hasNonce) {
-    const maxNonceWin = resolvedPolicy.maxNonceWindowSec
-    if (maxNonceWin != null && params.expires - params.created > maxNonceWin) {
-      return { ok: false, reason: "nonce_window_too_long" }
-    }
-  }
-
-  // Components checks (request-bound by default, unless overridden)
-  const url = sanitizeUrl(request.url)
-  const hasQuery = url.search.length > 0
-  const hasBody = request.body != null
-
-  const required = resolvedPolicy.requiredComponents
-    ?.map((c) => c.trim())
-    .filter(Boolean)
-  if (required && required.length > 0) {
-    if (!isOrderedSubsequence(required, components)) {
-      return {
-        ok: false,
-        reason: "not_request_bound",
-        detail: `requiredComponents not satisfied (need ordered subsequence: ${required.join(
-          ","
-        )})`
-      }
-    }
-  } else {
-    const requestBound = isRequestBoundForThisRequest(components, {
-      hasQuery,
-      hasBody
+  const validCandidates = candidates
+    .map((candidate) => {
+      const key = parseKeyId(candidate.params.keyid)
+      if (!key) return null
+      return { candidate, key }
     })
-    if (!requestBound) return { ok: false, reason: "not_request_bound" }
-  }
+    .filter((entry): entry is VerifyCandidate<ParsedKeyId> => entry != null)
+  if (validCandidates.length === 0) return { ok: false, reason: "bad_keyid" }
 
-  // If content-digest is covered, enforce header exists and matches body bytes (default true)
-  const enforceDigest = resolvedPolicy.enforceContentDigest ?? true
-  if (enforceDigest && components.includes("content-digest")) {
-    const v = request.headers.get("content-digest")
-    if (!v) return { ok: false, reason: "digest_required" }
-    const ok = await verifyContentDigest(request)
-    if (!ok) return { ok: false, reason: "digest_mismatch" }
-  }
-
-  // Nonce replay protection
-  if (hasNonce) {
-    const store = resolvedPolicy.nonceStore
-    if (!store)
-      return {
-        ok: false,
-        reason: "nonce_required",
-        detail: "nonceStore missing"
-      }
-
-    const keyFn = resolvedPolicy.nonceKey ?? ((k, n) => `${k}:${n}`)
-    const nonce = params.nonce
-    if (!nonce)
-      return {
-        ok: false,
-        reason: "nonce_required",
-        detail: "nonce missing"
-      }
-    const replayKey = keyFn(params.keyid, nonce)
-    const ttlSeconds = Math.max(0, params.expires - now)
-    const consumed = await store.consume(replayKey, ttlSeconds)
-    if (!consumed) return { ok: false, reason: "replay" }
-  }
-
-  // Build signature base M using the (raw) signatureParamsValue from header
-  const M = createSignatureBaseMinimal({
-    request,
-    components,
-    signatureParamsValue // use exactly the member value to keep parity
+  const { attempts, sawClassBound } = buildAttempts(validCandidates, {
+    hasQuery,
+    hasBody,
+    requestBoundExtras,
+    requestBoundRequired,
+    classBoundPolicies
   })
 
-  // Decode signature bytes
-  const sigBytes = base64Decode(sigB64)
-  if (!sigBytes || sigBytes.length === 0)
-    return { ok: false, reason: "bad_signature_bytes" }
-  const sigHex = bytesToHex(sigBytes)
-
-  const verifyFn = resolvedPolicy.verifyMessage
-  if (!verifyFn)
-    return {
-      ok: false,
-      reason: "bad_signature_check",
-      detail: "verifyMessage missing in policy"
-    }
-
-  // Verify signature (EOA / ERC-1271 / ERC-6492 / ERC-8010 depending on implementation)
-  try {
-    const ok = await verifyFn({
-      address,
-      message: { raw: bytesToHex(M) },
-      signature: sigHex
-    })
-    if (ok) {
-      return {
-        ok: true,
-        kind: "eoa",
-        address: address as Address,
-        chainId,
-        label,
-        components,
-        params
-      }
-    }
-  } catch {
-    return { ok: false, reason: "bad_signature_check" }
+  if (attempts.length === 0) {
+    if (sawClassBound && classBoundPolicies.length > 0)
+      return { ok: false, reason: "class_bound_not_allowed" }
+    return { ok: false, reason: "not_request_bound" }
   }
 
-  return { ok: false, reason: "bad_signature" }
+  const maxSignatureVerifications =
+    typeof resolvedPolicy.maxSignatureVerifications === "number" &&
+    Number.isFinite(resolvedPolicy.maxSignatureVerifications) &&
+    resolvedPolicy.maxSignatureVerifications > 0
+      ? Math.floor(resolvedPolicy.maxSignatureVerifications)
+      : DEFAULT_MAX_SIGNATURE_VERIFICATIONS
+
+  let lastFailure: VerifyResult = { ok: false, reason: "bad_signature" }
+  let tried = 0
+
+  for (const attempt of attempts) {
+    if (tried >= maxSignatureVerifications) break
+    tried++
+
+    const { candidate, key } = attempt.candidate
+    const { components, params, signatureParamsValue, sigB64, label } =
+      candidate
+    const { chainId, address } = key
+    const replayable = !params.nonce || params.nonce.length === 0
+
+    // Time checks
+    const timeFailure = runTimeChecks({
+      now,
+      skew,
+      maxValiditySec: resolvedPolicy.maxValiditySec,
+      created: params.created,
+      expires: params.expires
+    })
+    if (timeFailure) {
+      lastFailure = timeFailure
+      continue
+    }
+
+    const { failure: nonceFailure, plan: noncePlan } = runNonceChecks({
+      allowReplayable,
+      params,
+      now,
+      nonceStore: resolvedPolicy.nonceStore,
+      nonceKey: resolvedPolicy.nonceKey,
+      maxNonceWindowSec: resolvedPolicy.maxNonceWindowSec
+    })
+    if (nonceFailure) {
+      lastFailure = nonceFailure
+      continue
+    }
+
+    if (replayable) {
+      const hasReplayableInvalidation =
+        typeof resolvedPolicy.replayableNotBefore === "function" ||
+        typeof resolvedPolicy.replayableInvalidated === "function"
+      if (!hasReplayableInvalidation) {
+        lastFailure = { ok: false, reason: "replayable_invalidation_required" }
+        continue
+      }
+      if (typeof resolvedPolicy.replayableNotBefore === "function") {
+        const notBefore = await resolvedPolicy.replayableNotBefore(params.keyid)
+        if (
+          typeof notBefore === "number" &&
+          Number.isFinite(notBefore) &&
+          params.created < notBefore
+        ) {
+          lastFailure = { ok: false, reason: "replayable_not_before" }
+          continue
+        }
+      }
+    }
+
+    // If content-digest is covered, enforce header exists and matches body bytes
+    if (components.includes("content-digest")) {
+      const v = request.headers.get("content-digest")
+      if (!v) {
+        lastFailure = { ok: false, reason: "digest_required" }
+        continue
+      }
+      const ok = await verifyContentDigest(request)
+      if (!ok) {
+        lastFailure = { ok: false, reason: "digest_mismatch" }
+        continue
+      }
+    }
+
+    // Build signature base M using the (raw) signatureParamsValue from header
+    const M = buildSignatureBase({ request, components, signatureParamsValue })
+
+    // Decode signature bytes
+    const sigBytes = base64Decode(sigB64)
+    if (!sigBytes || sigBytes.length === 0) {
+      lastFailure = { ok: false, reason: "bad_signature_bytes" }
+      continue
+    }
+    const sigHex = bytesToHex(sigBytes)
+
+    if (
+      replayable &&
+      typeof resolvedPolicy.replayableInvalidated === "function"
+    ) {
+      const invalidated = await resolvedPolicy.replayableInvalidated({
+        keyid: params.keyid,
+        created: params.created,
+        expires: params.expires,
+        label,
+        signature: sigHex,
+        signatureBase: M,
+        signatureParamsValue
+      })
+      if (invalidated) {
+        lastFailure = { ok: false, reason: "replayable_invalidated" }
+        continue
+      }
+    }
+
+    const verifyFn = resolvedPolicy.verifyMessage
+    if (!verifyFn) {
+      lastFailure = {
+        ok: false,
+        reason: "bad_signature_check",
+        detail: "verifyMessage missing in policy"
+      }
+      continue
+    }
+
+    // Verify signature (EOA / ERC-1271 / ERC-6492 / ERC-8010 depending on implementation)
+    try {
+      const ok = await verifyFn({
+        address,
+        message: { raw: bytesToHex(M) },
+        signature: sigHex
+      })
+      if (ok) {
+        if (noncePlan.replayKey && noncePlan.replayStore) {
+          const consumed = await noncePlan.replayStore.consume(
+            noncePlan.replayKey,
+            noncePlan.replayTtlSeconds
+          )
+          if (!consumed) {
+            lastFailure = { ok: false, reason: "replay" }
+            continue
+          }
+        }
+        return {
+          ok: true,
+          address: address as Address,
+          chainId,
+          label,
+          components,
+          params,
+          replayable,
+          binding: attempt.kind
+        }
+      }
+    } catch {
+      lastFailure = { ok: false, reason: "bad_signature_check" }
+      continue
+    }
+
+    lastFailure = { ok: false, reason: "bad_signature" }
+  }
+
+  return lastFailure
 }

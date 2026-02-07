@@ -15,6 +15,8 @@ export type VerifyMessageFn = (
   args: VerifyMessageArgs
 ) => boolean | Promise<boolean>
 
+export type SetHeadersFn = (name: string, value: string) => void
+
 export type BindingMode = "request-bound" | "class-bound"
 export type ReplayMode = "non-replayable" | "replayable"
 export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
@@ -60,11 +62,40 @@ export type VerifyPolicy = {
   label?: string
   strictLabel?: boolean // default false
 
-  /** Optional override. If omitted => default Request-Bound set derived from request shape. */
-  requiredComponents?: string[]
+  /** Extra components required in addition to default request-bound set. */
+  additionalRequestBoundComponents?: string[]
 
-  /** Params policy */
-  nonce?: "required" | "optional" | "forbidden" // default "required"
+  /** Class-bound components policies (one list or a list of lists). @authority is always required. */
+  classBoundPolicies?: string[] | string[][]
+
+  /** Allow replayable (nonce-less) signatures (default false). */
+  replayable?: boolean
+
+  /**
+   * Optional replayable invalidation policy.
+   * When set and a signature is replayable, requests with created < notBefore are rejected.
+   * Return null/undefined to indicate "no cutoff".
+   */
+  replayableNotBefore?: (
+    keyid: string
+  ) => number | null | undefined | Promise<number | null | undefined>
+
+  /**
+   * Optional per-signature invalidation policy for replayable signatures.
+   * Return true to mark the signature as invalidated.
+   */
+  replayableInvalidated?: (args: {
+    keyid: string
+    created: number
+    expires: number
+    label: string
+    signature: Hex
+    signatureBase: Uint8Array
+    signatureParamsValue: string
+  }) => boolean | Promise<boolean>
+
+  /** Maximum number of signatures to verify (default 3). */
+  maxSignatureVerifications?: number
 
   /** Time policy */
   now?: () => number // unix seconds; default unixNow()
@@ -73,14 +104,7 @@ export type VerifyPolicy = {
   maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
 
   /** Replay protection */
-  nonceStore?: NonceStore // required when verifying non-replayable (nonce) requests
   nonceKey?: (keyid: string, nonce: string) => string // default `${keyid}:${nonce}`
-
-  /** If true: if content-digest is covered, recompute and compare (default true) */
-  enforceContentDigest?: boolean
-
-  /** Message signature verifier (viem-compatible). */
-  verifyMessage?: VerifyMessageFn
 }
 
 export type SignatureParams = {
@@ -94,12 +118,13 @@ export type SignatureParams = {
 export type VerifyResult =
   | {
       ok: true
-      kind: "eoa" | "sca"
       address: Address
       chainId: number
       label: string
       components: string[]
       params: SignatureParams
+      replayable: boolean
+      binding: BindingMode
     }
   | { ok: false; reason: VerifyFailReason; detail?: string }
 
@@ -115,6 +140,9 @@ export type VerifyFailReason =
   | "validity_too_long"
   | "nonce_required"
   | "replayable_not_allowed"
+  | "replayable_invalidation_required"
+  | "replayable_not_before"
+  | "replayable_invalidated"
   | "class_bound_not_allowed"
   | "not_request_bound"
   | "nonce_window_too_long"
@@ -125,7 +153,7 @@ export type VerifyFailReason =
   | "bad_signature_bytes"
   | "bad_signature_check"
 
-export class Eip8128Error extends Error {
+export class Erc8128Error extends Error {
   constructor(
     public code:
       | "CRYPTO_UNAVAILABLE"
@@ -139,6 +167,6 @@ export class Eip8128Error extends Error {
     message: string
   ) {
     super(message)
-    this.name = "Eip8128Error"
+    this.name = "Erc8128Error"
   }
 }

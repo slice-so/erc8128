@@ -1,41 +1,32 @@
 import { describe, expect, test } from "bun:test"
 import {
-  isOrderedSubsequence,
+  includesAllComponents,
   isRequestBoundForThisRequest
 } from "./isRequestBound.js"
 
-describe("isOrderedSubsequence", () => {
-  test("returns true when need is empty", () => {
-    expect(isOrderedSubsequence([], ["a", "b"])).toBe(true)
+describe("includesAllComponents", () => {
+  test("returns true when required is empty", () => {
+    expect(includesAllComponents([], ["a", "b"])).toBe(true)
   })
 
-  test("returns true when need equals have", () => {
-    expect(isOrderedSubsequence(["a", "b"], ["a", "b"])).toBe(true)
+  test("returns true when required equals components", () => {
+    expect(includesAllComponents(["a", "b"], ["a", "b"])).toBe(true)
   })
 
-  test("returns true when need is a strict ordered subset", () => {
-    expect(isOrderedSubsequence(["a", "c"], ["a", "b", "c"])).toBe(true)
+  test("ignores order", () => {
+    expect(includesAllComponents(["b", "a"], ["a", "b"])).toBe(true)
   })
 
-  test("returns false when order is wrong", () => {
-    expect(isOrderedSubsequence(["b", "a"], ["a", "b"])).toBe(false)
-  })
-
-  test("returns false when need has elements not in have", () => {
-    expect(isOrderedSubsequence(["x"], ["a", "b"])).toBe(false)
+  test("returns false when required has elements not in components", () => {
+    expect(includesAllComponents(["x"], ["a", "b"])).toBe(false)
   })
 
   test("returns true when both are empty", () => {
-    expect(isOrderedSubsequence([], [])).toBe(true)
+    expect(includesAllComponents([], [])).toBe(true)
   })
 
-  test("returns false when have is empty but need is not", () => {
-    expect(isOrderedSubsequence(["a"], [])).toBe(false)
-  })
-
-  test("handles duplicates correctly", () => {
-    expect(isOrderedSubsequence(["a", "a"], ["a", "b", "a"])).toBe(true)
-    expect(isOrderedSubsequence(["a", "a"], ["a", "b"])).toBe(false)
+  test("returns false when components are empty but required is not", () => {
+    expect(includesAllComponents(["a"], [])).toBe(false)
   })
 })
 
@@ -134,12 +125,12 @@ describe("isRequestBoundForThisRequest", () => {
     ).toBe(false)
   })
 
-  test("fails when components are in wrong order", () => {
+  test("ignores component order", () => {
     expect(
       isRequestBoundForThisRequest(["@path", "@method", "@authority"], {
         hasQuery: false,
         hasBody: false
       })
-    ).toBe(false)
+    ).toBe(true)
   })
 })

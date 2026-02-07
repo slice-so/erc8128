@@ -49,7 +49,7 @@ The "message" being signed is an RFC 9421 **signature base** — a canonical rep
 "@path": /orders
 "@query": ?market=ETH-USD
 "content-digest": sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
-"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0x1234...abcd"
+"@signature-params": ("@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="erc8128:1:0x1234...abcd"
 ```
 
 This is signed as an Ethereum message (EIP-191).
@@ -70,7 +70,7 @@ Example:
 POST /orders HTTP/1.1
 Host: api.example.com
 Content-Type: application/json
-Signature-Input: eth=("@authority" "@method" "@path" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="eip8128:1:0x1234...abcd"
+Signature-Input: eth=("@authority" "@method" "@path" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";keyid="erc8128:1:0x1234...abcd"
 Signature: eth=:MEUCIQDXtPCJ5...base64...:
 Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 
@@ -82,13 +82,13 @@ Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 The `keyid` identifies the signer:
 
 ```
-eip8128:<chainId>:<address>
+erc8128:<chainId>:<address>
 ```
 
 Examples:
-- `eip8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045` — Ethereum mainnet
-- `eip8128:8453:0x1234...abcd` — Base
-- `eip8128:42161:0x1234...abcd` — Arbitrum
+- `erc8128:1:0xd8da6bf26964af9d7eed9e03e53415d37aa96045` — Ethereum mainnet
+- `erc8128:8453:0x1234...abcd` — Base
+- `erc8128:42161:0x1234...abcd` — Arbitrum
 
 ## Security Properties
 
@@ -114,25 +114,41 @@ Request-bound provides full request integrity. The request sender can always cho
 
 ### Class-Bound (Optional)
 
-Implementations may additionally support class-bound signatures for performance optimization. This mode signs only specified components:
-- Signatures that work across endpoints
-- Reduced signature overhead for high-frequency requests
-- Delegation patterns
+A class-bound signature authorizes a *class of requests* rather than a single concrete request. It signs only specified components, so a single signature can apply to any request matching those components:
+- A signature covering only `@authority` works for any endpoint on that domain
+- Reduces signing and verification overhead for high-frequency, low-risk operations
+- Enables broad authorization patterns (e.g., "any GET on this API")
 
-:::warning
-Class-bound is less secure and optional. Request-bound should be the default.
+The signer chooses to produce a class-bound signature, but **the verifier decides whether to accept it**. By default, verifiers reject class-bound signatures — they must explicitly opt in via `classBoundPolicies`. See [Request Binding](/concepts/request-binding#class-bound-signatures) for details.
+
+:::info
+Class-bound signatures sign fewer components, which means the unsigned parts of the request are not integrity-protected. The verifier and signer decide together whether this tradeoff is appropriate for their use case.
 :::
+
+### Signature Selection Priority
+
+When multiple signatures are present on a request, the verifier evaluates them in priority order:
+
+1. **Request-bound signatures** are tried first (strongest security)
+2. **Class-bound signatures** are tried in order of policy specificity (fewer required components = less restrictive = tried first)
+3. **Header order** breaks ties within the same priority tier
+
+This ensures the most specific authorization is accepted when available, while still allowing broader authorizations when explicitly configured.
 
 ## Replay Protection
 
-Two modes:
+Two modes, chosen by the signer:
 
-| Mode | Nonce | Use Case |
-|------|-------|----------|
-| `non-replayable` | Required | Mutations, payments |
-| `replayable` | None | Idempotent reads |
+| Mode | Nonce | Properties |
+|------|-------|------------|
+| `non-replayable` | Required | Single-use authorization. Verifier must track nonces. |
+| `replayable` | Omitted | Reusable within validity window. No nonce state needed. Verifier must implement [early invalidation](/concepts/replay-protection#early-invalidation). |
 
-The server tracks seen nonces and rejects duplicates.
+Non-replayable is the baseline — all compliant verifiers must accept it. Replayable acceptance is optional and up to the verifier.
+
+The verifier can define different security profiles on a per-endpoint or per-request basis. For example, critical endpoints (like `/transfer` or `/admin`) may require request-bound, non-replayable signatures for maximum security, while read-only or low-risk endpoints (like `/balance` or `/profile`) could accept class-bound or replayable signatures for better performance.
+
+See [Replay Protection](/concepts/replay-protection) for the full tradeoff analysis.
 
 ## Account Types
 

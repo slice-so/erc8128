@@ -1,7 +1,16 @@
 export function isRequestBoundForThisRequest(
   components: string[],
-  reqShape: { hasQuery: boolean; hasBody: boolean }
+  reqShape: { hasQuery: boolean; hasBody: boolean },
+  extraComponents?: string[]
 ): boolean {
+  const needed = requiredRequestBoundComponents(reqShape, extraComponents)
+  return includesAllComponents(needed, components)
+}
+
+export function requiredRequestBoundComponents(
+  reqShape: { hasQuery: boolean; hasBody: boolean },
+  extraComponents?: string[]
+): string[] {
   // Must include @authority, @method, @path
   const needed = ["@authority", "@method", "@path"]
   // If query present, must include @query
@@ -9,14 +18,24 @@ export function isRequestBoundForThisRequest(
   // If body present, must include content-digest
   if (reqShape.hasBody) needed.push("content-digest")
 
-  // Must appear as an ordered subsequence (allows extra covered components too)
-  return isOrderedSubsequence(needed, components)
+  if (extraComponents) {
+    for (const raw of extraComponents) {
+      const c = raw.trim()
+      if (!c) continue
+      if (!needed.includes(c)) needed.push(c)
+    }
+  }
+
+  return needed
 }
 
-export function isOrderedSubsequence(need: string[], have: string[]): boolean {
-  let j = 0
-  for (let i = 0; i < have.length && j < need.length; i++) {
-    if (have[i] === need[j]) j++
+export function includesAllComponents(
+  required: string[],
+  components: string[]
+): boolean {
+  const have = new Set(components)
+  for (const req of required) {
+    if (!have.has(req)) return false
   }
-  return j === need.length
+  return true
 }

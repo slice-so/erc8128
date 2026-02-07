@@ -1,6 +1,6 @@
 import {
   type BindingMode,
-  Eip8128Error,
+  Erc8128Error,
   type SignatureParams
 } from "../types.js"
 import { assertLabel } from "./createSignatureInput.js"
@@ -30,14 +30,14 @@ export function assertSignatureParamsForSerialization(
   params: SignatureParams
 ): void {
   if (!Number.isInteger(params.created) || !Number.isInteger(params.expires))
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "INVALID_OPTIONS",
       "created/expires must be integers."
     )
   if (params.expires <= params.created)
-    throw new Eip8128Error("INVALID_OPTIONS", "expires must be > created.")
+    throw new Erc8128Error("INVALID_OPTIONS", "expires must be > created.")
   if (!params.keyid)
-    throw new Eip8128Error("INVALID_OPTIONS", "keyid is required.")
+    throw new Erc8128Error("INVALID_OPTIONS", "keyid is required.")
 }
 
 export function serializeSignatureInputHeader(
@@ -54,7 +54,7 @@ export function serializeSignatureHeader(
 ): string {
   assertLabel(label)
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(signatureB64))
-    throw new Eip8128Error("BAD_HEADER_VALUE", "Signature must be base64.")
+    throw new Erc8128Error("BAD_HEADER_VALUE", "Signature must be base64.")
   return `${label}=:${signatureB64}:`
 }
 
@@ -70,7 +70,7 @@ export function quoteSfString(value: string): string {
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i)
     if ((code >= 0 && code <= 0x1f) || code === 0x7f)
-      throw new Eip8128Error(
+      throw new Erc8128Error(
         "BAD_HEADER_VALUE",
         "sf-string cannot contain control characters."
       )
@@ -118,7 +118,7 @@ export function resolveComponents(args: {
 
   // Class-bound: components are required
   if (!providedComponents) {
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "INVALID_OPTIONS",
       "components are required for class-bound signatures."
     )

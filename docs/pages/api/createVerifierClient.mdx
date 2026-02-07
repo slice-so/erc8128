@@ -1,0 +1,54 @@
+# createVerifierClient
+
+Create a client with bound verification dependencies for convenient repeated use.
+
+The client provides a `verifyRequest` method that automatically uses the configured `verifyMessage` function, `nonceStore`, and default policy.
+
+## Usage
+
+Create a client by passing a verification function, a nonce store, and optional default policy. The returned client exposes `verifyRequest`.
+
+```typescript
+import { createVerifierClient } from '@slicekit/erc8128'
+
+const verifier = createVerifierClient(verifyMessage, nonceStore, {
+  maxValiditySec: 120,
+  replayable: false,
+})
+
+const result = await verifier.verifyRequest(request, { strictLabel: true })
+```
+
+## Returns
+
+[`VerifierClient`](/api/types#verifierclient)
+
+An object with a bound method:
+- `verifyRequest` — Verify a signed request
+
+## Parameters
+
+### verifyMessage
+
+- **Type:** [`VerifyMessageFn`](/api/types#verifymessagefn)
+
+Function used to verify signatures (EOA/ERC-1271/6492/8010 depending on your implementation).
+
+### nonceStore
+
+- **Type:** [`NonceStore`](/api/types#noncestore)
+
+Nonce store used for replay protection.
+
+### defaults (optional)
+
+- **Type:** [`VerifyPolicy`](/api/types#verifypolicy)
+
+Default verification policy applied to all requests. Can be overridden per-call.
+
+```typescript
+const verifier = createVerifierClient(verifyMessage, nonceStore, {
+  clockSkewSec: 10,
+  maxValiditySec: 180,
+})
+```

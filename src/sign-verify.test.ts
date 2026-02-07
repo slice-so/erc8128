@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { Eip8128Error, signRequest, verifyRequest } from "./index.js"
-import type { Address, Hex } from "./lib/types.js"
+import { Erc8128Error, signRequest, verifyRequest } from "./index.js"
+import type { Address, Hex, VerifyPolicy } from "./lib/types.js"
 
 const publicClient = createPublicClient({
   transport: http("http://localhost:8787")
@@ -45,12 +45,25 @@ function makeNonceStore() {
   }
 }
 
+function verifyWithPolicy(
+  request: Request,
+  policy: VerifyPolicy = {},
+  deps?: {
+    verifyMessage?: ReturnType<typeof makeVerifyMessage>
+    nonceStore?: ReturnType<typeof makeNonceStore>
+  }
+) {
+  const verifyMessage = deps?.verifyMessage ?? makeVerifyMessage()
+  const nonceStore = deps?.nonceStore ?? makeNonceStore()
+  return verifyRequest(request, verifyMessage, nonceStore, policy)
+}
+
 async function sha256B64(bytes: Uint8Array): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes))
   return Buffer.from(hash).toString("base64")
 }
 
-describe("EIP-8128 signRequest/verifyRequest", () => {
+describe("ERC-8128 signRequest/verifyRequest", () => {
   test("round-trips request-bound POST (auto content-digest, non-replayable nonce), -- test", async () => {
     const signer = makeSigner({ chainId: 1 })
     const created = 1_700_000_000
@@ -81,22 +94,23 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     const sigInput = signed.headers.get("Signature-Input")
     const sig = signed.headers.get("Signature")
     expect(sigInput).toMatch(
-      /^eth=\(.+\);created=\d+;expires=\d+;nonce="[^"]+";keyid="eip8128:\d+:0x[0-9a-f]{40}"$/
+      /^eth=\(.+\);created=\d+;expires=\d+;nonce="[^"]+";keyid="erc8128:\d+:0x[0-9a-f]{40}"$/
     )
     expect(sig).toMatch(/^eth=:[A-Za-z0-9+/]+={0,2}:$/)
 
     const nonceStore = makeNonceStore()
-    const res = await verifyRequest(signed, {
-      now: () => created,
-      nonceStore,
-      verifyMessage
-    })
+    const res = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { verifyMessage, nonceStore }
+    )
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
-    expect(res.kind).toBe("eoa")
     expect(res.address.toLowerCase()).toBe(signer.address.toLowerCase())
     expect(res.chainId).toBe(1)
     expect(res.params.nonce).toBe("nonce-1")
+    expect(res.replayable).toBe(false)
+    expect(res.binding).toBe("request-bound")
   })
 
   test("request-bound signatures include required components for query/body", async () => {
@@ -152,11 +166,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(sigInput).toContain('"x-scope"')
 
     const nonceStore = makeNonceStore()
-    const res = await verifyRequest(signed, {
-      now: () => created,
-      nonceStore,
-      verifyMessage
-    })
+    const res = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { verifyMessage, nonceStore }
+    )
     expect(res.ok).toBe(true)
   })
 
@@ -211,18 +225,18 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       signMessage: async () => "0x" as Hex
     }
 
-    await expect(
+    expect(
       signRequest(
         "https://example.com/bad-signer",
         { method: "GET" },
         badSigner
       )
-    ).rejects.toBeInstanceOf(Eip8128Error)
+    ).rejects.toBeInstanceOf(Erc8128Error)
   })
 
   test("fails on invalid request url", async () => {
     const signer = makeSigner()
-    await expect(
+    expect(
       signRequest("not a url", { method: "GET" }, signer)
     ).rejects.toBeInstanceOf(Error)
   })
@@ -241,21 +255,22 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       { created, expires, nonce: "nonce-replay" }
     )
 
-    const ok1 = await verifyRequest(signed, {
-      now: () => created,
-      nonceStore,
-      verifyMessage
-    })
+    const ok1 = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { verifyMessage, nonceStore }
+    )
     expect(ok1.ok).toBe(true)
 
-    const ok2 = await verifyRequest(signed, {
-      now: () => created,
-      nonceStore
-    })
+    const ok2 = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { verifyMessage, nonceStore }
+    )
     expect(ok2).toEqual({ ok: false, reason: "replay" })
   })
 
-  test("replayable signatures are rejected by default, but can be allowed by policy", async () => {
+  test("replayable signatures are rejected by default and require invalidation policy", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -268,15 +283,86 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       { created, expires, replay: "replayable" }
     )
 
-    const res1 = await verifyRequest(signed, { now: () => created })
-    expect(res1).toEqual({ ok: false, reason: "nonce_required" })
+    const resDefault = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { verifyMessage }
+    )
+    expect(resDefault).toEqual({ ok: false, reason: "replayable_not_allowed" })
 
-    const res2 = await verifyRequest(signed, {
-      now: () => created,
-      nonce: "optional",
-      verifyMessage
+    const resMissingInvalidation = await verifyWithPolicy(
+      signed,
+      { now: () => created, replayable: true },
+      { verifyMessage }
+    )
+    expect(resMissingInvalidation).toEqual({
+      ok: false,
+      reason: "replayable_invalidation_required"
     })
-    expect(res2.ok).toBe(true)
+
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableNotBefore: () => null
+      },
+      { verifyMessage }
+    )
+    expect(resAllowed.ok).toBe(true)
+  })
+
+  test("replayable signatures respect not-before cutoff", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-cutoff",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resCutoff = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableNotBefore: () => created + 1
+      },
+      { verifyMessage }
+    )
+    expect(resCutoff).toEqual({ ok: false, reason: "replayable_not_before" })
+  })
+
+  test("replayable signatures can be per-signature invalidated", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-invalidated",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resInvalidated = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableInvalidated: () => true
+      },
+      { verifyMessage }
+    )
+    expect(resInvalidated).toEqual({
+      ok: false,
+      reason: "replayable_invalidated"
+    })
   })
 
   test("label selection: strictLabel enforces the configured label", async () => {
@@ -294,24 +380,22 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
 
     // Default policy label is "eth", but strictLabel=false allows choosing first label.
     const nonceStore = makeNonceStore()
-    const res1 = await verifyRequest(signed, {
-      now: () => created,
-      nonceStore,
-      verifyMessage
-    })
+    const res1 = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { verifyMessage, nonceStore }
+    )
     expect(res1.ok).toBe(true)
 
-    const res2 = await verifyRequest(signed, {
-      now: () => created,
-      nonceStore: makeNonceStore(),
-      label: "eth",
-      strictLabel: true,
-      verifyMessage
-    })
+    const res2 = await verifyWithPolicy(
+      signed,
+      { now: () => created, label: "eth", strictLabel: true },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
     expect(res2).toEqual({ ok: false, reason: "label_not_found" })
   })
 
-  test("fallback selection skips non-eip8128 keyid and picks first compliant member", async () => {
+  test("verification attempts multiple signatures and succeeds on a later member", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -330,8 +414,8 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(goodSig).toBeTruthy()
     if (!goodSigInput || !goodSig) throw new Error("unreachable")
 
-    // Prepend a bogus label with a non-compliant keyid.
-    const badMember = `bad=("@authority");created=${created};expires=${expires};nonce="x";keyid="not-eip8128:1:0x0000000000000000000000000000000000000000"`
+    // Prepend a valid-looking member with a bad signature; verifier should fall through to "good".
+    const badMember = goodSigInput.replace(/^good=/, "bad=")
     const badSig = `bad=:AA==:`
 
     const headers = new Headers(signed.headers)
@@ -339,15 +423,96 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     headers.set("Signature", `${badSig}, ${goodSig}`)
     const augmented = new Request(signed, { headers })
 
-    // No policy.label passed: should select by first compliant keyid (the "good" member).
-    const res = await verifyRequest(augmented, {
-      now: () => created,
-      nonceStore: makeNonceStore(),
-      verifyMessage
-    })
+    const res = await verifyWithPolicy(
+      augmented,
+      { now: () => created },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
     expect(res.label).toBe("good")
+
+    const limited = await verifyWithPolicy(
+      augmented,
+      { now: () => created, maxSignatureVerifications: 1 },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
+    expect(limited).toEqual({ ok: false, reason: "bad_signature" })
+  })
+
+  test("signature selection respects Signature-Input order across bindings", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const classBound = await signRequest(
+      "https://example.com/order",
+      { method: "GET" },
+      signer,
+      {
+        binding: "class-bound",
+        components: ["@authority"],
+        created,
+        expires,
+        nonce: "nonce-class",
+        label: "class"
+      }
+    )
+
+    const combined = await signRequest(classBound, signer, {
+      created,
+      expires,
+      nonce: "nonce-request",
+      label: "request",
+      headerMode: "append"
+    })
+
+    const res = await verifyWithPolicy(
+      combined,
+      { now: () => created, classBoundPolicies: ["@authority"] },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error("unreachable")
+    expect(res.label).toBe("class")
+    expect(res.binding).toBe("class-bound")
+  })
+
+  test("class-bound verification accepts any matching policy in a list", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/class-bound-policies",
+      { method: "GET" },
+      signer,
+      {
+        binding: "class-bound",
+        components: ["@authority", "@path"],
+        created,
+        expires,
+        nonce: "nonce-class"
+      }
+    )
+
+    const res = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        classBoundPolicies: [
+          ["@authority", "@method"],
+          ["@authority", "@path"]
+        ]
+      },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
+    expect(res.ok).toBe(true)
+    if (!res.ok) throw new Error("unreachable")
+    expect(res.binding).toBe("class-bound")
+    expect(res.replayable).toBe(false)
   })
 
   test("headerMode=append appends a second signature label and verifier can target it", async () => {
@@ -377,13 +542,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     expect(twice.headers.get("Signature")).toContain("b=")
 
     const nonceStore = makeNonceStore()
-    const res = await verifyRequest(twice, {
-      now: () => created,
-      label: "b",
-      strictLabel: true,
-      nonceStore,
-      verifyMessage
-    })
+    const res = await verifyWithPolicy(
+      twice,
+      { now: () => created, label: "b", strictLabel: true },
+      { verifyMessage, nonceStore }
+    )
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
     expect(res.label).toBe("b")
@@ -410,13 +573,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       headerMode: "append"
     })
 
-    const res = await verifyRequest(signedAB, {
-      now: () => created,
-      label: "a",
-      strictLabel: true,
-      nonceStore: makeNonceStore(),
-      verifyMessage
-    })
+    const res = await verifyWithPolicy(
+      signedAB,
+      { now: () => created, label: "a", strictLabel: true },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
     expect(res.ok).toBe(true)
     if (!res.ok) throw new Error("unreachable")
     expect(res.label).toBe("a")
@@ -440,11 +601,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     headersMissing.delete("content-digest")
     const missing = new Request(signed, { headers: headersMissing })
 
-    const resMissing = await verifyRequest(missing, {
-      now: () => created,
-      nonceStore: makeNonceStore(),
-      verifyMessage
-    })
+    const resMissing = await verifyWithPolicy(
+      missing,
+      { now: () => created },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
     expect(resMissing).toEqual({ ok: false, reason: "digest_required" })
 
     // 2) Body tampered but header preserved
@@ -453,11 +614,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       headers: signed.headers,
       body: "bye"
     })
-    const resTampered = await verifyRequest(tampered, {
-      now: () => created,
-      nonceStore: makeNonceStore(),
-      verifyMessage
-    })
+    const resTampered = await verifyWithPolicy(
+      tampered,
+      { now: () => created },
+      { verifyMessage, nonceStore: makeNonceStore() }
+    )
     expect(resTampered).toEqual({ ok: false, reason: "digest_mismatch" })
   })
 
@@ -466,12 +627,12 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       method: "GET",
       headers: {
         "Signature-Input":
-          'sig=("@authority");created=1700000000;expires=1700000060;keyid="not-eip8128:1:0x0000000000000000000000000000000000000000"',
+          'sig=("@authority");created=1700000000;expires=1700000060;keyid="not-erc8128:1:0x0000000000000000000000000000000000000000"',
         Signature: "sig=:AA==:"
       }
     })
 
-    const res = await verifyRequest(req, { now: () => 1 })
+    const res = await verifyWithPolicy(req, { now: () => 1 })
     expect(res).toEqual({ ok: false, reason: "bad_keyid" })
   })
 
@@ -487,14 +648,10 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       { created, expires, nonce: "nonce-time-cases" }
     )
 
-    const notYet = await verifyRequest(signed, {
-      now: () => created - 10
-    })
+    const notYet = await verifyWithPolicy(signed, { now: () => created - 10 })
     expect(notYet).toEqual({ ok: false, reason: "not_yet_valid" })
 
-    const expired = await verifyRequest(signed, {
-      now: () => expires + 1
-    })
+    const expired = await verifyWithPolicy(signed, { now: () => expires + 1 })
     expect(expired).toEqual({ ok: false, reason: "expired" })
 
     const signedLong = await signRequest(
@@ -503,13 +660,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       signer,
       { created, expires: created + 1000, nonce: "nonce-long" }
     )
-    const longRes = await verifyRequest(signedLong, {
-      now: () => created
-    })
+    const longRes = await verifyWithPolicy(signedLong, { now: () => created })
     expect(longRes).toEqual({ ok: false, reason: "validity_too_long" })
   })
 
-  test("nonce policy edge cases", async () => {
+  test("nonce window enforcement", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -521,26 +676,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       { created, expires, nonce: "nonce-edge" }
     )
 
-    const forbidden = await verifyRequest(signed, {
-      now: () => created,
-      nonce: "forbidden"
-    })
-    expect(forbidden).toEqual({
-      ok: false,
-      reason: "bad_signature_input",
-      detail: "nonce is forbidden by policy"
-    })
-
-    const missingStore = await verifyRequest(signed, {
-      now: () => created
-    })
-    expect(missingStore).toEqual({
-      ok: false,
-      reason: "nonce_required",
-      detail: "nonceStore missing"
-    })
-
-    const windowTooLong = await verifyRequest(signed, {
+    const windowTooLong = await verifyWithPolicy(signed, {
       now: () => created,
       maxNonceWindowSec: 10
     })
@@ -569,7 +705,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     headersQuery.set("Signature-Input", withoutQuery)
     const tamperedQuery = new Request(signedQuery, { headers: headersQuery })
 
-    const resQuery = await verifyRequest(tamperedQuery, {
+    const resQuery = await verifyWithPolicy(tamperedQuery, {
       now: () => created
     })
     expect(resQuery).toEqual({ ok: false, reason: "not_request_bound" })
@@ -588,9 +724,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     headersBody.set("Signature-Input", withoutDigest)
     const tamperedBody = new Request(signedBody, { headers: headersBody })
 
-    const resBody = await verifyRequest(tamperedBody, {
-      now: () => created
-    })
+    const resBody = await verifyWithPolicy(tamperedBody, { now: () => created })
     expect(resBody).toEqual({ ok: false, reason: "not_request_bound" })
   })
 
@@ -603,7 +737,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       }
     })
 
-    const res = await verifyRequest(req, { now: () => 1 })
+    const res = await verifyWithPolicy(req, { now: () => 1 })
     expect(res.ok).toBe(false)
     if (res.ok) throw new Error("unreachable")
     expect(res.reason).toBe("bad_signature_input")
@@ -620,7 +754,7 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
         signer,
         { binding: "class-bound" }
       )
-    ).rejects.toBeInstanceOf(Eip8128Error)
+    ).rejects.toBeInstanceOf(Erc8128Error)
 
     const created = 1_700_000_000
     const expires = created + 60
@@ -637,21 +771,25 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
       }
     )
 
-    const resDefault = await verifyRequest(signed, {
-      now: () => created,
-      nonce: "optional"
+    const resDefault = await verifyWithPolicy(signed, {
+      now: () => created
     })
     expect(resDefault).toEqual({ ok: false, reason: "not_request_bound" })
 
-    const resAllowed = await verifyRequest(signed, {
-      now: () => created,
-      nonce: "optional",
-      requiredComponents: ["@authority"],
-      verifyMessage
-    })
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        classBoundPolicies: ["@authority"],
+        replayable: true,
+        replayableNotBefore: () => null
+      },
+      { verifyMessage }
+    )
     expect(resAllowed.ok).toBe(true)
     if (!resAllowed.ok) throw new Error("unreachable")
-    expect(resAllowed.kind).toBe("eoa")
+    expect(resAllowed.binding).toBe("class-bound")
+    expect(resAllowed.replayable).toBe(true)
   })
 
   test("bad_time is enforced before signature verification", async () => {
@@ -679,10 +817,11 @@ describe("EIP-8128 signRequest/verifyRequest", () => {
     headers.set("Signature-Input", tamperedInput)
     const tampered = new Request(signed, { headers })
 
-    const res = await verifyRequest(tampered, {
-      now: () => created,
-      nonceStore: makeNonceStore()
-    })
+    const res = await verifyWithPolicy(
+      tampered,
+      { now: () => created },
+      { nonceStore: makeNonceStore() }
+    )
     expect(res).toEqual({ ok: false, reason: "bad_time" })
   })
 })

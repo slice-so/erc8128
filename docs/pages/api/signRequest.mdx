@@ -4,24 +4,26 @@ Signs an HTTP Request and returns a new Request with [RFC 9421](https://www.rfc-
 
 ## Usage
 
+Sign a request by passing the URL (or `Request` object), an optional `RequestInit`, a signer, and optional sign options. The function returns a new `Request` with RFC 9421 signature headers attached.
+
 ```typescript
 import { signRequest } from '@slicekit/erc8128'
 
 // Simple: just input and signer
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer
 )
 
 // With RequestInit
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   { method: 'POST', body: '{"data": "value"}' },
   signer
 )
 
 // With options
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   { method: 'POST', body: '{"data": "value"}' },
   signer,
@@ -42,11 +44,15 @@ A new Request object with these headers added:
 
 ### Overload 1: Simple
 
+When no `RequestInit` is needed, pass the input and signer directly.
+
 ```typescript
 signRequest(input: RequestInfo, signer: EthHttpSigner, opts?: SignOptions): Promise<Request>
 ```
 
 ### Overload 2: With RequestInit
+
+When you need to specify method, headers, or body, pass a `RequestInit` as the second argument.
 
 ```typescript
 signRequest(input: RequestInfo, init: RequestInit | undefined, signer: EthHttpSigner, opts?: SignOptions): Promise<Request>
@@ -78,10 +84,12 @@ Options for customizing the signature.
 
 ## Examples
 
+Common signing patterns showing TTL customization, custom nonces, and replayable signatures.
+
 :::code-group
 
 ```typescript [Custom TTL]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { ttlSeconds: 300 } // Valid for 5 minutes
@@ -89,7 +97,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Custom Nonce]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { nonce: `request-${crypto.randomUUID()}` }
@@ -97,7 +105,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Replayable]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,

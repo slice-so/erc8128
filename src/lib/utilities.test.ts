@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Eip8128Error } from "./types.js"
+import { Erc8128Error } from "./types.js"
 import {
   base64Decode,
   base64Encode,
@@ -93,16 +93,16 @@ describe("sanitizeUrl", () => {
     expect(url.search).toBe("?q=1")
   })
 
-  test("throws Eip8128Error for relative URL", () => {
-    expect(() => sanitizeUrl("/relative")).toThrow(Eip8128Error)
+  test("throws Erc8128Error for relative URL", () => {
+    expect(() => sanitizeUrl("/relative")).toThrow(Erc8128Error)
   })
 
-  test("throws Eip8128Error for empty string", () => {
-    expect(() => sanitizeUrl("")).toThrow(Eip8128Error)
+  test("throws Erc8128Error for empty string", () => {
+    expect(() => sanitizeUrl("")).toThrow(Erc8128Error)
   })
 
-  test("throws Eip8128Error for invalid URL", () => {
-    expect(() => sanitizeUrl("not a url")).toThrow(Eip8128Error)
+  test("throws Erc8128Error for invalid URL", () => {
+    expect(() => sanitizeUrl("not a url")).toThrow(Erc8128Error)
   })
 })
 
@@ -236,7 +236,7 @@ describe("hexToBytes / bytesToHex", () => {
   })
 
   test("hexToBytes throws on odd-length hex", () => {
-    expect(() => hexToBytes("0xabc")).toThrow(Eip8128Error)
+    expect(() => hexToBytes("0xabc")).toThrow(Erc8128Error)
   })
 
   test("bytesToHex pads single digits", () => {

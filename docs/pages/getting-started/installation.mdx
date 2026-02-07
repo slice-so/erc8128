@@ -4,6 +4,8 @@ Install `@slicekit/erc8128` — the official ERC-8128 implementation for signing
 
 ## Install
 
+Add the package using your preferred package manager:
+
 :::code-group
 
 ```bash [bun]
@@ -31,13 +33,17 @@ yarn add @slicekit/erc8128
 
 ## Exports
 
+Everything is available from the main entry point — client functions, server functions, utilities, types, and error classes.
+
 ```typescript
 import {
   // Client
+  createSignerClient,
   signRequest,
   signedFetch,
   
   // Server
+  createVerifierClient,
   verifyRequest,
   
   // Utilities
@@ -53,7 +59,7 @@ import {
   type VerifyMessageFn,
   
   // Errors
-  Eip8128Error,
+  Erc8128Error,
 } from '@slicekit/erc8128'
 ```
 

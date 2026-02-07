@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Eip8128Error } from "../types.js"
+import { Erc8128Error } from "../types.js"
 import { createSignatureBaseMinimal } from "./createSignatureBase.js"
 
 function makeRequest(url: string, opts?: RequestInit): Request {
@@ -112,7 +112,7 @@ describe("createSignatureBaseMinimal", () => {
         components: ["x-missing"],
         signatureParamsValue: '("x-missing");created=100;expires=200;keyid="k"'
       })
-    ).toThrow(Eip8128Error)
+    ).toThrow(Erc8128Error)
   })
 
   test("canonicalizes header values (trims and collapses whitespace)", () => {

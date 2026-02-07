@@ -18,7 +18,7 @@ The simplest way to sign a request using [signRequest](/api/signRequest):
 ```typescript
 import { signRequest } from '@slicekit/erc8128'
 
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer
 )
@@ -31,6 +31,8 @@ This uses all defaults:
 - **Label: "eth"**
 
 ## Creating a Signer
+
+Implement the `EthHttpSigner` interface by providing a chain ID, address, and `signMessage` function. This example uses viem's `privateKeyToAccount`:
 
 ```typescript
 import type { EthHttpSigner } from '@slicekit/erc8128'
@@ -47,14 +49,14 @@ const signer: EthHttpSigner = {
 }
 ```
 
-## Using createClient
+## Using createSignerClient
 
-For repeated requests, use [createClient](/api/createClient) to bind the signer:
+For repeated requests, use [createSignerClient](/api/createSignerClient) to bind the signer:
 
 ```typescript
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 
-const client = createClient(signer, {
+const client = createSignerClient(signer, {
   ttlSeconds: 120,
 })
 
@@ -74,10 +76,12 @@ const response = await client.fetch(
 
 ## Signing Options
 
+Customize TTL, timestamps, nonce generation, and other signature parameters via `SignOptions`.
+
 :::code-group
 
 ```typescript [Custom TTL]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { ttlSeconds: 300 } // Valid for 5 minutes
@@ -87,7 +91,7 @@ const signed = await signRequest(
 ```typescript [Explicit Timestamps]
 const now = Math.floor(Date.now() / 1000)
 
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   {
@@ -98,7 +102,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Custom Nonce]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { nonce: `request-${crypto.randomUUID()}` }
@@ -106,7 +110,7 @@ const signed = await signRequest(
 ```
 
 ```typescript [Async Nonce Generator]
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   {
@@ -122,11 +126,13 @@ const signed = await signRequest(
 
 ## Binding Modes
 
+Request-bound (default) signs all applicable components for maximum security. Class-bound signs only the components you explicitly specify.
+
 :::code-group
 
 ```typescript [Request-Bound (Default)]
 // Signs all applicable components for maximum security
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/search?q=test',
   { method: 'POST', body: '{"data": true}' },
   signer,
@@ -137,23 +143,33 @@ const signed = await signRequest(
 ```
 
 ```typescript [Class-Bound]
-// For signing only specific components
-// (e.g., authorization that works across multiple endpoints)
-const signed = await signRequest(
+// Signs only specified components — authorizes a class of requests
+const signedRequest = await signRequest(
   'https://api.example.com/any-endpoint',
   signer,
   {
     binding: 'class-bound',
     components: ['@authority'],  // Only sign the domain
-    replay: 'replayable',        // Often combined
+    replay: 'replayable',        // Often combined for performance
   }
 )
 ```
 
 :::
 
+### Class-Bound
+
+Class-bound signatures authorize a *class of requests* rather than a single concrete request. By signing only specific components, a single signature can apply to multiple requests that match the signed components.
+
+This is useful when:
+- You want a single signature to work across multiple endpoints on the same domain
+- You're optimizing for performance in high-frequency scenarios
+- You're building delegation or session-like patterns
+
+When using `binding: 'class-bound'`, you must provide the `components` array explicitly. The library always includes `@authority` (required by the spec).
+
 :::warning
-Class-bound signatures are less secure. Only use when you understand the trade-offs.
+Class-bound signatures weaken request integrity — the verifier must explicitly opt in to accepting them. A server that only accepts request-bound signatures (the default) will reject class-bound signatures. See [Server Enforcement](/concepts/request-binding#server-enforcement-with-additionalrequestboundcomponents-and-classboundpolicies) for how verifiers control this.
 :::
 
 ### Additional Components
@@ -161,7 +177,7 @@ Class-bound signatures are less secure. Only use when you understand the trade-o
 Sign extra headers alongside the default request-bound set:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { components: ['x-idempotency-key', 'x-request-id'] }
@@ -173,11 +189,13 @@ const signed = await signRequest(
 
 ## Replay Modes
 
+Non-replayable (default) includes a unique nonce per request. Replayable omits the nonce — use only for safe, idempotent operations.
+
 :::code-group
 
 ```typescript [Non-Replayable (Default)]
 // Every request gets a unique nonce
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
   { replay: 'non-replayable' }
@@ -185,8 +203,8 @@ const signed = await signRequest(
 ```
 
 ```typescript [Replayable]
-// No nonce — use only for safe, idempotent operations
-const signed = await signRequest(
+// Omits the nonce — reusable within validity window
+const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,
@@ -196,9 +214,7 @@ const signed = await signRequest(
 
 :::
 
-:::warning
-Replayable signatures can be replayed by anyone who intercepts them. Only use for safe, idempotent operations.
-:::
+Replayable signatures trade single-use guarantees for reduced overhead (no nonce generation, no server-side nonce state). They still provide authentication and request integrity (if request-bound), comparable to bearer credentials like JWTs — but without requiring server-issued tokens. The verifier must explicitly opt in to accepting replayable signatures and must implement [early invalidation](/concepts/replay-protection#early-invalidation) mechanisms. See [Replayable Signatures](/concepts/replay-protection#replayable-signatures) for the full tradeoff analysis.
 
 ## Content-Digest
 
@@ -207,7 +223,7 @@ Replayable signatures can be replayed by anyone who intercepts them. Only use fo
 Content-Digest is computed automatically for request-bound requests with a body:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/data',
   {
     method: 'POST',
@@ -221,8 +237,10 @@ const signed = await signRequest(
 
 ### Manual Control
 
+Disable automatic Content-Digest computation when you want to handle it yourself or skip it entirely.
+
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { contentDigest: 'off' } // Don't add Content-Digest
@@ -231,13 +249,15 @@ const signed = await signRequest(
 
 ## Error Handling
 
+Catch `Erc8128Error` to handle signing failures with structured error codes.
+
 ```typescript
-import { signRequest, Eip8128Error } from '@slicekit/erc8128'
+import { signRequest, Erc8128Error } from '@slicekit/erc8128'
 
 try {
-  const signed = await signRequest(input, signer)
+  const signedRequest = await signRequest(input, signer)
 } catch (error) {
-  if (error instanceof Eip8128Error) {
+  if (error instanceof Erc8128Error) {
     console.error(`Signing failed: ${error.code} - ${error.message}`)
   }
   throw error

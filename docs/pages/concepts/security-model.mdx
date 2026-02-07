@@ -70,8 +70,7 @@ expires=1618884533 → signature stops being valid
 **Configuration:**
 ```typescript
 {
-  nonce: 'required',
-  nonceStore: redisStore,
+  replayable: false,
   maxValiditySec: 60,
 }
 ```
@@ -165,37 +164,33 @@ A secure verifier should:
 
 ## Recommended Policies
 
+Choose a policy tier based on the sensitivity of the endpoint — tighter constraints for mutations, relaxed for idempotent reads.
+
 :::code-group
 
 ```typescript [High Security]
 // For payments and mutations
 {
-  nonce: 'required',
-  nonceStore: redisStore,
+  replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
-  enforceContentDigest: true,
-  verifyMessage,
 }
 ```
 
 ```typescript [Standard API]
 {
-  nonce: 'required',
-  nonceStore: redisStore,
+  replayable: false,
   maxValiditySec: 300,
   clockSkewSec: 30,
-  verifyMessage,
 }
 ```
 
 ```typescript [Read-Only / Idempotent]
 {
-  nonce: 'optional',
+  replayable: true,
   maxValiditySec: 300,
   clockSkewSec: 60,
-  verifyMessage,
 }
 ```
 
@@ -226,7 +221,7 @@ A secure verifier should:
 Even with valid signatures, apply rate limits:
 
 ```typescript
-const result = await verifyRequest(request, policy)
+const result = await verifyRequest(request, verifyMessage, nonceStore, policy)
 if (result.ok) {
   // Check rate limit for this address
   const allowed = await rateLimit(result.address)

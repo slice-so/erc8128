@@ -1,4 +1,4 @@
-import { Eip8128Error } from "../types.js"
+import { Erc8128Error } from "../types.js"
 import { sanitizeUrl, utf8Encode } from "../utilities.js"
 import { quoteSfString } from "./serializations.js"
 
@@ -20,7 +20,7 @@ export function createSignatureBaseMinimal(args: {
       value.includes("\r") ||
       value.includes("\n")
     ) {
-      throw new Eip8128Error(
+      throw new Erc8128Error(
         "BAD_DERIVED_VALUE",
         `Component ${comp} produced invalid characters.`
       )
@@ -77,7 +77,7 @@ function componentValueMinimal(args: {
       // header field component (e.g. content-digest)
       const v = request.headers.get(component)
       if (v == null)
-        throw new Eip8128Error(
+        throw new Erc8128Error(
           "BAD_HEADER_VALUE",
           `Required header "${component}" is missing.`
         )
@@ -94,6 +94,6 @@ function canonicalizeFieldValue(v: string): string {
 
 function ensureNoCrlf(value: string, name: string) {
   if (value.includes("\r") || value.includes("\n")) {
-    throw new Eip8128Error("BAD_DERIVED_VALUE", `${name} contains CR/LF.`)
+    throw new Erc8128Error("BAD_DERIVED_VALUE", `${name} contains CR/LF.`)
   }
 }

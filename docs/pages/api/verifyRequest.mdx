@@ -4,20 +4,14 @@ Verify an ERC-8128 signed HTTP request.
 
 ## Usage
 
+Pass a `Request`, a `verifyMessage` implementation, a `nonceStore`, and an optional policy. The function returns a `VerifyResult` indicating success or failure.
+
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
-// Simple: just input and policy
-const result = await verifyRequest(request, {
-  nonceStore,
-  verifyMessage,
+// Simple: request + required dependencies + policy
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   maxValiditySec: 300,
-})
-
-// With RequestInit (useful when you have separate input/init)
-const result = await verifyRequest(request, undefined, {
-  nonceStore,
-  verifyMessage,
 })
 
 if (result.ok) {
@@ -38,9 +32,10 @@ if (result.ok) {
   // Success — access verified data
   result.address   // Ethereum address
   result.chainId   // Chain ID
-  result.kind      // "eoa" or "sca"
   result.label     // Signature label
   result.components // Signed components
+  result.replayable // true if nonce-less
+  result.binding   // "request-bound" or "class-bound"
 } else {
   // Failure — check reason
   result.reason    // VerifyFailReason
@@ -50,68 +45,76 @@ if (result.ok) {
 
 ## Parameters
 
-### Overload 1: Simple
-
 ```typescript
-verifyRequest(input: RequestInfo, policy?: VerifyPolicy): Promise<VerifyResult>
+verifyRequest(
+  request: Request,
+  verifyMessage: VerifyMessageFn,
+  nonceStore: NonceStore,
+  policy?: VerifyPolicy,
+  setHeaders?: (name: string, value: string) => void
+): Promise<VerifyResult>
 ```
 
-### Overload 2: With RequestInit
+### request
 
-```typescript
-verifyRequest(input: RequestInfo, init: RequestInit | undefined, policy?: VerifyPolicy): Promise<VerifyResult>
-```
+- **Type:** `Request`
 
-### input
+The Request to verify.
 
-- **Type:** `RequestInfo`
+### verifyMessage
 
-The Request to verify (or URL string).
+- **Type:** [`VerifyMessageFn`](/api/types#verifymessagefn)
 
-### init (optional)
+Signature verification function (e.g. viem-compatible).
 
-- **Type:** `RequestInit | undefined`
+### nonceStore
 
-Optional RequestInit.
+- **Type:** [`NonceStore`](/api/types#noncestore)
+
+Replay protection store for non-replayable requests.
 
 ### policy (optional)
 
 - **Type:** [`VerifyPolicy`](/api/types#verifypolicy)
 
-Verification policy with rules for validation.
+Verification policy with rules for validation. Signatures are verified in the order they appear in `Signature-Input` after filtering to ERC-8128 keyIds and allowed policies. Use `maxSignatureVerifications` to cap how many candidates are tried (default: 3). If `replayable: true`, you must provide either `replayableNotBefore` or `replayableInvalidated`.
+
+### setHeaders (optional)
+
+- **Type:** `(name: string, value: string) => void`
+
+Callback to set response headers. When provided, `verifyRequest` sets `Accept-Signature` with the required components for each supported policy.
 
 ## Examples
+
+These examples show strict, relaxed, and custom-component verification policies.
 
 :::code-group
 
 ```typescript [Strict Policy]
-const result = await verifyRequest(request, {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   label: 'eth',
   strictLabel: true,
-  nonce: 'required',
+  replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
-  enforceContentDigest: true,
-  nonceStore,
-  verifyMessage,
 })
 ```
 
 ```typescript [Relaxed Policy]
-const result = await verifyRequest(request, {
-  nonce: 'optional',
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
+  replayable: true,
+  replayableNotBefore: async (keyid) => await getNotBeforeForKeyId(keyid),
   maxValiditySec: 300,
   clockSkewSec: 30,
-  verifyMessage,
 })
 ```
 
 ```typescript [Custom Components]
-const result = await verifyRequest(request, {
-  requiredComponents: ['@authority', 'x-custom-header'],
-  nonce: 'optional',
-  verifyMessage,
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
+  additionalRequestBoundComponents: ['x-custom-header'],
+  classBoundPolicies: ['@authority', 'x-custom-header'],
 })
 ```
 

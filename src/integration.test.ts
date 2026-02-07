@@ -6,7 +6,8 @@ import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import {
-  createClient,
+  createSignerClient,
+  createVerifierClient,
   type EthHttpSigner,
   type NonceStore,
   signRequest,
@@ -50,10 +51,11 @@ describe("docs: signRequest + verifyRequest example", () => {
       signer
     )
 
-    const result = await verifyRequest(signed, {
-      nonceStore,
-      verifyMessage: publicClient.verifyMessage
-    })
+    const result = await verifyRequest(
+      signed,
+      publicClient.verifyMessage,
+      nonceStore
+    )
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
@@ -70,9 +72,9 @@ describe("docs: signRequest + verifyRequest example", () => {
   })
 })
 
-describe("docs: createClient example", () => {
+describe("docs: createSignerClient example", () => {
   test("client.signRequest works as shown in README", async () => {
-    const client = createClient(signer)
+    const client = createSignerClient(signer)
 
     const signed = await client.signRequest("https://api.example.com/orders", {
       method: "POST",
@@ -83,12 +85,29 @@ describe("docs: createClient example", () => {
     expect(signed.headers.get("Signature-Input")).toBeTruthy()
     expect(signed.headers.get("Signature")).toBeTruthy()
 
-    const result = await verifyRequest(signed, {
-      nonceStore: {
-        consume: async () => true
-      },
-      verifyMessage: publicClient.verifyMessage
+    const result = await verifyRequest(signed, publicClient.verifyMessage, {
+      consume: async () => true
     })
+    expect(result.ok).toBe(true)
+  })
+})
+
+describe("docs: createVerifierClient example", () => {
+  test("verifier.verifyRequest works as shown in README", async () => {
+    const signed = await signRequest(
+      "https://api.example.com/orders",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: "100" })
+      },
+      signer
+    )
+
+    const verifier = createVerifierClient(publicClient.verifyMessage, {
+      consume: async () => true
+    })
+    const result = await verifier.verifyRequest(signed)
     expect(result.ok).toBe(true)
   })
 })

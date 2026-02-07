@@ -88,9 +88,11 @@ The signature covers this header, and the server verifies that the header matche
 
 ### Automatic Handling
 
+When signing a request-bound request with a body, the `Content-Digest` header is computed and added automatically.
+
 ```typescript
 // Body present → Content-Digest added automatically
-const signed = await signRequest(
+const signedRequest = await signRequest(
   'https://api.example.com/data',
   { method: 'POST', body: '{"value": 42}' },
   signer
@@ -100,11 +102,10 @@ const signed = await signRequest(
 
 ### Verification
 
+During verification, the server checks that the `Content-Digest` header matches the actual body bytes. A mismatch indicates tampering.
+
 ```typescript
-const result = await verifyRequest(request, {
-  enforceContentDigest: true, // Default
-  ...
-})
+const result = await verifyRequest(request, verifyMessage, nonceStore)
 
 // If content-digest is in components:
 // 1. Header must exist
@@ -114,42 +115,70 @@ const result = await verifyRequest(request, {
 
 ## Class-Bound Signatures
 
-For special cases, you can sign only specific components:
+A **class-bound** signature authorizes a *class of requests* rather than a single concrete request. Instead of binding the signature to all request components (method, path, query, body), only the explicitly specified components are signed. Any request that matches the signed components is authorized by the same signature.
+
+This is a signer-side decision: the signer chooses to produce a less specific signature. However, **it is entirely up to the verifier whether to accept class-bound signatures**. The ERC-8128 baseline requires every compliant verifier to accept request-bound signatures, but class-bound acceptance is optional — verifiers MAY reject them or require additional conditions.
+
+### Why Use Class-Bound Signatures
+
+**From the signer's perspective:**
+
+- **Reduced overhead** — A single signature can authorize multiple requests (e.g., any endpoint on a domain), avoiding the cost of signing every request individually.
+- **Performance** — In high-frequency scenarios, computing and transmitting a new signature per request adds latency. A class-bound signature can be reused across requests that fall within the same class.
+- **Broad authorization patterns** — Useful for cases like "authorize any GET request to this API" without specifying each endpoint.
+
+**From the verifier's perspective:**
+
+- **Simpler validation for low-risk operations** — For idempotent read endpoints, verifying that the request comes from a specific address on a specific domain may be sufficient without checking the exact path or query.
+- **Reduced verification overhead** — Fewer components to reconstruct and verify can reduce CPU cost at scale, especially when combined with replayable signatures where verification results can be cached.
+- **Flexible authorization models** — Enables patterns where a single proof authorizes access to a set of resources rather than a single endpoint.
+
+:::warning
+Class-bound signatures weaken request integrity. A signature that only covers `@authority` could be used on *any* endpoint of that domain with *any* method, path, query, or body. Only accept class-bound signatures when you understand exactly which request properties are *not* protected.
+:::
+
+### Signing Class-Bound Requests
+
+When using `binding: 'class-bound'`, you must explicitly specify which components to sign via the `components` array. The library always includes `@authority` (required by the spec).
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   {
     binding: 'class-bound',
     components: ['@authority'],  // Only the domain
-    replay: 'replayable',
+    replay: 'replayable',        // Often combined for performance
   }
 )
 ```
 
-### Use Cases
+### Common Patterns
 
-1. **Domain-scoped tokens** — Sign only `@authority` for any endpoint on a domain
-2. **Method-scoped authorization** — Sign `@authority` + `@method` for any GET request
-3. **Custom authorization** — Sign application-specific headers
+| Components | Authorization Scope | Use Case |
+|-----------|---------------------|----------|
+| `['@authority']` | Any request to this domain | Domain-level access tokens |
+| `['@authority', '@method']` | Any request with this method on this domain | "Authorize all GETs" |
+| `['@authority', '@path']` | Any request to this specific endpoint | Endpoint access without method restriction |
+| `['@authority', '@method', '@path']` | Specific method + endpoint, any query/body | Read endpoints where query params don't affect authorization |
 
-### Security Warning
+### Security Tradeoffs
 
-Class-bound signatures are less secure:
+Each omitted component widens the class of requests the signature authorizes:
 
-| Risk | Mitigation |
-|------|------------|
-| Path confusion | Include `@path` if endpoints have different permissions |
-| Parameter tampering | Include `@query` or relevant headers |
-| Body manipulation | Include `content-digest` for mutations |
+| Omitted Component | Risk | When Acceptable |
+|-------------------|------|-----------------|
+| `@method` | Signature valid for GET, POST, DELETE, etc. on the same target | All methods on the target have equivalent authorization |
+| `@path` | Signature valid for any endpoint on the domain | All endpoints share the same access level |
+| `@query` | Query parameters can be changed freely | Query params don't affect authorization or data access |
+| `content-digest` | Request body can be modified | No body, or body content doesn't affect authorization |
 
 ## Adding Extra Components
 
 Sign additional headers alongside the default set:
 
 ```typescript
-const signed = await signRequest(
+const signedRequest = await signRequest(
   request,
   signer,
   { components: ['x-idempotency-key', 'x-request-id'] }
@@ -158,22 +187,59 @@ const signed = await signRequest(
 // Signature covers: @authority + @method + @path + @query + content-digest + x-idempotency-key + x-request-id
 ```
 
-## Server Enforcement
+## Server Enforcement with `additionalRequestBoundComponents` and `classBoundPolicies`
 
-Servers can require specific components:
+Verification behavior is controlled by two policy inputs:
+
+- `additionalRequestBoundComponents` adds required components **in addition to** the default request-bound set.
+- `classBoundPolicies` opts into class-bound signatures by listing acceptable component sets.
+
+### Default Behavior (no policy fields)
+
+When neither field is set, the verifier enforces the full **request-bound** check. This means the signature must cover the complete set of components that the ERC-8128 spec requires for the specific request:
+
+- `@authority`, `@method`, `@path` — always required
+- `@query` — required if the request has a query string
+- `content-digest` — required if the request has a body
+
+If the signature omits any of these (given the request shape), verification fails with `not_request_bound`. This is the strictest mode and the default — it **rejects all class-bound signatures**.
 
 ```typescript
-const result = await verifyRequest(request, {
-  requiredComponents: ['@authority', '@method', '@path', 'x-api-version'],
-  ...
+// Default: enforces full request-bound check
+const result = await verifyRequest(request, verifyMessage, nonceStore)
+// A class-bound signature (e.g. only @authority) would be rejected
+```
+
+### Adding Extra Request-Bound Components
+
+Use `additionalRequestBoundComponents` to require additional components alongside the default set:
+
+```typescript
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
+  additionalRequestBoundComponents: ['x-api-version', 'x-idempotency-key'],
 })
 ```
 
-If the signature doesn't cover all required components (in order), verification fails with `not_request_bound`.
+The signature must now cover the request-bound set **plus** `x-api-version` and `x-idempotency-key`. Order does not matter; the verifier checks set inclusion.
+
+### Accepting Class-Bound Signatures
+
+Use `classBoundPolicies` to opt in to class-bound signatures. Each policy list is an acceptable component set (order does not matter). If any policy is covered by the signed components, the signature can be accepted:
+
+```typescript
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
+  classBoundPolicies: [
+    ['@authority', '@method'],
+    ['@authority', '@path'],
+  ],
+})
+```
+
+Request-bound signatures are **always** accepted when valid, even if `classBoundPolicies` is set. The verifier also requires `@authority` in every class-bound policy (it is added if missing).
 
 ## Best Practices
 
 1. **Use request-bound** as the default — it's the safest option
 2. **Sign idempotency keys** — if your API uses them
-3. **Be explicit about requirements** — configure `requiredComponents` on the server
+3. **Be explicit about requirements** — configure `additionalRequestBoundComponents` and `classBoundPolicies` on the server
 4. **Audit class-bound usage** — ensure you understand what's not being signed

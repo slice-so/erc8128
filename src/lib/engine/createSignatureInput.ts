@@ -2,7 +2,7 @@
 // Parsing: Signature-Input / Signature
 //////////////////////////////
 
-import { Eip8128Error, type SignatureParams } from "../types.js"
+import { Erc8128Error, type SignatureParams } from "../types.js"
 
 type ParsedSignatureInputMember = {
   label: string
@@ -21,7 +21,7 @@ export function parseSignatureInputDictionary(
     if (!m) continue
     const eq = m.indexOf("=")
     if (eq <= 0)
-      throw new Eip8128Error(
+      throw new Erc8128Error(
         "PARSE_ERROR",
         "Invalid Signature-Input member (missing '=')."
       )
@@ -53,7 +53,7 @@ export function parseSignatureDictionary(
     if (!m) continue
     const eq = m.indexOf("=")
     if (eq <= 0)
-      throw new Eip8128Error(
+      throw new Erc8128Error(
         "PARSE_ERROR",
         "Invalid Signature member (missing '=')."
       )
@@ -71,10 +71,10 @@ function parseBinaryItem(v: string): string {
   // sf-binary: :base64:
   const s = v.trim()
   if (!s.startsWith(":") || !s.endsWith(":") || s.length < 3)
-    throw new Eip8128Error("PARSE_ERROR", "Invalid sf-binary.")
+    throw new Erc8128Error("PARSE_ERROR", "Invalid sf-binary.")
   const inner = s.slice(1, -1)
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(inner))
-    throw new Eip8128Error("PARSE_ERROR", "Invalid base64 in sf-binary.")
+    throw new Erc8128Error("PARSE_ERROR", "Invalid base64 in sf-binary.")
   return inner
 }
 
@@ -86,7 +86,7 @@ function parseInnerListWithParams(value: string): {
   let i = 0
   const s = value.trim()
   if (s[i] !== "(")
-    throw new Eip8128Error("PARSE_ERROR", "Inner list must start with '('.")
+    throw new Erc8128Error("PARSE_ERROR", "Inner list must start with '('.")
 
   i++ // skip '('
   const items: string[] = []
@@ -101,7 +101,7 @@ function parseInnerListWithParams(value: string): {
     skipWs()
   }
   if (items.length === 0)
-    throw new Eip8128Error("PARSE_ERROR", "Inner list has no items.")
+    throw new Erc8128Error("PARSE_ERROR", "Inner list has no items.")
 
   const params: Record<string, string | number> = {}
   while (i < s.length) {
@@ -112,7 +112,7 @@ function parseInnerListWithParams(value: string): {
     const key = parseToken()
     skipWs()
     if (s[i] !== "=")
-      throw new Eip8128Error("PARSE_ERROR", `Param ${key} missing '='.`)
+      throw new Erc8128Error("PARSE_ERROR", `Param ${key} missing '='.`)
     i++
     skipWs()
     const val = parseParamValue()
@@ -130,7 +130,7 @@ function parseInnerListWithParams(value: string): {
     !Number.isInteger(expires) ||
     typeof keyid !== "string"
   ) {
-    throw new Eip8128Error(
+    throw new Erc8128Error(
       "PARSE_ERROR",
       "Missing or invalid created/expires/keyid in Signature-Input."
     )
@@ -152,7 +152,7 @@ function parseInnerListWithParams(value: string): {
 
   function parseSfString(): string {
     if (s[i] !== '"')
-      throw new Eip8128Error("PARSE_ERROR", "Expected sf-string.")
+      throw new Erc8128Error("PARSE_ERROR", "Expected sf-string.")
     i++ // skip "
     let out = ""
     while (i < s.length) {
@@ -164,7 +164,7 @@ function parseInnerListWithParams(value: string): {
       if (ch === "\\") {
         i++
         if (i >= s.length)
-          throw new Eip8128Error("PARSE_ERROR", "Bad escape in sf-string.")
+          throw new Erc8128Error("PARSE_ERROR", "Bad escape in sf-string.")
         out += s[i]
         i++
         continue
@@ -172,7 +172,7 @@ function parseInnerListWithParams(value: string): {
       // disallow controls
       const code = ch.charCodeAt(0)
       if (code < 0x20 || code === 0x7f)
-        throw new Eip8128Error("PARSE_ERROR", "Control char in sf-string.")
+        throw new Erc8128Error("PARSE_ERROR", "Control char in sf-string.")
       out += ch
       i++
     }
@@ -182,7 +182,7 @@ function parseInnerListWithParams(value: string): {
   function parseToken(): string {
     const start = i
     while (i < s.length && /[A-Za-z0-9_\-*.]/.test(s[i])) i++
-    if (i === start) throw new Eip8128Error("PARSE_ERROR", "Expected token.")
+    if (i === start) throw new Erc8128Error("PARSE_ERROR", "Expected token.")
     return s.slice(start, i)
   }
 
@@ -193,10 +193,10 @@ function parseInnerListWithParams(value: string): {
     if (s[i] === "-") i++
     while (i < s.length && /[0-9]/.test(s[i])) i++
     if (i === start)
-      throw new Eip8128Error("PARSE_ERROR", "Expected param value.")
+      throw new Erc8128Error("PARSE_ERROR", "Expected param value.")
     const num = Number(s.slice(start, i))
     if (!Number.isFinite(num))
-      throw new Eip8128Error("PARSE_ERROR", "Bad integer param value.")
+      throw new Erc8128Error("PARSE_ERROR", "Bad integer param value.")
     return num
   }
 }
@@ -239,5 +239,5 @@ function splitTopLevelCommas(s: string): string[] {
 export function assertLabel(label: string) {
   // Minimal signature label: lowercase token
   if (!/^[a-z][a-z0-9_.-]*$/.test(label))
-    throw new Eip8128Error("PARSE_ERROR", `Invalid signature label: ${label}`)
+    throw new Erc8128Error("PARSE_ERROR", `Invalid signature label: ${label}`)
 }

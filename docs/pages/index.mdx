@@ -2,10 +2,6 @@
 
 Signed HTTP Requests with Ethereum — authenticate API requests using Ethereum accounts.
 
-:::info
-**Status:** Draft — this standard is under active development.
-:::
-
 ## Overview
 
 ERC-8128 is a standard for authenticating HTTP requests using Ethereum accounts. Sign requests with your EOA or Smart Contract Account, and verify signatures on any compliant server — no bearer tokens, no handshakes, no centralized identity providers.
@@ -40,8 +36,10 @@ Built on HTTP Message Signatures (RFC 9421) — the IETF standard for cryptograp
 
 ## Quick Example
 
+Create a signer, wrap it in a client, and send an authenticated request in a few lines:
+
 ```typescript
-import { createClient } from '@slicekit/erc8128'
+import { createSignerClient } from '@slicekit/erc8128'
 import type { EthHttpSigner } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -55,7 +53,7 @@ const signer: EthHttpSigner = {
 }
 
 // Create a client
-const client = createClient(signer)
+const client = createSignerClient(signer)
 
 // Sign and send a request
 const response = await client.fetch('https://api.example.com/orders', {
@@ -72,6 +70,8 @@ const response = await client.fetch('https://api.example.com/orders', {
 - **Onchain Identity** — use smart contract policies for authorization
 
 ## Install
+
+Add the package using your preferred package manager:
 
 :::code-group
 
