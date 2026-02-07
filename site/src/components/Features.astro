@@ -7,7 +7,7 @@ const features = [
     icon: "user-check"
   },
   {
-    title: "Signature-Based Authentication",
+    title: "Signature-Based Auth",
     description:
       "Bearer tokens and sessions are replaced with cryptographic proofs. That means no secrets to store, rotate or leak.",
     icon: "key-off"
@@ -39,7 +39,7 @@ const features = [
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
   {
     features.map((feature, i) => (
-      <div class={`p-10 flex flex-col h-full border-b border-gray-700 transition-colors duration-300 lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-gray-700' : ''} ${i % 2 === 0 ? 'md:border-r md:border-gray-700 md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
+      <div class={`p-10 flex flex-col h-full border-b border-gray-700 lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-gray-700' : ''} ${i % 2 === 0 ? 'md:border-r md:border-gray-700 md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
         <div class="mb-8 opacity-35 text-white transition-opacity duration-300 feature-icon">
           {feature.icon === "shield" && (
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Request integrity - file lock">
