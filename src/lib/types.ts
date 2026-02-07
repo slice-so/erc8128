@@ -71,6 +71,29 @@ export type VerifyPolicy = {
   /** Allow replayable (nonce-less) signatures (default false). */
   replayable?: boolean
 
+  /**
+   * Optional replayable invalidation policy.
+   * When set and a signature is replayable, requests with created < notBefore are rejected.
+   * Return null/undefined to indicate "no cutoff".
+   */
+  replayableNotBefore?: (
+    keyid: string
+  ) => number | null | undefined | Promise<number | null | undefined>
+
+  /**
+   * Optional per-signature invalidation policy for replayable signatures.
+   * Return true to mark the signature as invalidated.
+   */
+  replayableInvalidated?: (args: {
+    keyid: string
+    created: number
+    expires: number
+    label: string
+    signature: Hex
+    signatureBase: Uint8Array
+    signatureParamsValue: string
+  }) => boolean | Promise<boolean>
+
   /** Maximum number of signatures to verify (default 3). */
   maxSignatureVerifications?: number
 
@@ -117,6 +140,9 @@ export type VerifyFailReason =
   | "validity_too_long"
   | "nonce_required"
   | "replayable_not_allowed"
+  | "replayable_invalidation_required"
+  | "replayable_not_before"
+  | "replayable_invalidated"
   | "class_bound_not_allowed"
   | "not_request_bound"
   | "nonce_window_too_long"

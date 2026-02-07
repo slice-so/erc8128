@@ -270,7 +270,7 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(ok2).toEqual({ ok: false, reason: "replay" })
   })
 
-  test("replayable signatures are rejected by default, but can be allowed by policy", async () => {
+  test("replayable signatures are rejected by default and require invalidation policy", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -290,12 +290,79 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     )
     expect(resDefault).toEqual({ ok: false, reason: "replayable_not_allowed" })
 
-    const resAllowed = await verifyWithPolicy(
+    const resMissingInvalidation = await verifyWithPolicy(
       signed,
       { now: () => created, replayable: true },
       { verifyMessage }
     )
+    expect(resMissingInvalidation).toEqual({
+      ok: false,
+      reason: "replayable_invalidation_required"
+    })
+
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableNotBefore: () => null
+      },
+      { verifyMessage }
+    )
     expect(resAllowed.ok).toBe(true)
+  })
+
+  test("replayable signatures respect not-before cutoff", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-cutoff",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resCutoff = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableNotBefore: () => created + 1
+      },
+      { verifyMessage }
+    )
+    expect(resCutoff).toEqual({ ok: false, reason: "replayable_not_before" })
+  })
+
+  test("replayable signatures can be per-signature invalidated", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-invalidated",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resInvalidated = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableInvalidated: () => true
+      },
+      { verifyMessage }
+    )
+    expect(resInvalidated).toEqual({
+      ok: false,
+      reason: "replayable_invalidated"
+    })
   })
 
   test("label selection: strictLabel enforces the configured label", async () => {
@@ -714,7 +781,8 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       {
         now: () => created,
         classBoundPolicies: ["@authority"],
-        replayable: true
+        replayable: true,
+        replayableNotBefore: () => null
       },
       { verifyMessage }
     )

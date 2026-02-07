@@ -1,5 +1,5 @@
+import { buildAcceptSignatureHeader } from "./lib/acceptSignature.js"
 import { verifyContentDigest } from "./lib/engine/contentDigest.js"
-import { quoteSfString } from "./lib/engine/serializations.js"
 import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders.js"
 import { parseKeyId } from "./lib/keyId.js"
 import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound.js"
@@ -33,42 +33,6 @@ import {
 const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
-
-function serializeAcceptSignatureValue(
-  components: string[],
-  requireNonce: boolean
-) {
-  const items = components.map((c) => quoteSfString(c)).join(" ")
-  let out = `(${items})`
-  out += `;keyid;created;expires`
-  if (requireNonce) out += `;nonce`
-  return out
-}
-
-function buildAcceptSignatureHeader(args: {
-  requestBoundRequired: string[]
-  classBoundPolicies: string[][]
-  requireNonce: boolean
-}): string {
-  const { requestBoundRequired, classBoundPolicies, requireNonce } = args
-  const entries: string[] = []
-  const seen = new Set<string>()
-  let index = 1
-
-  const addEntry = (components: string[]) => {
-    const key = components.join("\u0000")
-    if (seen.has(key)) return
-    seen.add(key)
-    const value = serializeAcceptSignatureValue(components, requireNonce)
-    entries.push(`sig${index}=${value}`)
-    index++
-  }
-
-  addEntry(requestBoundRequired)
-  for (const policy of classBoundPolicies) addEntry(policy)
-
-  return entries.join(", ")
-}
 
 export async function verifyRequest(
   request: Request,
@@ -201,6 +165,27 @@ export async function verifyRequest(
       continue
     }
 
+    if (replayable) {
+      const hasReplayableInvalidation =
+        typeof resolvedPolicy.replayableNotBefore === "function" ||
+        typeof resolvedPolicy.replayableInvalidated === "function"
+      if (!hasReplayableInvalidation) {
+        lastFailure = { ok: false, reason: "replayable_invalidation_required" }
+        continue
+      }
+      if (typeof resolvedPolicy.replayableNotBefore === "function") {
+        const notBefore = await resolvedPolicy.replayableNotBefore(params.keyid)
+        if (
+          typeof notBefore === "number" &&
+          Number.isFinite(notBefore) &&
+          params.created < notBefore
+        ) {
+          lastFailure = { ok: false, reason: "replayable_not_before" }
+          continue
+        }
+      }
+    }
+
     // If content-digest is covered, enforce header exists and matches body bytes
     if (components.includes("content-digest")) {
       const v = request.headers.get("content-digest")
@@ -225,6 +210,25 @@ export async function verifyRequest(
       continue
     }
     const sigHex = bytesToHex(sigBytes)
+
+    if (
+      replayable &&
+      typeof resolvedPolicy.replayableInvalidated === "function"
+    ) {
+      const invalidated = await resolvedPolicy.replayableInvalidated({
+        keyid: params.keyid,
+        created: params.created,
+        expires: params.expires,
+        label,
+        signature: sigHex,
+        signatureBase: M,
+        signatureParamsValue
+      })
+      if (invalidated) {
+        lastFailure = { ok: false, reason: "replayable_invalidated" }
+        continue
+      }
+    }
 
     const verifyFn = resolvedPolicy.verifyMessage
     if (!verifyFn) {
