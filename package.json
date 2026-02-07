@@ -1,6 +1,6 @@
 {
   "name": "@slicekit/erc8128",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Minimal ERC-8128 implementation for signing and verifying HTTP requests with Ethereum accounts",
   "scripts": {
     "format": "biome format --write",
@@ -20,11 +20,6 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "development": {
-        "types": "./src/index.ts",
-        "import": "./src/index.ts",
-        "default": "./src/index.ts"
-      },
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
@@ -35,11 +30,6 @@
   ],
   "dependencies": {
     "@noble/hashes": "^1.8.0"
-  },
-  "devDependencies": {
-    "@noble/secp256k1": "^1.7.2",
-    "@slice/typescript-config": "workspace:*",
-    "viem": "catalog:"
   },
   "peerDependencies": {},
   "repository": {
