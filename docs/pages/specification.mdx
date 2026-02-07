@@ -152,10 +152,16 @@ The signer explicitly specifies which components to sign. The verifier MUST enfo
 | `expired` | Signature expired |
 | `validity_too_long` | Validity window exceeds policy |
 | `nonce_required` | Nonce required but missing |
+| `replayable_not_allowed` | Replayable signature not accepted by policy |
+| `class_bound_not_allowed` | Class-bound signature not accepted by policy |
+| `nonce_window_too_long` | Nonce validity window exceeds policy limit |
 | `replay` | Nonce already consumed |
 | `not_request_bound` | Required components not signed |
 | `digest_required` | Content-Digest header missing |
 | `digest_mismatch` | Content-Digest doesn't match body |
+| `alg_not_allowed` | Signature algorithm not permitted |
+| `bad_signature_bytes` | Invalid signature byte encoding |
+| `bad_signature_check` | Signature verification function failed |
 
 ## References
 

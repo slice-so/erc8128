@@ -125,6 +125,16 @@ The signer chooses to produce a class-bound signature, but **the verifier decide
 Class-bound signatures sign fewer components, which means the unsigned parts of the request are not integrity-protected. The verifier and signer decide together whether this tradeoff is appropriate for their use case.
 :::
 
+### Signature Selection Priority
+
+When multiple signatures are present on a request, the verifier evaluates them in priority order:
+
+1. **Request-bound signatures** are tried first (strongest security)
+2. **Class-bound signatures** are tried in order of policy specificity (fewer required components = less restrictive = tried first)
+3. **Header order** breaks ties within the same priority tier
+
+This ensures the most specific authorization is accepted when available, while still allowing broader authorizations when explicitly configured.
+
 ## Replay Protection
 
 Two modes, chosen by the signer:

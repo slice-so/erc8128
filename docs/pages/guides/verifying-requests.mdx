@@ -151,7 +151,21 @@ const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
 })
 ```
 
-See [Server Enforcement](/concepts/request-binding#server-enforcement-with-requestboundcomponents-and-classboundpolicies) for details on default behavior, custom components, and the difference between request-bound and class-bound verification.
+See [Server Enforcement](/concepts/request-binding#server-enforcement-with-additionalrequestboundcomponents-and-classboundpolicies) for details on default behavior, custom components, and the difference between request-bound and class-bound verification.
+
+:::info
+The component order in signatures does not affect verification — the library reads component order from the signature inputs. This allows clients to produce signatures with components in any order, and verifiers to accept them as long as the required components are present.
+:::
+
+### Signature Selection Priority
+
+When a request contains multiple signatures (multiple labels in the headers), the verifier evaluates them in priority order:
+
+1. **Request-bound signatures first** — Verified before class-bound signatures
+2. **Less restrictive class-bound policies** — When multiple class-bound policies match, the one with fewer required components is tried first
+3. **Header order** — Within the same priority tier, signatures are tried in the order they appear in the headers
+
+The first signature that passes all checks (cryptographic verification, time bounds, nonce, component policy) is accepted. This prioritization ensures the most specific authorization is used when available, while still accepting broader authorizations when configured.
 
 ## Framework Integration
 
@@ -248,20 +262,31 @@ if (!result.ok) {
       
     case 'expired':
     case 'not_yet_valid':
+    case 'validity_too_long':
       // Time-based rejection
       return { status: 401, error: 'Signature expired or not yet valid' }
       
     case 'replay':
-      // Nonce reuse detected
-      return { status: 401, error: 'Request replay detected' }
+    case 'replayable_not_allowed':
+    case 'nonce_window_too_long':
+      // Replay protection rejection
+      return { status: 401, error: 'Request replay detected or not allowed' }
       
     case 'bad_signature':
+    case 'bad_signature_bytes':
+    case 'bad_signature_check':
       // Cryptographic verification failed
       return { status: 401, error: 'Invalid signature' }
       
     case 'digest_mismatch':
-      // Body was tampered
+    case 'digest_required':
+      // Body integrity issue
       return { status: 400, error: 'Body integrity check failed' }
+      
+    case 'not_request_bound':
+    case 'class_bound_not_allowed':
+      // Policy rejection
+      return { status: 401, error: 'Signature does not meet security requirements' }
       
     default:
       return { status: 401, error: `Authentication failed: ${result.reason}` }
