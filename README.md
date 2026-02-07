@@ -5,9 +5,9 @@ Sign and verify HTTP requests with Ethereum wallets using [ERC-8128](https://git
 ## Features
 
 - **Fetch-native** — Works in browsers, workers, Node.js 18+, Bun, Deno
-- **Full RFC 9421 compliance** — HTTP Message Signatures with Ethereum extension
+- **RFC 9421 compliant** — HTTP Message Signatures with Ethereum extension
 - **Request binding** — Sign URL, method, headers, and body
-- **Replay protection** — Built-in nonce handling
+- **Replay protection** — Optional nonce handling
 
 ## Installation
 
@@ -17,7 +17,7 @@ npm install @slicekit/erc8128
 
 ## Quick Start
 
-### Sign a Request
+### Sign a request
 
 ```typescript
 import { createSignerClient } from '@slicekit/erc8128'
@@ -33,17 +33,14 @@ const signer = {
 
 const client = createSignerClient(signer)
 
-const response = await client.fetch(
-  'https://api.example.com/orders',
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount: '100' }),
-  }
-)
+const response = await client.fetch('https://api.example.com/orders', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ amount: '100' }),
+})
 ```
 
-### Verify a Request
+### Verify a request
 
 ```typescript
 import { createVerifierClient } from '@slicekit/erc8128'
@@ -61,22 +58,22 @@ if (result.ok) {
 }
 ```
 
-## API
+## Core API
 
 ### `createSignerClient(signer, options?)`
 
-Creates a client with pre-configured signer.
+Creates a client with a configured signer.
 
 ```typescript
 const client = createSignerClient(signer)
 
-client.fetch(input, init?)      // Sign and send
+client.fetch(input, init?)       // Sign and send
 client.signRequest(input, init?) // Sign only
 ```
 
 ### `createVerifierClient(verifyMessage, nonceStore, policy?)`
 
-Creates a client with pre-configured verification dependencies.
+Creates a client with verification dependencies.
 
 ```typescript
 const verifier = createVerifierClient(verifyMessage, nonceStore)
@@ -87,8 +84,6 @@ verifier.verifyRequest(request, policy?, setHeaders?)
 ### `verifyRequest(request, verifyMessage, nonceStore, policy?, setHeaders?)`
 
 Verifies a signed request.
-
-**Returns:** `Promise<VerifyResult>`
 
 ```typescript
 type VerifyResult =
@@ -107,17 +102,15 @@ type VerifyResult =
 
 ### `signRequest(input, init?, signer, options?)`
 
-Signs a fetch Request and returns a new Request with signature headers.
-
-**Returns:** `Promise<Request>`
+Signs a fetch `Request` and returns a new `Request` with signature headers.
 
 ### `signedFetch(input, init?, signer, options?)`
 
 Signs and sends a request in one call.
 
-**Returns:** `Promise<Response>`
+## Options
 
-## Sign Options
+### Sign options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -127,7 +120,7 @@ Signs and sends a request in one call.
 | `label` | `string` | `"eth"` | Signature label |
 | `components` | `string[]` | — | Override signed components |
 
-## Verify Policy
+### Verify policy
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -139,9 +132,9 @@ Signs and sends a request in one call.
 | `additionalRequestBoundComponents` | `string[]` | — | Extra components required for request-bound |
 | `classBoundPolicies` | `string[] \| string[][]` | — | Acceptable class-bound component policies |
 
-## Nonce Store
+## Nonce store
 
-For replay protection, implement `NonceStore`:
+To enable replay protection, implement `NonceStore`:
 
 ```typescript
 interface NonceStore {
@@ -149,37 +142,9 @@ interface NonceStore {
 }
 ```
 
-**In-memory (development):**
-
-```typescript
-const nonceStore = {
-  seen: new Map(),
-  async consume(key, ttl) {
-    if (this.seen.has(key)) return false
-    this.seen.set(key, Date.now() + ttl * 1000)
-    return true
-  },
-}
-```
-
-**Redis (production):**
-
-```typescript
-const nonceStore = {
-  async consume(key, ttl) {
-    return (await redis.set(`nonce:${key}`, '1', 'EX', ttl, 'NX')) === 'OK'
-  },
-}
-```
-
 ## Documentation
 
 Full documentation: [erc8128.slice.so](https://erc8128.slice.so)
-
-- [Quick Start](https://erc8128.slice.so/getting-started/quick-start)
-- [Signing Requests](https://erc8128.slice.so/guides/signing-requests)
-- [Verifying Requests](https://erc8128.slice.so/guides/verifying-requests)
-- [API Reference](https://erc8128.slice.so/api)
 
 ## License
 
