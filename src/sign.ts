@@ -27,7 +27,7 @@ import {
 } from "./lib/utilities.js"
 
 /**
- *   Minimal EIP-8128 signing
+ *   Minimal ERC-8128 signing
  * - Fetch-first: works in browsers, workers, Node 18+.
  * - Minimal RFC 9421 engine: message to sign is an ERFC9421 compliant signature base.
  * - Minimal Structured Fields serialization: enough to serialize Signature-Input + Signature for one label.

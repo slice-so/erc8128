@@ -63,7 +63,7 @@ async function sha256B64(bytes: Uint8Array): Promise<string> {
   return Buffer.from(hash).toString("base64")
 }
 
-describe("EIP-8128 signRequest/verifyRequest", () => {
+describe("ERC-8128 signRequest/verifyRequest", () => {
   test("round-trips request-bound POST (auto content-digest, non-replayable nonce), -- test", async () => {
     const signer = makeSigner({ chainId: 1 })
     const created = 1_700_000_000

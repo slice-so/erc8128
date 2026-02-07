@@ -10,7 +10,7 @@ function makeSigner() {
   }
 }
 
-describe("EIP-8128 client", () => {
+describe("ERC-8128 client", () => {
   test("signRequest merges defaults with per-call options", async () => {
     const signer = makeSigner()
     const client = createSignerClient(signer, {

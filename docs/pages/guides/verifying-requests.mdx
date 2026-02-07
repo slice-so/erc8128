@@ -161,7 +161,7 @@ The component order in signatures does not affect verification — the library r
 
 When a request contains multiple signatures (multiple labels in the headers), the verifier:
 
-1. Filters to EIP-8128 keyIds
+1. Filters to ERC-8128 keyIds
 2. Filters to signatures allowed by your request-bound/class-bound policies
 3. Verifies the remaining candidates in the exact order they appear in `Signature-Input`
 
