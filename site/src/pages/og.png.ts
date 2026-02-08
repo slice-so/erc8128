@@ -61,7 +61,7 @@ export const GET: APIRoute = async () => {
               flexDirection: "column" as const,
               justifyContent: "center" as const,
               gap: "80px",
-              padding: "60px 80px",
+              padding: "60px 80px 80px 80px",
               width: "55%",
               zIndex: 2
             },
