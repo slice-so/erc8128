@@ -1,0 +1,96 @@
+---
+const features = [
+  {
+    title: "Client-Controlled Security",
+    description:
+      "Unlike traditional authentication, the signer chooses what to sign (method, path, body, headers) and the security profile for each request.",
+    icon: "user-check"
+  },
+  {
+    title: "Signature-Based Auth",
+    description:
+      "Bearer tokens and sessions are replaced with cryptographic proofs. That means no secrets to store, rotate or leak.",
+    icon: "key-off"
+  },
+  {
+    title: "Request Integrity",
+    description:
+      "Each signature is cryptographically bound to the HTTP request. Any tampering causes verification to fail.",
+    icon: "shield"
+  },
+  {
+    title: "Universal Identity",
+    description:
+      "ERC-8128 turns Ethereum accounts into web-native credentials — no login required to use any compliant service.",
+    icon: "ethereum"
+  }
+]
+---
+
+<section class="border-b border-border">
+  <!-- Mobile header - hidden on desktop -->
+    <div class="md:hidden px-4 mt-24 md:mt-32 mb-8 md:mb-12">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] ml-4 md:ml-0 flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
+        Features
+      </div>
+    </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+  {
+    features.map((feature, i) => (
+      <div class={`py-10 px-6 md:px-10 flex flex-col h-full border-b border-gray-700 lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-gray-700' : ''} ${i % 2 === 0 ? 'md:border-r md:border-gray-700 md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
+        <div class="mb-8 opacity-35 text-white transition-opacity duration-300 feature-icon">
+          {feature.icon === "shield" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Request integrity - file lock">
+              <path d="M15 2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6z"/>
+              <path d="M15 2v4h4"/>
+              <line x1="6" y1="9" x2="13" y2="9"/>
+              <line x1="6" y1="13" x2="11" y2="13"/>
+              <g transform="translate(11,11.5) scale(0.55)">
+                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" fill="black"/>
+                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </g>
+            </svg>
+          )}
+          {feature.icon === "key-off" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Signature-based authentication fingerprint">
+              <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/>
+              <path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/>
+              <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+              <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+              <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+              <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+              <path d="M2 16h.01"/>
+              <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+              <path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/>
+            </svg>
+          )}
+          {feature.icon === "ethereum" && (
+             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Ethereum wallet-based authentication">
+              <polygon points="12,2 4,12 12,16 20,12"/>
+              <polygon points="4,12 12,22 20,12 12,16"/>
+              <line x1="12" y1="2" x2="12" y2="16"/>
+            </svg>
+          )}
+          {feature.icon === "user-check" && (
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Client-controlled security with shielded identity">
+              <!-- User head -->
+              <circle cx="9" cy="7" r="4"/>
+              <!-- User body -->
+              <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+              <!-- Shield -->
+              <g transform="translate(5,-1) scale(0.80)">
+                <path d="M18 11l4 1.5v3c0 3-2.2 5.1-4 6-1.8-.9-4-3-4-6v-3l4-1.5z"/>
+              </g>
+            </svg>
+          )}
+        </div>
+        <h3 class="text-xl font-bold uppercase mb-4">{feature.title}</h3>
+        <p class="text-base opacity-70 leading-[1.7]">{feature.description}</p>
+      </div>
+    ))
+  }
+  </div>
+</section>

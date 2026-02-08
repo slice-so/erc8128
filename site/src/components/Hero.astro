@@ -1,0 +1,56 @@
+<header class="border-b border-border min-h-[85vh] relative overflow-hidden">
+  <div id="hero-content" class="px-8 md:px-12 lg:px-16 py-18 flex flex-col justify-between relative z-2 min-h-[85vh] lg:max-w-[45%] lg:border-r lg:border-border gap-6">
+    <div class="mt-14">
+      <div class="w-[clamp(120px,15vw,180px)] h-2.5 bg-white mb-6"></div>
+      <div class="text-[clamp(4rem,8vw,8rem)] font-bold leading-[0.9] -tracking-[0.04em] uppercase" aria-hidden="true">ERC<br />8128</div>
+    </div>
+
+    <div class="mt-12 lg:mt-0">
+      <p class="text-[clamp(1.75rem,3.5vw,2.25rem)] font-normal leading-tight opacity-90 max-w-md">
+        Ethereum Identity<br />
+        for the Web
+      </p>
+      <div class="flex flex-col gap-6 mt-8">
+        <a
+          href="https://erc8128.slice.so/"
+          class="inline-flex items-center gap-2 font-extrabold text-base uppercase tracking-[0.06em] transition-opacity duration-250 leading-none text-white opacity-90 hover:opacity-100"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GET STARTED <span class="font-light">→</span>
+        </a>
+        <a
+          href="https://github.com/ethereum/ERCs/pull/1478"
+          class="inline-flex items-center gap-2 font-extrabold text-base uppercase tracking-[0.06em] transition-all duration-250 leading-none text-white/50 hover:text-white/80 hover:opacity-100"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          VIEW SPECIFICATION <span class="font-light opacity-80">↗</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-globe">
+    <canvas id="dots" class="absolute inset-0 h-full w-full opacity-70 transition-opacity duration-300 lg:opacity-100"></canvas>
+  </div>
+</header>
+
+<style>
+  .hero-globe {
+    cursor: grab;
+    pointer-events: auto;
+    position: absolute;
+    top: 50%;
+    --globe-size: clamp(400px, 70vh, 580px);
+    width: var(--globe-size);
+    height: var(--globe-size);
+    /* Small screens: right edge aligned; large: centered in right panel */
+    left: min(72.5%, calc(100% - (var(--globe-size) / 2)));
+    transform: translate(-50%, -50%);
+  }
+</style>
+
+<script>
+  import "../scripts/hero-globe";
+</script>

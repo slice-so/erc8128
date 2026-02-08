@@ -1,0 +1,127 @@
+<section class="border-b border-border px-4 py-20 md:px-12 md:py-20">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-12">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] ml-4 md:ml-0 flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
+        Quick Start
+      </div>
+    </div>
+
+    <div class="relative">
+      <div class="flex gap-0 -mb-px relative z-10">
+        <button class="code-tab active px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text" data-tab="sign">Sign (Client)</button>
+        <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text" data-tab="verify">Verify (Server)</button>
+      </div>
+
+      <div class="code-blocks-container relative">
+      <div class="code-block active bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl relative" data-tab="sign">
+        <button class="copy-btn absolute top-4 right-4 z-10 bg-black/40 border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center hover:text-white hover:bg-white/10" data-code="sign" title="Copy code" aria-label="Copy code">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+          </svg>
+        </button>
+        <div class="overflow-x-auto p-8">
+        <pre class="font-mono text-[13px] leading-[1.75] text-white/60"><code><span class="code-cm">// Create a client and sign requests</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createSignerClient</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">privateKeyToAccount</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'viem/accounts'</span>
+
+<span class="code-kw">const</span> account = <span class="code-fn">privateKeyToAccount</span>(<span class="code-str">'0x...'</span>)
+<span class="code-kw">const</span> signer = {"{"}
+  chainId: <span class="code-num">1</span>,
+  address: account.address,
+  signMessage: (msg) =&gt; account.<span class="code-fn">signMessage</span>({"{"} message: {"{"} raw: msg {"}"} {"}"}),
+{"}"})
+
+<span class="code-kw">const</span> signerClient = <span class="code-fn">createSignerClient</span>(signer)
+
+<span class="code-kw">const</span> response = <span class="code-kw">await</span> signerClient.<span class="code-fn">fetch</span>(
+  <span class="code-str">'https://api.example.com/orders'</span>, {"{"}<br />  method: <span class="code-str">'POST'</span>,
+  headers: {"{"} <span class="code-str">'Content-Type'</span>: <span class="code-str">'application/json'</span> {"}"},
+  body: <span class="code-fn">JSON.stringify</span>({"{"} amount: <span class="code-str">'100'</span> {"}"}),
+{"}"})</code></pre>
+        </div>
+      </div>
+
+      <div class="code-block bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl relative" data-tab="verify">
+        <button class="copy-btn absolute top-4 right-4 z-10 bg-black/40 border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center hover:text-white hover:bg-white/10" data-code="verify" title="Copy code" aria-label="Copy code">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+          </svg>
+        </button>
+        <div class="overflow-x-auto p-8">
+        <pre class="font-mono text-[13px] leading-[1.75] text-white/60"><code><span class="code-cm">// Verify incoming signed requests</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createVerifierClient</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'@slicekit/erc8128'</span>
+<span class="code-kw">import</span> {"{"} <span class="code-fn">createPublicClient</span>, <span class="code-fn">http</span> {"}"} <span class="code-kw">from</span> <span class="code-str">'viem'</span>
+<span class="code-kw">import</span> {"{"} mainnet {"}"} <span class="code-kw">from</span> <span class="code-str">'viem/chains'</span>
+<span class="code-kw">import</span> {"{"} nonceStore {"}"} <span class="code-kw">from</span> <span class="code-str">'./nonceStore'</span>
+
+<span class="code-kw">const</span> publicClient = <span class="code-fn">createPublicClient</span>({"{"}<br />  chain: mainnet,
+  transport: <span class="code-fn">http</span>(),
+{"}"})
+
+<span class="code-kw">const</span> verifier = <span class="code-fn">createVerifierClient</span>(publicClient.verifyMessage, nonceStore)
+
+<span class="code-kw">const</span> result = <span class="code-kw">await</span> verifier.<span class="code-fn">verifyRequest</span>(request)
+
+<span class="code-kw">if</span> (result.ok) {"{"}<br />  console.<span class="code-fn">log</span>(<span class="code-str">`Authenticated: <span class="code-kw">${"{"}</span>result.address<span class="code-kw">{"}"}</span>`</span>)
+{"}"}</code></pre>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <!-- Install bar -->
+    <div class="relative mt-5">
+      <div class="flex gap-0 -mb-px relative z-10">
+        <button class="code-tab active px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text" data-pm="bun">bun</button>
+        <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text" data-pm="pnpm">pnpm</button>
+        <button class="code-tab px-6 py-3 font-mono text-[0.8125rem] text-white/50 bg-transparent border border-transparent border-b-0 rounded-t-xl cursor-pointer transition-all duration-250 tracking-[0.02em] hover:text-text" data-pm="npm">npm</button>
+      </div>
+      <div class="bg-code-bg border border-code-border rounded-tr-xl rounded-b-xl">
+        <div class="flex items-center justify-between px-6 py-4.5">
+          <code class="font-mono text-sm text-white/60"><span class="text-accent-v2 mr-2">$</span><span class="install-command">bun add @slicekit/erc8128</span></code>
+          <button class="copy-btn bg-black/40 border-none text-white/30 cursor-pointer p-2 rounded-md transition-all duration-250 flex items-center hover:text-white hover:bg-white/10" data-install title="Copy install command" aria-label="Copy install command">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .code-blocks-container {
+    position: relative;
+  }
+
+  .code-block {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+
+  .code-block.active {
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .code-tab.active {
+    color: var(--text);
+    background: var(--code-bg);
+    border-color: var(--code-border);
+  }
+</style>
+
+<script>
+  import "../scripts/code-preview";
+</script>

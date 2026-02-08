@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v4 theme tokens */
+@theme {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-text: var(--text);
+  --color-text-dim: var(--text-dim);
+  --color-text-dimmer: var(--text-dimmer);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-code-bg: var(--code-bg);
+  --color-code-border: var(--code-border);
+  --color-accent-v2: var(--accent-v2);
+  --color-accent-border-v2: var(--accent-border-v2);
+  --color-accent-dim-v2: var(--accent-dim-v2);
+  --color-border-v2: var(--border-v2);
+  --color-surface-v2: var(--surface-v2);
+  --color-surface-elevated-v2: var(--surface-elevated-v2);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+}
+
+/* ── Base layer overrides ───────────────────────────── */
+@layer base {
+  :root {
+    --bg: #050505;
+    --fg: #ffffff;
+    --surface: #080808;
+    --surface-elevated: #111111;
+    --border: rgba(255, 255, 255, 1);
+    --border-subtle: rgba(255, 255, 255, 0.15);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.7);
+    --text-dimmer: rgba(255, 255, 255, 0.5);
+    --accent: #ffffff;
+    --accent-dim: rgba(255, 255, 255, 0.05);
+    --code-bg: #161618;
+    --code-border: rgba(255, 255, 255, 0.2);
+    --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono:
+      "JetBrains Mono", "Fira Code", "SF Mono", "Courier New", Courier,
+      monospace;
+    --font-serif: "Cormorant Garamond", Georgia, serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    /* V2 code block vars */
+    --accent-v2: #858aff;
+    --accent-border-v2: rgba(133, 138, 255, 0.25);
+    --accent-dim-v2: rgba(133, 138, 255, 0.1);
+    --border-v2: #1e1e22;
+    --surface-v2: #111113;
+    --surface-elevated-v2: #161618;
+    --radius: 12px;
+    --radius-lg: 16px;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  ::selection {
+    background: #ffffff;
+    color: #050505;
+  }
+
+  a {
+    color: var(--text);
+    text-decoration: none;
+    transition: opacity 0.2s var(--ease);
+  }
+
+  a:hover {
+    opacity: 0.8;
+  }
+}
+
+/* ── Component utilities ──────────────────────────── */
+@layer components {
+  /* Scroll animations */
+  .animate-in {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.7s var(--ease),
+      transform 0.7s var(--ease);
+  }
+
+  .animate-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .stagger-children .animate-in:nth-child(1) {
+    transition-delay: 0ms;
+  }
+  .stagger-children .animate-in:nth-child(2) {
+    transition-delay: 80ms;
+  }
+  .stagger-children .animate-in:nth-child(3) {
+    transition-delay: 160ms;
+  }
+  .stagger-children .animate-in:nth-child(4) {
+    transition-delay: 240ms;
+  }
+  .stagger-children .animate-in:nth-child(5) {
+    transition-delay: 320ms;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface-elevated);
+    color: var(--text);
+    border: 1px solid var(--border-subtle);
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 0.3s var(--ease),
+      transform 0.3s var(--ease);
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Code syntax highlighting */
+  .code-kw {
+    color: #c084fc;
+  }
+  .code-fn {
+    color: #60a5fa;
+  }
+  .code-str {
+    color: #34d399;
+  }
+  .code-cm {
+    color: #6b6b74;
+  }
+  .code-ty {
+    color: #f472b6;
+  }
+  .code-num {
+    color: #fbbf24;
+  }
+}

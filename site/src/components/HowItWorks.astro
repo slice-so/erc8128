@@ -1,0 +1,565 @@
+---
+const steps = [
+  {
+    id: "sign",
+    title: "Sign",
+    description:
+      "The client signs the request — URL, body, expiry, nonce — choosing the security posture."
+  },
+  {
+    id: "send",
+    title: "Send",
+    description:
+      "The signed request is sent with the client's Ethereum address and signature."
+  },
+  {
+    id: "verify",
+    title: "Verify",
+    description:
+      "The server verifies the signature binds to the request, and authenticates the client."
+  }
+]
+---
+
+<section class="relative overflow-hidden border-b border-border px-4 py-24 md:px-12 md:py-32">
+  <!-- Grid background -->
+  <div class="absolute inset-0 opacity-10 pointer-events-none bg-grid"></div>
+
+  <div class="max-w-7xl mx-auto relative z-10">
+    <div class="mb-16 md:mb-20">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] ml-4 md:ml-0 flex items-center gap-4">
+        <span class="block w-4 h-4 bg-white"></span>
+        Request Lifecycle
+      </div>
+    </div>
+
+    <div class="relative grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-0" id="hiw-grid">
+      <!-- Connection line fill (desktop only) -->
+      <svg
+        class="connection-flow hidden md:block absolute top-[84px] left-[17%] w-[66.67%] h-8 z-0"
+        viewBox="0 0 800 32"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <line x1="0" y1="16" x2="800" y2="16" stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+        <line
+          id="hiw-line-fill"
+          x1="0"
+          y1="16"
+          x2="800"
+          y2="16"
+          stroke="rgba(167, 139, 250, 0.9)"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          pathLength="1"
+        />
+        <line
+          id="hiw-line-return"
+          x1="0"
+          y1="16"
+          x2="800"
+          y2="16"
+          stroke="var(--hiw-green)"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          pathLength="1"
+          transform="translate(800 0) scale(-1 1)"
+        />
+      </svg>
+      <!-- <div class="hiw-line-sig hidden md:block" id="hiw-line-sig">0xA9f2d...</div> -->
+
+      {
+        steps.map((step, i) => (
+          <div
+            class={`hiw-step relative group z-10 ${i < steps.length - 1 ? "md:border-r md:border-white/5" : ""}`}
+            data-step={step.id}
+          >
+            <div class="md:px-8 lg:px-12">
+              <!-- Illustration container -->
+              <div class="illustration-container relative h-48 md:h-52 mb-10 flex items-center justify-center">
+                {/* ── SIGN ── */}
+                {step.id === "sign" && (
+                  <div class="sign-illustration relative w-full h-full scale-[1.5] md:top-[16px] md:scale-[1.25]">
+                    <svg
+                      class="w-full h-full overflow-visible"
+                      style="overflow: visible;"
+                      viewBox="0 0 240 220"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      {/* Document outline */}
+                      <g class="sign-doc">
+                        <rect x="68" y="24" width="104" height="136" rx="3" fill="#0a0a0a" stroke="none" />
+                        <rect
+                          class="hiw-doc-outline"
+                          x="68"
+                          y="24"
+                          width="104"
+                          height="136"
+                          rx="3"
+                          fill="none"
+                          stroke="white"
+                          stroke-width="0.8"
+                          opacity="0.35"
+                          pathLength="1"
+                        />
+                        <!-- removed fold corner accent -->
+                      </g>
+
+                      {/* Signing elements — fade in, then hold */}
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="0"
+                        x="78"
+                        y="55"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="7"
+                        fill="white"
+                        opacity="0"
+                      >
+                        POST /api/resource
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="1"
+                        x="78"
+                        y="70"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6.5"
+                        fill="white"
+                        opacity="0"
+                      >
+                        content-digest:
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="2"
+                        x="82"
+                        y="80"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6"
+                        fill="white"
+                        opacity="0"
+                      >
+                        sha-256=X48E9...
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="3"
+                        x="78"
+                        y="96"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6.5"
+                        fill="white"
+                        opacity="0"
+                      >
+                        @authority:
+                      </text>
+                      <text
+                        class="hiw-sign-el"
+                        data-idx="4"
+                        x="82"
+                        y="106"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="6"
+                        fill="white"
+                        opacity="0"
+                      >
+                        api.example.com
+                      </text>
+                      {/* Divider */}
+                      <line x1="88" y1="118" x2="152" y2="118" stroke="white" stroke-width="0.3" opacity="0.06" />
+
+                      {/* Signature stroke */}
+                      <path
+                        id="hiw-sig"
+                        d="M88 138 C100 124, 108 148, 120 134 C128 126, 136 142, 148 132"
+                        stroke="white"
+                        stroke-width="1.2"
+                        stroke-linecap="round"
+                        fill="none"
+                        opacity="0"
+                        stroke-dasharray="120"
+                        stroke-dashoffset="120"
+                      />
+                    </svg>
+                  </div>
+                )}
+
+                {/* ── SEND (Server) ── */}
+                {step.id === "send" && (
+                  <div class="send-illustration relative w-full h-full scale-[1.25] md:scale-[1.1]">
+                    <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      {/* Server */}
+                      <rect x="64" y="40" width="112" height="112" rx="10" fill="#0a0a0a" stroke="none" />
+                      <rect x="64" y="40" width="112" height="112" rx="10" fill="none" stroke="white" stroke-width="0.9" opacity="0.35" />
+                      <rect x="78" y="56" width="84" height="12" rx="6" fill="white" opacity="0.08" />
+                      <rect x="78" y="124" width="84" height="10" rx="5" fill="white" opacity="0.14" />
+
+                      {/* Processing indicator — dashed ring + dot */}
+                      <g class="hiw-proc">
+                        <circle
+                          id="hiw-proc-ring"
+                          cx="120"
+                          cy="96"
+                          r="18"
+                          stroke="white"
+                          stroke-width="0.7"
+                          fill="none"
+                          opacity="0.12"
+                          stroke-dasharray="6 6"
+                        />
+                        <circle id="hiw-proc-dot" cx="120" cy="96" r="3" fill="white" opacity="0.22" />
+                      </g>
+                    </svg>
+                  </div>
+                )}
+
+                {/* ── VERIFY ── */}
+                {step.id === "verify" && (
+                  <div class="verify-illustration relative w-full h-full scale-[1.15] md:scale-[1]">
+                    <svg class="w-full h-full" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      {/* Verification pulse ring — expands outward */}
+                      <circle id="hiw-v-ring" cx="120" cy="84" r="56" stroke="white" stroke-width="0.4" fill="none" opacity="0" />
+
+                      {/* Shield */}
+                      <path d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z" fill="#0a0a0a" stroke="none" />
+                      <path
+                        id="hiw-shield-outline"
+                        d="M120 22L76 42V84C76 114 94 138 120 150C146 138 164 114 164 84V42L120 22Z"
+                        stroke="white"
+                        stroke-width="0.8"
+                        fill="none"
+                        opacity="0.3"
+                      />
+
+                      {/* Checkmark */}
+                      <path
+                        id="hiw-v-check"
+                        d="M104 84L114 96L140 66"
+                        stroke="var(--hiw-green)"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        fill="none"
+                        opacity="0"
+                        stroke-dasharray="60"
+                        stroke-dashoffset="60"
+                      />
+
+                      {/* Address pill */}
+                      <rect id="hiw-addr-pill" x="52" y="166" width="136" height="24" rx="12" stroke="white" stroke-width="0.5" fill="none" opacity="0.10" />
+                      <text
+                        id="hiw-addr-text"
+                        x="120"
+                        y="182"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="10"
+                        fill="white"
+                        text-anchor="middle"
+                        letter-spacing="0.5"
+                        opacity="0.18"
+                      >
+                        0x0000…0000
+                      </text>
+                      <text
+                        id="hiw-ens-text"
+                        x="120"
+                        y="204"
+                        font-family="'SF Mono','Fira Code','Cascadia Code',monospace"
+                        font-size="9"
+                        fill="white"
+                        text-anchor="middle"
+                        letter-spacing="0.4"
+                        opacity="0.12"
+                      >
+                        slice.eth
+                      </text>
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              <div class="text-center">
+                <h3 class="text-lg font-bold uppercase mb-3 tracking-wide">{step.title}</h3>
+                <p class="text-[15px] opacity-50 leading-[1.75] max-w-xs mx-auto">{step.description}</p>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     HOVER
+     ═══════════════════════════════════════════════════════════ */
+
+  .illustration-container {
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .verify-illustration,
+  .verify-illustration svg {
+    overflow: visible;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     CONNECTION LINE FILL (desktop)
+     ═══════════════════════════════════════════════════════════ */
+
+  .hiw-line-sig {
+    position: absolute;
+    left: 33.7%;
+    top: 84px;
+    transform: translate(-50%, -50%);
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.2px;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 0;
+  }
+
+  #hiw-line-fill {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  #hiw-line-return {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+
+  .hiw-grid-active #hiw-line-fill {
+    animation: none;
+  }
+  /* ═══════════════════════════════════════════════════════════
+     SIGN (fade-in + hold)
+     ═══════════════════════════════════════════════════════════ */
+
+  .hiw-sign-el,
+  #hiw-sig,
+  .hiw-doc-outline {
+    opacity: 0;
+  }
+
+  .hiw-step.hiw-active .hiw-sign-el {
+    animation: hiwSignFadeInHold var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-sig {
+    animation: hiwSigDrawHold var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active .hiw-doc-outline {
+    animation: hiwDocOutline var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="0"] {
+    animation-delay: var(--hiw-sign-delay-0);
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="1"] {
+    animation-delay: var(--hiw-sign-delay-1);
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="2"] {
+    animation-delay: var(--hiw-sign-delay-2);
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="3"] {
+    animation-delay: var(--hiw-sign-delay-3);
+  }
+  .hiw-step.hiw-active .hiw-sign-el[data-idx="4"] {
+    animation-delay: var(--hiw-sign-delay-4);
+  }
+  /* Keyframes are injected by the script from the timing config. */
+
+  /* ═══════════════════════════════════════════════════════════
+     SEND (processing)
+     ═══════════════════════════════════════════════════════════ */
+
+  #hiw-proc-ring {
+    transform-origin: 120px 96px;
+    will-change: transform, opacity;
+  }
+
+  .hiw-step.hiw-active #hiw-proc-ring {
+    animation: hiwProcSpin var(--hiw-cycle) linear infinite;
+  }
+
+  @media (max-width: 767px) {
+    #hiw-proc-dot {
+      opacity: 0.22;
+    }
+  }
+  /* ═══════════════════════════════════════════════════════════
+     VERIFY (pulse + check)
+     ═══════════════════════════════════════════════════════════ */
+
+  #hiw-v-check {
+    transform-origin: 120px 82px;
+    will-change: transform, opacity;
+  }
+
+  #hiw-v-ring {
+    transform-origin: 120px 84px;
+    will-change: transform, opacity;
+  }
+
+  #hiw-shield-outline {
+    transition: stroke 100ms ease-out;
+  }
+
+  .hiw-step.hiw-active #hiw-v-check {
+    animation: hiwCheckDraw var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-v-ring {
+    animation: hiwVerifyRing var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-shield-outline {
+    animation: hiwShieldGlow var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-addr-text {
+    animation: hiwVerifyAddr var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-addr-pill {
+    animation: hiwVerifyPill var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-step.hiw-active #hiw-ens-text {
+    animation: hiwVerifyEns var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+
+  .hiw-grid-active #hiw-line-sig {
+    animation: hiwLineSig var(--hiw-cycle) linear infinite;
+    animation-fill-mode: both;
+  }
+  /* Keyframes are injected by the script from the timing config. */
+
+  /* ═══════════════════════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════════════════════ */
+
+  @media (max-width: 767px) {
+    .illustration-container {
+      height: 11rem;
+    }
+
+    #hiw-line-sig {
+      display: none;
+    }
+
+    .hiw-step.hiw-active #hiw-line-fill {
+      animation: none;
+    }
+
+    .hiw-step[data-step="send"] #hiw-proc-ring {
+      animation: hiwProcSpinMobile var(--hiw-proc-spin-period) linear infinite;
+      opacity: 1;
+    }
+
+    .hiw-step[data-step="send"] #hiw-proc-dot {
+      opacity: 0.22;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-addr-text {
+      animation: hiwVerifyAddrMobile var(--hiw-cycle) linear infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-addr-pill {
+      animation: hiwVerifyPillMobile var(--hiw-cycle) linear infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-ens-text {
+      animation: hiwEnsMobile var(--hiw-cycle) linear infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-v-check {
+      animation: hiwCheckMobile var(--hiw-cycle) linear infinite;
+      animation-fill-mode: both;
+    }
+
+    .hiw-step.hiw-active[data-step="verify"] #hiw-shield-outline {
+      animation: hiwShieldMobile var(--hiw-cycle) linear infinite;
+      animation-fill-mode: both;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .illustration-container,
+    .illustration-container svg {
+      transition: none;
+    }
+
+    #hiw-line-fill,
+    #hiw-line-sig,
+    .hiw-step .hiw-sign-el,
+    .hiw-step #hiw-sig,
+    .hiw-step #hiw-proc-ring,
+    .hiw-step #hiw-addr-text,
+    .hiw-step #hiw-addr-pill,
+    .hiw-step #hiw-ens-text,
+    .hiw-step #hiw-v-check,
+    .hiw-step #hiw-v-ring {
+      animation: none;
+    }
+
+    #hiw-line-fill {
+      opacity: 1;
+      stroke-dashoffset: 0;
+    }
+
+    .hiw-step .hiw-sign-el {
+      opacity: 0.55;
+    }
+
+    .hiw-step #hiw-sig {
+      opacity: 0.65;
+      stroke-dashoffset: 0;
+    }
+
+    .hiw-step #hiw-v-check {
+      opacity: 0.88;
+      stroke-dashoffset: 0;
+      transform: scale(1);
+    }
+
+    .hiw-step #hiw-v-ring {
+      opacity: 0.12;
+      transform: scale(1.02);
+    }
+  }
+</style>
+
+<script>
+  import "../scripts/how-it-works";
+</script>
