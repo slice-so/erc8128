@@ -4,26 +4,77 @@ const links = [
   { label: "GitHub", href: "https://github.com/slice-so/erc8128" },
   { label: "Telegram", href: "https://t.me/ethhttpmessagesignatures" }
 ]
+
+const announcementUrl = "https://x.com/slice__so"
 ---
 
-<nav class="fixed top-0 left-0 right-0 z-100 px-5 py-3.5 sm:px-8 sm:py-4 bg-bg/80 backdrop-blur-xl backdrop-saturate-180 border-b border-border-subtle">
-  <div class="flex items-center justify-between max-w-7xl mx-auto">
-    <a href="/" class="font-bold text-[0.9375rem] text-text font-mono -tracking-[0.5px] transition-opacity duration-200 opacity-80 hover:opacity-100">
-      ERC-8128
+<div class="fixed top-0 left-0 right-0 z-200 isolate">
+  <!-- or bg-[#d8d9ff] -->
+  <div id="announcement-banner" class="relative flex items-center justify-center py-2 px-10 bg-[#fef9c3] text-[#1a1a2e] text-[0.8125rem] font-bold tracking-wide"> 
+    <a
+      href={announcementUrl}
+      class="group flex items-center justify-center gap-2 text-[#1a1a2e] hover:text-[#1a1a2e]/70 transition-colors duration-200"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span>Introducing ERC-8128</span>
+      <span class="opacity-50 group-hover:opacity-80 transition-opacity duration-200">→ Read announcement</span>
     </a>
-    <div class="flex gap-4.5 sm:gap-7">
-      {
-        links.map((link) => (
-          <a
-            href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-sm text-text-dim transition-colors duration-200 hover:text-text hover:opacity-100"
-          >
-            {link.label}
-          </a>
-        ))
-      }
-    </div>
+    <button
+      id="dismiss-banner"
+      class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 p-1 text-[#1a1a2e]/40 hover:text-[#1a1a2e]/80 transition-colors duration-200 cursor-pointer"
+      aria-label="Dismiss announcement"
+    >
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+        <path d="M1 1l12 12M13 1L1 13" />
+      </svg>
+    </button>
   </div>
-</nav>
+
+  <nav class="px-5 py-3.5 sm:px-8 sm:py-4 bg-bg/80 backdrop-blur-xl backdrop-saturate-180 border-b border-border-subtle">
+    <div class="flex items-center justify-between max-w-7xl mx-auto">
+      <a href="/" class="font-bold text-[0.9375rem] text-text font-mono -tracking-[0.5px] transition-opacity duration-200 opacity-80 hover:opacity-100">
+        ERC-8128
+      </a>
+      <div class="flex gap-4.5 sm:gap-7">
+        {
+          links.map((link) => (
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm text-text-dim transition-colors duration-200 hover:text-text hover:opacity-100"
+            >
+              {link.label}
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </nav>
+</div>
+
+<script>
+  document.getElementById("dismiss-banner")?.addEventListener("click", () => {
+    const banner = document.getElementById("announcement-banner")
+    const hero = document.getElementById("hero-content")
+    if (banner) {
+      const bannerH = banner.offsetHeight
+      banner.style.transition = "height 0.3s ease, opacity 0.2s ease, padding 0.3s ease"
+      banner.style.opacity = "0"
+      banner.style.height = `${bannerH}px`
+
+      if (hero) {
+        const currentPt = parseFloat(getComputedStyle(hero).paddingTop)
+        hero.style.transition = "padding-top 0.3s ease"
+        hero.style.paddingTop = `${currentPt - bannerH}px`
+      }
+
+      requestAnimationFrame(() => {
+        banner.style.height = "0"
+        banner.style.padding = "0"
+        banner.style.overflow = "hidden"
+      })
+    }
+  })
+</script>

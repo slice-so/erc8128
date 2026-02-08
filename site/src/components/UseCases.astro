@@ -23,10 +23,10 @@ const useCases = [
 ]
 ---
 
-<section class="border-b border-border py-20 px-4 md:py-20 md:px-12 relative overflow-hidden">
+<section class="border-b border-border pt-20 pb-12 px-4 md:py-20 md:px-12 relative overflow-hidden">
   <div class="max-w-7xl mx-auto relative z-10">
-    <div class="mb-12">
-      <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
+    <div class="mb-6">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] ml-4 md:ml-0 flex items-center gap-4">
         <span class="block w-4 h-4 bg-white"></span>
         Use Cases
       </div>
@@ -35,7 +35,7 @@ const useCases = [
     <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
       {
         useCases.map((useCase, i) => (
-          <div class={`p-10 flex flex-col ${
+          <div class={`py-10 px-2 md:px-6 flex flex-col ${
             i % 2 === 0 ? 'md:border-r border-gray-700' : ''
           } ${
             i < 2 ? 'border-b border-gray-700' : ''

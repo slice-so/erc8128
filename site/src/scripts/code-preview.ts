@@ -1,15 +1,40 @@
-// Code tab switching
-document.querySelectorAll(".code-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    const target = tab.getAttribute("data-tab")
-    document.querySelectorAll(".code-tab").forEach((t) => {
-      t.classList.toggle("active", t.getAttribute("data-tab") === target)
-    })
-    document.querySelectorAll(".code-block").forEach((b) => {
-      const isTarget = b.getAttribute("data-tab") === target
-      b.classList.toggle("active", isTarget)
+// Generic tab group handler
+function initTabGroup(
+  tabSelector: string,
+  attr: string,
+  onChange?: (value: string) => void
+) {
+  document.querySelectorAll(tabSelector).forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const value = tab.getAttribute(attr) || ""
+      document.querySelectorAll(tabSelector).forEach((t) => {
+        t.classList.toggle("active", t.getAttribute(attr) === value)
+      })
+      onChange?.(value)
     })
   })
+}
+
+// Code tab switching
+initTabGroup(".code-tab[data-tab]", "data-tab", (tab) => {
+  document.querySelectorAll(".code-block").forEach((b) => {
+    b.classList.toggle("active", b.getAttribute("data-tab") === tab)
+  })
+})
+
+// Install tab switching
+const installCommands: Record<string, string> = {
+  bun: "bun add @slicekit/erc8128",
+  pnpm: "pnpm add @slicekit/erc8128",
+  npm: "npm install @slicekit/erc8128"
+}
+
+const installCommandEl = document.querySelector(".install-command")
+
+initTabGroup(".code-tab[data-pm]", "data-pm", (pm) => {
+  if (installCommandEl) {
+    installCommandEl.textContent = installCommands[pm]
+  }
 })
 
 // Code snippets for copy
@@ -51,6 +76,7 @@ if (result.ok) {
 }`
 }
 
+// Checkmark SVG for copy feedback
 function createCheckmarkSvg(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
   svg.setAttribute("width", "16")
@@ -68,22 +94,6 @@ function createCheckmarkSvg(): SVGSVGElement {
   return svg
 }
 
-// Copy code buttons
-document.querySelectorAll(".copy-code-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const codeType = btn.getAttribute("data-code") || ""
-    const text = codeSnippets[codeType] || ""
-    navigator.clipboard.writeText(text)
-    showCopyFeedback(btn as HTMLElement)
-  })
-})
-
-// Copy install command
-document.querySelector(".copy-btn")?.addEventListener("click", () => {
-  navigator.clipboard.writeText("npm install @slicekit/erc8128")
-  showCopyFeedback(document.querySelector(".copy-btn") as HTMLElement)
-})
-
 function showCopyFeedback(btn: HTMLElement) {
   const toast = document.getElementById("toast")
   if (toast) {
@@ -91,7 +101,6 @@ function showCopyFeedback(btn: HTMLElement) {
     setTimeout(() => toast.classList.remove("show"), 2000)
   }
 
-  // Save original children and swap with checkmark icon
   const originalChildren = Array.from(btn.childNodes).map((n) =>
     n.cloneNode(true)
   )
@@ -100,3 +109,24 @@ function showCopyFeedback(btn: HTMLElement) {
     btn.replaceChildren(...originalChildren)
   }, 2000)
 }
+
+// Unified copy handler for all .copy-btn elements
+document.querySelectorAll(".copy-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const codeType = btn.getAttribute("data-code")
+    let text: string
+
+    if (codeType) {
+      text = codeSnippets[codeType] || ""
+    } else {
+      const activePm =
+        document
+          .querySelector(".code-tab[data-pm].active")
+          ?.getAttribute("data-pm") || "bun"
+      text = installCommands[activePm]
+    }
+
+    navigator.clipboard.writeText(text)
+    showCopyFeedback(btn as HTMLElement)
+  })
+})

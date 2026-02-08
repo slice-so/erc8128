@@ -661,7 +661,7 @@ function init() {
           }
         })
       },
-      { threshold: 0.4 }
+      { threshold: 0.25 }
     )
 
     steps.forEach((s) => {
@@ -699,7 +699,7 @@ function init() {
         }
       })
     },
-    { threshold: 0.35 }
+    { threshold: 0.25 }
   )
 
   gridObserver.observe(grid)

@@ -5,6 +5,9 @@ interface Props {
 }
 
 const { title, description } = Astro.props
+const siteUrl =
+  Astro.site?.toString().replace(/\/$/, "") ?? "https://erc8128.org"
+const ogImage = `${siteUrl}/og.png`
 ---
 
 <!doctype html>
@@ -14,67 +17,46 @@ const { title, description } = Astro.props
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>ERC-8128 | Ethereum HTTP Authentication Standard</title>
-    <meta name="title" content="ERC-8128 | Ethereum HTTP Authentication Standard" />
-    <meta
-      name="description"
-      content="ERC-8128 enables Ethereum accounts to sign and authenticate HTTP requests to any web service. No API keys, no signups—just your wallet."
-    />
+    <title>{title}</title>
+    <meta name="title" content={title} />
+    <meta name="description" content={description} />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://slice.so/erc8128" />
-    <meta property="og:title" content="ERC-8128 | Ethereum HTTP Authentication Standard" />
-    <meta
-      property="og:description"
-      content="Authenticate HTTP requests with your Ethereum account. Sign API calls, webhooks, and web requests—no signups, no API keys required."
-    />
-    <meta property="og:image" content="https://slice.so/erc8128-og-image.png" />
+    <meta property="og:url" content={siteUrl} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://slice.so/erc8128" />
-    <meta
-      property="twitter:title"
-      content="ERC-8128 | Ethereum HTTP Authentication Standard"
-    />
-    <meta
-      property="twitter:description"
-      content="Authenticate HTTP requests with your Ethereum account. Sign API calls, webhooks, and web requests—no signups, no API keys required."
-    />
-    <meta property="twitter:image" content="https://slice.so/erc8128-og-image.png" />
+    <meta property="twitter:url" content={siteUrl} />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={ogImage} />
 
     <!-- Additional SEO -->
     <meta
       name="keywords"
       content="ERC-8128, Ethereum authentication, HTTP signatures, signed requests, web3 authentication, Ethereum standard, API authentication"
     />
-    <link rel="canonical" href="https://slice.so/erc8128" />
+    <link rel="canonical" href={siteUrl} />
 
     <!-- Schema.org Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "TechArticle",
-        "headline": "ERC-8128: Ethereum HTTP Authentication Standard",
-        "description": "ERC-8128 enables Ethereum accounts to sign and authenticate HTTP requests to any web service without API keys or signups.",
-        "keywords": "ERC-8128, Ethereum authentication, HTTP signatures, signed requests, web3",
-        "author": {
-          "@type": "Organization",
-          "name": "Slice"
-        },
-        "publisher": {
-          "@type": "Organization",
-          "name": "Slice",
-          "logo": {
-            "@type": "ImageObject",
-            "url": "https://slice.so/logo.png"
-          }
-        },
-        "datePublished": "2024-01-15",
-        "url": "https://slice.so/erc8128"
-      }
-    </script>
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": title,
+      "description": description,
+      "keywords": "ERC-8128, Ethereum authentication, HTTP signatures, signed requests, web3",
+      "author": { "@type": "Organization", "name": "Slice" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Slice",
+        "logo": { "@type": "ImageObject", "url": `${siteUrl}/sliceLogo.svg` }
+      },
+      "url": siteUrl
+    })} />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

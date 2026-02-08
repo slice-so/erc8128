@@ -30,7 +30,7 @@ const features = [
 <section class="border-b border-border">
   <!-- Mobile header - hidden on desktop -->
     <div class="md:hidden px-4 mt-24 md:mt-32 mb-8 md:mb-12">
-      <div class="text-xl font-bold uppercase tracking-[0.15em] flex items-center gap-4">
+      <div class="text-xl font-bold uppercase tracking-[0.15em] ml-4 md:ml-0 flex items-center gap-4">
         <span class="block w-4 h-4 bg-white"></span>
         Features
       </div>
@@ -39,7 +39,7 @@ const features = [
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
   {
     features.map((feature, i) => (
-      <div class={`p-10 flex flex-col h-full border-b border-gray-700 lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-gray-700' : ''} ${i % 2 === 0 ? 'md:border-r md:border-gray-700 md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
+      <div class={`py-10 px-6 md:px-10 flex flex-col h-full border-b border-gray-700 lg:border-b-0 last:border-b-0 ${i < features.length - 1 ? 'lg:border-r lg:border-gray-700' : ''} ${i % 2 === 0 ? 'md:border-r md:border-gray-700 md:max-lg:border-r' : 'md:max-lg:border-r-0'} ${i >= 2 ? 'md:max-lg:border-b-0' : ''}`}>
         <div class="mb-8 opacity-35 text-white transition-opacity duration-300 feature-icon">
           {feature.icon === "shield" && (
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Request integrity - file lock">
