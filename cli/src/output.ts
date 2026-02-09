@@ -41,13 +41,3 @@ export function logVerbose(message: string, verbose: boolean): void {
     console.error(message)
   }
 }
-
-export function logRequest(request: Request, verbose: boolean): void {
-  if (!verbose) return
-
-  console.error(`\n> ${request.method} ${request.url}`)
-  for (const [key, value] of request.headers.entries()) {
-    console.error(`> ${key}: ${value}`)
-  }
-  console.error("")
-}

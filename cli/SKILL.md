@@ -119,10 +119,6 @@ The CLI:
 - Provides replay protection with nonces by default
 - Uses EIP-191 personal_sign for message signing
 
-## Location
-
-`/Users/jacobot/clawd-projects/slice/monorepo/packages/erc8128/cli/`
-
 ## Installation
 
 ```bash
