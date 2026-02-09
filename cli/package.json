@@ -9,6 +9,7 @@
   "scripts": {
     "build": "bun build ./src/index.ts --target=node --outdir=./dist --format=esm --minify --sourcemap && { echo '#!/usr/bin/env node'; cat ./dist/index.js; } > ./dist/index.tmp && mv ./dist/index.tmp ./dist/index.js && chmod +x ./dist/index.js",
     "dev": "bun run --watch ./src/index.ts",
+    "test": "bun test",
     "format": "biome format --write",
     "lint": "biome lint --write",
     "check": "biome check --write"
