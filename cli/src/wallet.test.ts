@@ -172,7 +172,7 @@ describe("wallet creation", () => {
           chainId: 1
         })
       ).rejects.toThrow(
-        "No wallet specified. Use --private-key, --keystore, or set ETH_PRIVATE_KEY environment variable."
+        "No wallet specified. Use --keyfile, --private-key, --keystore, or set ETH_PRIVATE_KEY environment variable."
       )
     })
 
@@ -266,6 +266,25 @@ describe("wallet creation", () => {
           chainId: 1
         })
       ).rejects.toThrow("Keystore decryption not yet implemented")
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  describe("keyfile handling", () => {
+    test("creates signer from keyfile", async () => {
+      const consoleSpy = spyOn(console, "error").mockImplementation(() => {})
+      const tempKeyPath = "/tmp/test-keyfile.key"
+      await Bun.write(tempKeyPath, TEST_PRIVATE_KEY)
+
+      const signer = await createSigner({
+        keyfile: tempKeyPath,
+        ledger: false,
+        trezor: false,
+        chainId: 1
+      })
+
+      expect(signer.address.toLowerCase()).toBe(EXPECTED_ADDRESS.toLowerCase())
 
       consoleSpy.mockRestore()
     })

@@ -1,130 +1,10 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
-import type { BindingMode, ReplayMode } from "@slicekit/erc8128"
-import { Command } from "commander"
+import { describe, expect, test } from "bun:test"
+import { parseArgs } from "./args.js"
 
-// We test the validation and parsing logic by creating a new Command instance
-// with the same options as parseArgs, but calling parse() with explicit argv
-
-interface CliOptions {
-  method: string
-  headers: string[]
-  data?: string
-  output?: string
-  include: boolean
-  verbose: boolean
-  privateKey?: string
-  keystore?: string
-  password?: string
-  ledger: boolean
-  trezor: boolean
-  chainId: number
-  binding: BindingMode
-  replay: ReplayMode
-  ttl: number
-  url: string
-}
-
-function collect(value: string, previous: string[]): string[] {
-  return previous.concat([value])
-}
-
-function parseIntOption(value: string): number {
-  const parsed = Number.parseInt(value, 10)
-  if (Number.isNaN(parsed)) {
-    throw new Error(`Invalid number: ${value}`)
-  }
-  return parsed
-}
-
-function validateBinding(value: string): BindingMode {
-  if (value !== "request-bound" && value !== "class-bound") {
-    throw new Error(
-      `Invalid binding mode: ${value}. Must be 'request-bound' or 'class-bound'.`
-    )
-  }
-  return value as BindingMode
-}
-
-function validateReplay(value: string): ReplayMode {
-  if (value !== "non-replayable" && value !== "replayable") {
-    throw new Error(
-      `Invalid replay mode: ${value}. Must be 'non-replayable' or 'replayable'.`
-    )
-  }
-  return value as ReplayMode
-}
-
-function createProgram(): Command {
-  const program = new Command()
-
-  program
-    .name("eth-fetch")
-    .description("Sign HTTP requests with ERC-8128 (Ethereum HTTP signatures)")
-    .version("0.1.0")
-    .argument("<url>", "URL to fetch")
-    .option("-X, --request <method>", "HTTP method", "GET")
-    .option("-H, --header <header>", "Add header (repeatable)", collect, [])
-    .option("-d, --data <data>", "Request body")
-    .option("-o, --output <file>", "Write response to file")
-    .option("-i, --include", "Include response headers in output", false)
-    .option("-v, --verbose", "Show request details", false)
-    .option("--private-key <key>", "Raw private key (⚠️  insecure)")
-    .option("--keystore <path>", "Path to encrypted keystore file")
-    .option("--password <pass>", "Keystore password (or prompts interactively)")
-    .option(
-      "--ledger",
-      "Use Ledger hardware wallet (not yet implemented)",
-      false
-    )
-    .option(
-      "--trezor",
-      "Use Trezor hardware wallet (not yet implemented)",
-      false
-    )
-    .option("--chain-id <id>", "Chain ID", parseIntOption, 1)
-    .option(
-      "--binding <mode>",
-      "Binding mode: request-bound | class-bound",
-      validateBinding,
-      "request-bound"
-    )
-    .option(
-      "--replay <mode>",
-      "Replay mode: non-replayable | replayable",
-      validateReplay,
-      "non-replayable"
-    )
-    .option("--ttl <seconds>", "Signature TTL in seconds", parseIntOption, 60)
-    .exitOverride() // Throw instead of process.exit
-
-  return program
-}
-
-function parseTestArgs(argv: string[]): CliOptions {
-  const program = createProgram()
-  program.parse(["node", "eth-fetch", ...argv])
-
-  const url = program.args[0]
-  const opts = program.opts()
-
-  return {
-    method: opts.request.toUpperCase(),
-    headers: opts.header,
-    data: opts.data,
-    output: opts.output,
-    include: opts.include,
-    verbose: opts.verbose,
-    privateKey: opts.privateKey,
-    keystore: opts.keystore,
-    password: opts.password,
-    ledger: opts.ledger,
-    trezor: opts.trezor,
-    chainId: opts.chainId,
-    binding: opts.binding,
-    replay: opts.replay,
-    ttl: opts.ttl,
-    url
-  }
+function parseTestArgs(argv: string[]) {
+  return parseArgs(["node", "erc8128", "curl", ...argv], {
+    exitOverride: true
+  })
 }
 
 describe("CLI argument parsing", () => {
@@ -167,6 +47,21 @@ describe("CLI argument parsing", () => {
     test("verbose is false by default", () => {
       const opts = parseTestArgs(["https://example.com"])
       expect(opts.verbose).toBe(false)
+    })
+
+    test("json is false by default", () => {
+      const opts = parseTestArgs(["https://example.com"])
+      expect(opts.json).toBe(false)
+    })
+
+    test("fail is false by default", () => {
+      const opts = parseTestArgs(["https://example.com"])
+      expect(opts.fail).toBe(false)
+    })
+
+    test("dryRun is false by default", () => {
+      const opts = parseTestArgs(["https://example.com"])
+      expect(opts.dryRun).toBe(false)
     })
 
     test("hardware wallets are disabled by default", () => {
@@ -249,6 +144,8 @@ describe("CLI argument parsing", () => {
       const opts = parseTestArgs([
         "--binding",
         "class-bound",
+        "--components",
+        "@authority",
         "https://example.com"
       ])
       expect(opts.binding).toBe("class-bound")
@@ -341,6 +238,21 @@ describe("CLI argument parsing", () => {
       const opts = parseTestArgs(["-v", "https://example.com"])
       expect(opts.verbose).toBe(true)
     })
+
+    test("parses --json flag", () => {
+      const opts = parseTestArgs(["--json", "https://example.com"])
+      expect(opts.json).toBe(true)
+    })
+
+    test("parses --fail flag", () => {
+      const opts = parseTestArgs(["--fail", "https://example.com"])
+      expect(opts.fail).toBe(true)
+    })
+
+    test("parses --dry-run flag", () => {
+      const opts = parseTestArgs(["--dry-run", "https://example.com"])
+      expect(opts.dryRun).toBe(true)
+    })
   })
 
   describe("wallet options", () => {
@@ -351,6 +263,29 @@ describe("CLI argument parsing", () => {
         "https://example.com"
       ])
       expect(opts.privateKey).toBe("0xabc123")
+    })
+
+    test("parses --keyfile", () => {
+      const opts = parseTestArgs([
+        "--keyfile",
+        "/path/to/key",
+        "https://example.com"
+      ])
+      expect(opts.keyfile).toBe("/path/to/key")
+    })
+
+    test("parses --keyid", () => {
+      const opts = parseTestArgs([
+        "--keyid",
+        "eip155:1:0x14791697260E4c9A71f18484C9f997B308e59325",
+        "https://example.com"
+      ])
+      expect(opts.keyid).toBe(
+        "eip155:1:0x14791697260E4c9A71f18484C9f997B308e59325"
+      )
+      expect(opts.keyIdAddress).toBe(
+        "0x14791697260e4c9a71f18484c9f997b308e59325"
+      )
     })
 
     test("parses --keystore", () => {
@@ -396,6 +331,92 @@ describe("CLI argument parsing", () => {
     })
   })
 
+  describe("components parsing", () => {
+    test("parses --components as repeatable", () => {
+      const opts = parseTestArgs([
+        "--components",
+        "x-api-key",
+        "--components",
+        "x-request-id",
+        "https://example.com"
+      ])
+      expect(opts.components).toEqual(["x-api-key", "x-request-id"])
+    })
+
+    test("parses --components with comma-separated values", () => {
+      const opts = parseTestArgs([
+        "--components",
+        "x-api-key,x-request-id",
+        "https://example.com"
+      ])
+      expect(opts.components).toEqual(["x-api-key", "x-request-id"])
+    })
+
+    test("requires components for class-bound", () => {
+      expect(() =>
+        parseTestArgs(["--binding", "class-bound", "https://example.com"])
+      ).toThrow("components are required for class-bound signatures.")
+    })
+  })
+
+  describe("config file defaults", () => {
+    test("uses config defaults when flags are omitted", () => {
+      const configPath = "/tmp/erc8128-config.json"
+      Bun.write(
+        configPath,
+        JSON.stringify({
+          chainId: 8453,
+          binding: "request-bound",
+          replay: "replayable",
+          ttl: 120,
+          headers: ["X-From-Config: true"],
+          components: ["x-idempotency-key"]
+        })
+      )
+
+      const opts = parseTestArgs([
+        "--config",
+        configPath,
+        "https://example.com"
+      ])
+
+      expect(opts.chainId).toBe(8453)
+      expect(opts.replay).toBe("replayable")
+      expect(opts.ttl).toBe(120)
+      expect(opts.headers).toEqual(["X-From-Config: true"])
+      expect(opts.components).toEqual(["x-idempotency-key"])
+    })
+
+    test("CLI flags override config defaults", () => {
+      const configPath = "/tmp/erc8128-config-override.json"
+      Bun.write(
+        configPath,
+        JSON.stringify({
+          method: "POST",
+          chainId: 1,
+          ttl: 60,
+          headers: ["X-From-Config: true"]
+        })
+      )
+
+      const opts = parseTestArgs([
+        "--config",
+        configPath,
+        "-X",
+        "GET",
+        "--chain-id",
+        "137",
+        "-H",
+        "X-From-CLI: true",
+        "https://example.com"
+      ])
+
+      expect(opts.method).toBe("GET")
+      expect(opts.chainId).toBe(137)
+      expect(opts.headers).toEqual(["X-From-Config: true", "X-From-CLI: true"])
+    })
+  })
+
   describe("combined options", () => {
     test("parses full curl-like command", () => {
       const opts = parseTestArgs([
@@ -415,6 +436,8 @@ describe("CLI argument parsing", () => {
         "non-replayable",
         "--ttl",
         "120",
+        "--components",
+        "x-idempotency-key",
         "--private-key",
         "0x1234",
         "-i",
@@ -432,6 +455,7 @@ describe("CLI argument parsing", () => {
       expect(opts.binding).toBe("request-bound")
       expect(opts.replay).toBe("non-replayable")
       expect(opts.ttl).toBe(120)
+      expect(opts.components).toEqual(["x-idempotency-key"])
       expect(opts.privateKey).toBe("0x1234")
       expect(opts.include).toBe(true)
       expect(opts.verbose).toBe(true)

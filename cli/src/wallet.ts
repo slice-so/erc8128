@@ -7,6 +7,7 @@ import { privateKeyToAccount } from "viem/accounts"
 
 export interface WalletOptions {
   privateKey?: string
+  keyfile?: string
   keystore?: string
   password?: string
   ledger: boolean
@@ -33,6 +34,12 @@ export async function createSigner(
     return createSignerFromPrivateKey(opts.privateKey, opts.chainId)
   }
 
+  // Try private key from file
+  if (opts.keyfile) {
+    const key = await readKeyFile(opts.keyfile)
+    return createSignerFromPrivateKey(key, opts.chainId)
+  }
+
   // Try keystore
   if (opts.keystore) {
     const password = opts.password ?? (await promptPassword())
@@ -49,7 +56,7 @@ export async function createSigner(
   }
 
   throw new Error(
-    "No wallet specified. Use --private-key, --keystore, or set ETH_PRIVATE_KEY environment variable."
+    "No wallet specified. Use --keyfile, --private-key, --keystore, or set ETH_PRIVATE_KEY environment variable."
   )
 }
 
@@ -98,6 +105,23 @@ async function promptPassword(): Promise<string> {
       resolve(answer)
     })
   })
+}
+
+async function readKeyFile(path: string): Promise<string> {
+  const key =
+    path === "-"
+      ? await readStdin()
+      : await readFile(path, { encoding: "utf-8" })
+
+  return key.trim()
+}
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = []
+  for await (const chunk of process.stdin) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+  }
+  return Buffer.concat(chunks).toString("utf-8")
 }
 
 function accountToSigner(

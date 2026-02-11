@@ -1,19 +1,11 @@
 {
+  "extends": "@slice/typescript-config/base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
     "target": "ES2022",
-    "lib": ["ES2022"],
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "resolveJsonModule": true,
-    "forceConsistentCasingInFileNames": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "types": ["bun-types", "node"],
     "baseUrl": ".",
     "paths": {
       "@slicekit/erc8128": ["../src/index.ts"]

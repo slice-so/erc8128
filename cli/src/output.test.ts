@@ -34,6 +34,32 @@ describe("output handling", () => {
         consoleSpy.mockRestore()
       })
 
+      test("outputs JSON wrapper when json=true", async () => {
+        const consoleSpy = spyOn(console, "log").mockImplementation(() => {})
+
+        const response = new Response("Hello, JSON!", {
+          status: 201,
+          statusText: "Created",
+          headers: { "Content-Type": "text/plain" }
+        })
+
+        await handleResponse(response, {
+          include: false,
+          verbose: false,
+          json: true
+        })
+
+        const output = consoleSpy.mock.calls[0][0]
+        const parsed = JSON.parse(output)
+        expect(parsed.status).toBe(201)
+        expect(parsed.statusText).toBe("Created")
+        expect(parsed.ok).toBe(true)
+        expect(parsed.body).toBe("Hello, JSON!")
+        expect(parsed.headers["content-type"]).toBe("text/plain")
+
+        consoleSpy.mockRestore()
+      })
+
       test("outputs JSON response body", async () => {
         const consoleSpy = spyOn(console, "log").mockImplementation(() => {})
 
