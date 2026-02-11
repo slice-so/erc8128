@@ -91,6 +91,7 @@ erc8128 curl -X POST \
 
 ```bash
 erc8128 curl --keystore ./keyfile.json https://api.example.com/data
+```
 
 ### Using keyfile + keyid
 
