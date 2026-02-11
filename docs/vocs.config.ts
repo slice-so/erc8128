@@ -34,7 +34,8 @@ export default defineConfig({
         {
           text: "Smart Contract Accounts",
           link: "/guides/smart-contract-accounts"
-        }
+        },
+        { text: "eth-fetch CLI", link: "/guides/cli" }
       ]
     },
     {
