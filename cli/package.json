@@ -1,0 +1,46 @@
+{
+  "name": "@slicekit/erc8128-cli",
+  "version": "0.1.0",
+  "description": "CLI tool for signing HTTP requests with ERC-8128 (Ethereum HTTP signatures)",
+  "type": "module",
+  "bin": {
+    "erc8128": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run --watch ./src/index.ts",
+    "test": "bun test",
+    "format": "biome format --write",
+    "lint": "biome lint --write",
+    "check": "biome check --write"
+  },
+  "keywords": [
+    "ethereum",
+    "http",
+    "signatures",
+    "erc8128",
+    "cli",
+    "web3",
+    "wallet"
+  ],
+  "author": "slice-so",
+  "license": "MIT",
+  "dependencies": {
+    "@slicekit/erc8128": "0.1.0",
+    "commander": "^14.0.0",
+    "viem": "^2.37.5"
+  },
+  "homepage": "https://erc8128.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slice-so/erc8128"
+  },
+  "peerDependencies": {},
+  "devDependencies": {
+    "@types/node": "~24.3.1",
+    "typescript": "^5.9.2"
+  },
+  "files": [
+    "dist"
+  ]
+}
