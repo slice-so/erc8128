@@ -30,6 +30,11 @@
     "commander": "^14.0.0",
     "viem": "catalog:"
   },
+  "homepage": "https://erc8128.org",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/slice-so/erc8128"
+  },
   "peerDependencies": {},
   "devDependencies": {
     "@types/node": "catalog:",
