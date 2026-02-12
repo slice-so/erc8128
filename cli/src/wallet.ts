@@ -10,22 +10,12 @@ export interface WalletOptions {
   keyfile?: string
   keystore?: string
   password?: string
-  ledger: boolean
-  trezor: boolean
   chainId: number
 }
 
 export async function createSigner(
   opts: WalletOptions
 ): Promise<EthHttpSigner> {
-  // Check for hardware wallets (not yet implemented)
-  if (opts.ledger) {
-    throw new Error("Ledger support is not yet implemented")
-  }
-  if (opts.trezor) {
-    throw new Error("Trezor support is not yet implemented")
-  }
-
   // Try private key from options
   if (opts.privateKey) {
     console.error(

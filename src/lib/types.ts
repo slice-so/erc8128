@@ -20,7 +20,6 @@ export type SetHeadersFn = (name: string, value: string) => void
 export type BindingMode = "request-bound" | "class-bound"
 export type ReplayMode = "non-replayable" | "replayable"
 export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
-export type HeaderMode = "replace" | "append"
 
 export type SignOptions = {
   label?: string // default: "eth"
@@ -34,7 +33,6 @@ export type SignOptions = {
   nonce?: string | (() => Promise<string>)
 
   contentDigest?: ContentDigestMode
-  headerMode?: HeaderMode
   components?: string[]
 }
 

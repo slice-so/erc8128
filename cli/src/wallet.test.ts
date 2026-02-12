@@ -1,13 +1,5 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test
-} from "bun:test"
-import { createSigner, type WalletOptions } from "./wallet.js"
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { createSigner } from "./wallet.js"
 
 // Test private key (well-known test key, DO NOT USE IN PRODUCTION)
 const TEST_PRIVATE_KEY =
@@ -40,8 +32,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -62,8 +52,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY_WITHOUT_PREFIX,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -77,8 +65,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 137
       })
 
@@ -92,8 +78,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -113,8 +97,6 @@ describe("wallet creation", () => {
       process.env.ETH_PRIVATE_KEY = TEST_PRIVATE_KEY
 
       const signer = await createSigner({
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -129,8 +111,6 @@ describe("wallet creation", () => {
       process.env.ETH_PRIVATE_KEY = TEST_PRIVATE_KEY
 
       await createSigner({
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -151,8 +131,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -167,33 +145,11 @@ describe("wallet creation", () => {
     test("throws when no wallet specified", async () => {
       await expect(
         createSigner({
-          ledger: false,
-          trezor: false,
           chainId: 1
         })
       ).rejects.toThrow(
         "No wallet specified. Use --keyfile, --private-key, --keystore, or set ETH_PRIVATE_KEY environment variable."
       )
-    })
-
-    test("throws when Ledger is specified", async () => {
-      await expect(
-        createSigner({
-          ledger: true,
-          trezor: false,
-          chainId: 1
-        })
-      ).rejects.toThrow("Ledger support is not yet implemented")
-    })
-
-    test("throws when Trezor is specified", async () => {
-      await expect(
-        createSigner({
-          ledger: false,
-          trezor: true,
-          chainId: 1
-        })
-      ).rejects.toThrow("Trezor support is not yet implemented")
     })
 
     test("throws on invalid private key", async () => {
@@ -202,8 +158,6 @@ describe("wallet creation", () => {
       await expect(
         createSigner({
           privateKey: "not-a-valid-key",
-          ledger: false,
-          trezor: false,
           chainId: 1
         })
       ).rejects.toThrow()
@@ -217,8 +171,6 @@ describe("wallet creation", () => {
       await expect(
         createSigner({
           privateKey: "0x1234",
-          ledger: false,
-          trezor: false,
           chainId: 1
         })
       ).rejects.toThrow()
@@ -233,8 +185,6 @@ describe("wallet creation", () => {
         createSigner({
           keystore: "/nonexistent/path/keystore.json",
           password: "password",
-          ledger: false,
-          trezor: false,
           chainId: 1
         })
       ).rejects.toThrow("Failed to load keystore")
@@ -261,8 +211,6 @@ describe("wallet creation", () => {
         createSigner({
           keystore: tempKeystorePath,
           password: "password",
-          ledger: false,
-          trezor: false,
           chainId: 1
         })
       ).rejects.toThrow("Keystore decryption not yet implemented")
@@ -279,8 +227,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         keyfile: tempKeyPath,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -296,8 +242,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 42161 // Arbitrum
       })
 
@@ -316,8 +260,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -342,8 +284,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -361,8 +301,6 @@ describe("wallet creation", () => {
 
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 

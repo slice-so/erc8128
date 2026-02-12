@@ -27,8 +27,6 @@ describe("integration tests", () => {
     test("signs request with Signature and Signature-Input headers", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -58,8 +56,6 @@ describe("integration tests", () => {
     test("signs POST request with body and adds Content-Digest", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -84,8 +80,6 @@ describe("integration tests", () => {
     test("signed request can be verified", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -137,8 +131,6 @@ describe("integration tests", () => {
     test("includes nonce for non-replayable requests", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -157,8 +149,6 @@ describe("integration tests", () => {
     test("excludes nonce for replayable requests", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -179,8 +169,6 @@ describe("integration tests", () => {
     test("keyid includes correct chain ID", async () => {
       const signer137 = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 137 // Polygon
       })
 
@@ -197,15 +185,11 @@ describe("integration tests", () => {
     test("different chain IDs produce different keyids", async () => {
       const signerMainnet = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
       const signerArbitrum = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 42161
       })
 
@@ -228,8 +212,6 @@ describe("integration tests", () => {
     test("request-bound includes all required components", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -255,8 +237,6 @@ describe("integration tests", () => {
     test("class-bound with explicit components", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -279,8 +259,6 @@ describe("integration tests", () => {
     test("respects custom TTL in signature", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -307,8 +285,6 @@ describe("integration tests", () => {
     test("preserves original request headers", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -332,8 +308,6 @@ describe("integration tests", () => {
     test("can sign extra header components", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 
@@ -357,8 +331,6 @@ describe("integration tests", () => {
     test("signedFetch adds signature headers (mocked)", async () => {
       const signer = await createSigner({
         privateKey: TEST_PRIVATE_KEY,
-        ledger: false,
-        trezor: false,
         chainId: 1
       })
 

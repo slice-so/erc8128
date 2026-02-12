@@ -23,8 +23,6 @@ export interface CliOptions {
   keyIdAddress?: string
   keystore?: string
   password?: string
-  ledger: boolean
-  trezor: boolean
 
   // ERC-8128 options
   chainId: number
@@ -101,16 +99,6 @@ export function parseArgs(
       config.keystore
     )
     .option("--password <pass>", "Keystore password (or prompts interactively)")
-    .option(
-      "--ledger",
-      "Use Ledger hardware wallet (not yet implemented)",
-      config.ledger ?? false
-    )
-    .option(
-      "--trezor",
-      "Use Trezor hardware wallet (not yet implemented)",
-      config.trezor ?? false
-    )
     .option("--chain-id <id>", "Chain ID", parseIntOption, config.chainId)
     .option(
       "--binding <mode>",
@@ -167,8 +155,6 @@ export function parseArgs(
         keyIdAddress: keyIdInfo?.address,
         keystore: options.keystore as string | undefined,
         password: options.password as string | undefined,
-        ledger: Boolean(options.ledger),
-        trezor: Boolean(options.trezor),
         chainId,
         binding: options.binding as BindingMode,
         replay: options.replay as ReplayMode,
@@ -281,8 +267,6 @@ type CliConfig = {
   keyid?: string
   keystore?: string
   password?: string
-  ledger?: boolean
-  trezor?: boolean
   chainId?: number
   binding?: BindingMode
   replay?: ReplayMode
@@ -318,7 +302,7 @@ function loadConfig(argv: string[]): CliConfig {
 }
 
 function resolveConfigPath(argv: string[]): string | undefined {
-  const configFlagIndex = argv.findIndex((arg) => arg === "--config")
+  const configFlagIndex = argv.indexOf("--config")
   if (configFlagIndex !== -1) {
     const value = argv[configFlagIndex + 1]
     if (!value) throw new Error("Missing value for --config.")

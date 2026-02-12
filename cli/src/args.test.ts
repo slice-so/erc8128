@@ -63,12 +63,6 @@ describe("CLI argument parsing", () => {
       const opts = parseTestArgs(["https://example.com"])
       expect(opts.dryRun).toBe(false)
     })
-
-    test("hardware wallets are disabled by default", () => {
-      const opts = parseTestArgs(["https://example.com"])
-      expect(opts.ledger).toBe(false)
-      expect(opts.trezor).toBe(false)
-    })
   })
 
   describe("method parsing", () => {
@@ -306,16 +300,6 @@ describe("CLI argument parsing", () => {
         "https://example.com"
       ])
       expect(opts.password).toBe("secret")
-    })
-
-    test("parses --ledger flag", () => {
-      const opts = parseTestArgs(["--ledger", "https://example.com"])
-      expect(opts.ledger).toBe(true)
-    })
-
-    test("parses --trezor flag", () => {
-      const opts = parseTestArgs(["--trezor", "https://example.com"])
-      expect(opts.trezor).toBe(true)
     })
   })
 
