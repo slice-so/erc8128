@@ -26,9 +26,9 @@
   "author": "slice-so",
   "license": "MIT",
   "dependencies": {
-    "@slicekit/erc8128": "workspace:*",
+    "@slicekit/erc8128": "0.1.0",
     "commander": "^14.0.0",
-    "viem": "catalog:"
+    "viem": "^2.37.5"
   },
   "homepage": "https://erc8128.org",
   "repository": {
@@ -37,7 +37,7 @@
   },
   "peerDependencies": {},
   "devDependencies": {
-    "@types/node": "catalog:",
+    "@types/node": "~24.3.1",
     "typescript": "^5.9.2"
   },
   "files": [

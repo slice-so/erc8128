@@ -1,6 +1,6 @@
 import { chmod, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { buildPackage } from "../../../build.ts"
+import { buildPackage } from "../build.shared.ts"
 import { dependencies, peerDependencies } from "./package.json"
 
 await buildPackage({
