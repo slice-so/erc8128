@@ -32,7 +32,7 @@ erc8128 curl https://api.example.com/orders
 
 ```
 -X, --request <method>    HTTP method (GET, POST, etc.) [default: GET]
--H, --header <header>     Add header (repeatable)
+-H, --header <header>...  Add header (can be specified multiple times)
 -d, --data <data>         Request body (use @file or @- for stdin)
 -o, --output <file>       Write response to file
 -i, --include             Include response headers in output
@@ -45,14 +45,13 @@ erc8128 curl https://api.example.com/orders
 
 ### Wallet Options
 
+You can use the following options to provide a wallet:
+
 ```
---private-key <key>       Raw private key (⚠️  insecure)
---keyfile <path>          Path to a raw private key file (use - for stdin)
---keyid <keyid>           Expected key id (eip155:chainId:address)
 --keystore <path>         Path to encrypted keystore file
 --password <pass>         Keystore password (or prompts interactively)
---ledger                  Use Ledger hardware wallet (not yet implemented)
---trezor                  Use Trezor hardware wallet (not yet implemented)
+--keyfile <path>          Path to a raw private key file (use - for stdin) (⚠️ insecure)
+--private-key <key>       Raw private key (⚠️ insecure)
 ```
 
 **Environment Variable:** You can also set `ETH_PRIVATE_KEY` to provide a private key.
@@ -61,12 +60,17 @@ erc8128 curl https://api.example.com/orders
 
 ### ERC-8128 Options
 
+You can use the following options to configure the ERC-8128 signature:
+
 ```
---chain-id <id>           Chain ID [default: 1]
---binding <mode>          request-bound | class-bound [default: request-bound]
---replay <mode>           non-replayable | replayable [default: non-replayable]
---ttl <seconds>           Signature TTL in seconds [default: 60]
---components <component>  Additional components to sign (repeatable)
+--chain-id <id>               Chain ID [default: 1]
+--binding <mode>              request-bound | class-bound [default: request-bound]
+--replay <mode>               non-replayable | replayable [default: non-replayable]
+--ttl <seconds>               Signature TTL in seconds [default: 60]
+--components <component>...   Components to sign (can be specified multiple times)
+                                - Additional components for request-bound signatures
+                                - Required Components for class-bound signatures
+--keyid <keyid>               Expected key id (erc8128:chainId:address)
 ```
 
 ## Examples
@@ -74,7 +78,7 @@ erc8128 curl https://api.example.com/orders
 ### Simple GET request
 
 ```bash
-erc8128 curl --private-key 0x... https://api.example.com/data
+erc8128 curl --keystore ./keyfile.json https://api.example.com/data
 ```
 
 ### POST with JSON data
@@ -83,31 +87,34 @@ erc8128 curl --private-key 0x... https://api.example.com/data
 erc8128 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{"foo":"bar"}' \
-  --private-key 0x... \
+  --keystore ./keyfile.json \
   https://api.example.com/submit
-```
-
-### Using keystore file
-
-```bash
-erc8128 curl --keystore ./keyfile.json https://api.example.com/data
 ```
 
 ### Using keyfile + keyid
 
 ```bash
-erc8128 curl https://api.example.com/orders \
-  -X POST -d @body.json \
+erc8128 curl -X POST \
+  -d @body.json \
   --keyfile ~/.keys/bot.key \
-  --keyid eip155:8453:0xabc...
+  --keyid erc8128:8453:0xabc... \
+  https://api.example.com/orders
 ```
 
 ### Dry run (sign only)
 
 ```bash
-erc8128 curl --dry-run https://api.example.com/orders \
-  -X POST -d @body.json \
-  --keyfile ~/.keys/bot.key
+erc8128 curl -X POST \
+  -d @body.json \
+  --keyfile ~/.keys/bot.key \
+  --dry-run \
+  https://api.example.com/orders
+```
+
+### Using private key 
+
+```bash
+erc8128 curl --private-key 0x... https://api.example.com/data
 ```
 
 ## Config
@@ -127,11 +134,10 @@ Example:
   "replay": "non-replayable",
   "ttl": 120,
   "keyfile": "/Users/you/.keys/bot.key",
-  "keyid": "eip155:8453:0xabc...",
+  "keyid": "erc8128:8453:0xabc...",
   "headers": ["Content-Type: application/json"],
   "components": ["x-idempotency-key"]
 }
-```
 ```
 
 ### With environment variable
@@ -144,19 +150,25 @@ erc8128 curl https://api.example.com/data
 ### Verbose output
 
 ```bash
-erc8128 curl -v --private-key 0x... https://api.example.com/data
+erc8128 curl -v \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
 ```
 
 ### Save response to file
 
 ```bash
-erc8128 curl -o response.json --private-key 0x... https://api.example.com/data
+erc8128 curl -o response.json \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
 ```
 
 ### Include response headers
 
 ```bash
-erc8128 curl -i --private-key 0x... https://api.example.com/data
+erc8128 curl -i \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
 ```
 
 ### Custom chain ID and signature options
@@ -167,7 +179,7 @@ erc8128 curl \
   --binding class-bound \
   --replay replayable \
   --ttl 300 \
-  --private-key 0x... \
+  --keystore ./keyfile.json \
   https://api.example.com/data
 ```
 
