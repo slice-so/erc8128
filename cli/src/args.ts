@@ -90,7 +90,7 @@ export function parseArgs(
     )
     .option(
       "--keyid <keyid>",
-      "Expected key id (eip155:chainId:address)",
+      "Expected key id (erc8128:<chainId>:<address>)",
       config.keyid
     )
     .option(
@@ -231,7 +231,7 @@ function parseKeyId(value: string): { chainId: number; address: string } {
   const parts = value.split(":")
   if (parts.length !== 3) {
     throw new Error(
-      `Invalid keyid format: ${value}. Expected eip155:chainId:address.`
+      `Invalid keyid format: ${value}. Expected erc8128:<chainId>:<address>.`
     )
   }
 
