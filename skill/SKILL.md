@@ -1,11 +1,13 @@
 ---
 name: erc8128
-description: Sign and verify HTTP requests with Ethereum wallets using ERC-8128. Use when building authenticated APIs that need wallet-based auth, making signed requests to ERC-8128 endpoints, implementing request verification in servers, or working with agent-to-server authentication. Covers both the @slicekit/erc8128 JS library and the erc8128 curl CLI.
+description: Sign and verify HTTP requests with Ethereum wallets using ERC-8128. Use when building authenticated APIs that need wallet-based auth, making signed requests to ERC-8128 endpoints, implementing request verification in servers, or working with agent-to-server authentication. Covers both the @slicekit/erc8128 JS library and the erc8128 CLI.
 ---
 
 # ERC-8128: Ethereum HTTP Signatures
 
 ERC-8128 extends RFC 9421 (HTTP Message Signatures) with Ethereum wallet signing. It enables HTTP authentication using existing Ethereum keys—no new credentials needed.
+
+📚 **Full documentation:** [erc8128.slice.so](https://erc8128.slice.so)
 
 ## When to Use
 
@@ -27,15 +29,18 @@ ERC-8128 extends RFC 9421 (HTTP Message Signatures) with Ethereum wallet signing
 
 ```typescript
 import { createSignerClient } from '@slicekit/erc8128'
+import type { EthHttpSigner } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const account = privateKeyToAccount('0x...')
 
-const client = createSignerClient({
+const signer: EthHttpSigner = {
   chainId: 1,
   address: account.address,
-  signMessage: (msg) => account.signMessage({ message: { raw: msg } }),
-})
+  signMessage: async (msg) => account.signMessage({ message: { raw: msg } }),
+}
+
+const client = createSignerClient(signer)
 
 // Sign and send
 const response = await client.fetch('https://api.example.com/orders', {
@@ -52,11 +57,12 @@ const signedRequest = await client.signRequest('https://api.example.com/orders')
 
 ```typescript
 import { createVerifierClient } from '@slicekit/erc8128'
+import type { NonceStore } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 
 // NonceStore interface for replay protection
-const nonceStore = {
+const nonceStore: NonceStore = {
   consume: async (key: string, ttlSeconds: number): Promise<boolean> => {
     // Return true if nonce was successfully consumed (first use)
     // Return false if nonce was already used (replay attempt)
@@ -82,10 +88,14 @@ if (result.ok) {
 | `binding` | `"request-bound"` \| `"class-bound"` | `"request-bound"` | What to sign |
 | `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Include nonce |
 | `ttlSeconds` | `number` | `60` | Signature validity |
-| `components` | `string[]` | — | Override signed components |
+| `components` | `string[]` | — | Additional components to sign |
+| `contentDigest` | `"auto"` \| `"recompute"` \| `"require"` \| `"off"` | `"auto"` | Content-Digest handling |
 
-**request-bound**: Signs URL path, method, body. Each request is unique.
-**class-bound**: Signs only headers/components specified. Reusable across similar requests.
+**request-bound**: Signs `@authority`, `@method`, `@path`, `@query` (if present), and `content-digest` (if body present). Each request is unique.
+
+**class-bound**: Signs only the components you explicitly specify. Reusable across similar requests. Requires `components` array.
+
+📖 See [Request Binding](https://erc8128.slice.so/concepts/request-binding) for details.
 
 ### Verify policy
 
@@ -94,6 +104,9 @@ if (result.ok) {
 | `maxValiditySec` | `number` | `300` | Max allowed TTL |
 | `clockSkewSec` | `number` | `0` | Allowed clock drift |
 | `replayable` | `boolean` | `false` | Allow nonce-less signatures |
+| `classBoundPolicies` | `string[]` \| `string[][]` | — | Accepted class-bound component sets |
+
+📖 See [Verifying Requests](https://erc8128.slice.so/guides/verifying-requests) and [VerifyPolicy](https://erc8128.slice.so/api/types#verifypolicy) for full options.
 
 ## CLI: erc8128 curl
 
@@ -116,20 +129,31 @@ erc8128 curl -X POST \
 erc8128 curl --dry-run -d @body.json --keyfile ~/.keys/bot.key https://api.example.com
 ```
 
+📖 See [CLI Guide](https://erc8128.slice.so/guides/cli) for full documentation.
+
 ## Common Patterns
 
 ### Express middleware
 
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
+import type { NonceStore } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
 
+// Implement NonceStore (Redis example)
+const nonceStore: NonceStore = {
+  consume: async (key, ttlSeconds) => {
+    const result = await redis.set(key, '1', 'EX', ttlSeconds, 'NX')
+    return result === 'OK'
+  }
+}
+
 async function erc8128Auth(req, res, next) {
   const result = await verifyRequest(
-    toFetchRequest(req),
+    toFetchRequest(req), // Convert Express req to Fetch Request
     publicClient.verifyMessage,
     nonceStore
   )
@@ -147,17 +171,20 @@ async function erc8128Auth(req, res, next) {
 
 ```typescript
 import { createSignerClient } from '@slicekit/erc8128'
+import type { EthHttpSigner } from '@slicekit/erc8128'
 import { privateKeyToAccount } from 'viem/accounts'
 import { readFileSync } from 'fs'
 
 const key = readFileSync(process.env.KEYFILE, 'utf8').trim()
 const account = privateKeyToAccount(key as `0x${string}`)
 
-const client = createSignerClient({
+const signer: EthHttpSigner = {
   chainId: Number(process.env.CHAIN_ID) || 1,
   address: account.address,
-  signMessage: (msg) => account.signMessage({ message: { raw: msg } }),
-})
+  signMessage: async (msg) => account.signMessage({ message: { raw: msg } }),
+}
+
+const client = createSignerClient(signer)
 
 // Use client.fetch() for all authenticated requests
 ```
@@ -166,19 +193,32 @@ const client = createSignerClient({
 
 ```typescript
 type VerifyFailReason =
-  | 'missing-signature-header'
-  | 'invalid-signature-header'
-  | 'missing-signature-input-header'
-  | 'invalid-signature-input-header'
-  | 'signature-label-mismatch'
-  | 'invalid-keyid'
-  | 'signature-expired'
-  | 'signature-from-future'
-  | 'nonce-reused'
-  | 'component-mismatch'
-  | 'invalid-signature'
-  | 'content-digest-mismatch'
+  | 'missing_headers'
+  | 'label_not_found'
+  | 'bad_signature_input'
+  | 'bad_signature'
+  | 'bad_keyid'
+  | 'bad_time'
+  | 'not_yet_valid'
+  | 'expired'
+  | 'validity_too_long'
+  | 'nonce_required'
+  | 'replayable_not_allowed'
+  | 'replayable_invalidation_required'
+  | 'replayable_not_before'
+  | 'replayable_invalidated'
+  | 'class_bound_not_allowed'
+  | 'not_request_bound'
+  | 'nonce_window_too_long'
+  | 'replay'
+  | 'digest_mismatch'
+  | 'digest_required'
+  | 'alg_not_allowed'
+  | 'bad_signature_bytes'
+  | 'bad_signature_check'
 ```
+
+📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for descriptions.
 
 ## Key Management
 
@@ -193,4 +233,8 @@ For agents and automated systems:
 
 ## Documentation
 
-Full docs: [erc8128.slice.so](https://erc8128.slice.so)
+- **Full docs:** [erc8128.slice.so](https://erc8128.slice.so)
+- **Quick Start:** [erc8128.slice.so/getting-started/quick-start](https://erc8128.slice.so/getting-started/quick-start)
+- **Concepts:** [erc8128.slice.so/concepts/overview](https://erc8128.slice.so/concepts/overview)
+- **API Reference:** [erc8128.slice.so/api/signRequest](https://erc8128.slice.so/api/signRequest)
+- **ERC-8128 Spec:** [GitHub](https://github.com/slice-so/ERCs/blob/d9c6f41183008285a0e9f1af1d2aeac72e7a8fdc/ERCS/erc-8128.md)
