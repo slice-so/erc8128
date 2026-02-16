@@ -49,12 +49,15 @@ You can use the following options to provide a wallet:
 
 ```
 --keystore <path>         Path to encrypted keystore file
---password <pass>         Keystore password (or prompts interactively)
+--password <pass>         Keystore password
+--interactive             Prompt for keystore password interactively
 --keyfile <path>          Path to a raw private key file (use - for stdin) (⚠️ insecure)
 --private-key <key>       Raw private key (⚠️ insecure)
 ```
 
-**Environment Variable:** You can also set `ETH_PRIVATE_KEY` to provide a private key.
+**Environment Variables:**
+- `ETH_PRIVATE_KEY` for raw private key auth (⚠️ insecure)
+- `ETH_KEYSTORE_PASSWORD` for non-interactive keystore decryption
 
 ⚠️ **Security Warning:** Using `--private-key` or `ETH_PRIVATE_KEY` is insecure as the key may be visible in shell history. Use `--keystore` for better security.
 
@@ -79,6 +82,15 @@ You can use the following options to configure the ERC-8128 signature:
 
 ```bash
 erc8128 curl --keystore ./keyfile.json https://api.example.com/data
+```
+
+### Keystore + interactive password prompt 
+
+```bash
+erc8128 curl \
+  --keystore ~/.ethereum/keystores/my-key \
+  --interactive \
+  https://api.example.com/data
 ```
 
 ### POST with JSON data

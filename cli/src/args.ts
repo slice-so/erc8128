@@ -23,6 +23,7 @@ export interface CliOptions {
   keyIdAddress?: string
   keystore?: string
   password?: string
+  interactive: boolean
 
   // ERC-8128 options
   chainId: number
@@ -98,7 +99,12 @@ export function parseArgs(
       "Path to encrypted keystore file",
       config.keystore
     )
-    .option("--password <pass>", "Keystore password (or prompts interactively)")
+    .option("--password <pass>", "Keystore password")
+    .option(
+      "--interactive",
+      "Prompt interactively for sensitive values (e.g. keystore password)",
+      config.interactive ?? false
+    )
     .option("--chain-id <id>", "Chain ID", parseIntOption, config.chainId)
     .option(
       "--binding <mode>",
@@ -155,6 +161,7 @@ export function parseArgs(
         keyIdAddress: keyIdInfo?.address,
         keystore: options.keystore as string | undefined,
         password: options.password as string | undefined,
+        interactive: Boolean(options.interactive),
         chainId,
         binding: options.binding as BindingMode,
         replay: options.replay as ReplayMode,
@@ -267,6 +274,7 @@ type CliConfig = {
   keyid?: string
   keystore?: string
   password?: string
+  interactive?: boolean
   chainId?: number
   binding?: BindingMode
   replay?: ReplayMode

@@ -1,4 +1,22 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test
+} from "bun:test"
+import {
+  createCipheriv,
+  randomBytes,
+  randomUUID,
+  scryptSync
+} from "node:crypto"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import path from "node:path"
+import { keccak256 } from "viem"
 import { createSigner } from "./wallet.js"
 
 // Test private key (well-known test key, DO NOT USE IN PRODUCTION)
@@ -12,10 +30,13 @@ const EXPECTED_ADDRESS = "0x14791697260E4c9A71f18484C9f997B308e59325"
 
 describe("wallet creation", () => {
   let originalEnv: string | undefined
+  let originalKeystorePasswordEnv: string | undefined
 
   beforeEach(() => {
     originalEnv = process.env.ETH_PRIVATE_KEY
+    originalKeystorePasswordEnv = process.env.ETH_KEYSTORE_PASSWORD
     delete process.env.ETH_PRIVATE_KEY
+    delete process.env.ETH_KEYSTORE_PASSWORD
   })
 
   afterEach(() => {
@@ -24,6 +45,17 @@ describe("wallet creation", () => {
     } else {
       delete process.env.ETH_PRIVATE_KEY
     }
+
+    if (originalKeystorePasswordEnv !== undefined) {
+      process.env.ETH_KEYSTORE_PASSWORD = originalKeystorePasswordEnv
+    } else {
+      delete process.env.ETH_KEYSTORE_PASSWORD
+    }
+  })
+
+  afterAll(async () => {
+    if (!testTempDir) return
+    await rm(testTempDir, { recursive: true, force: true })
   })
 
   describe("private key from --private-key flag", () => {
@@ -180,6 +212,52 @@ describe("wallet creation", () => {
   })
 
   describe("keystore handling", () => {
+    test("creates signer from keystore with --password", async () => {
+      const tempKeystorePath = await writeKeystore(
+        TEST_PRIVATE_KEY,
+        "password-123"
+      )
+
+      const signer = await createSigner({
+        keystore: tempKeystorePath,
+        password: "password-123",
+        chainId: 1
+      })
+
+      expect(signer.address.toLowerCase()).toBe(EXPECTED_ADDRESS.toLowerCase())
+    })
+
+    test("creates signer from keystore with ETH_KEYSTORE_PASSWORD", async () => {
+      const tempKeystorePath = await writeKeystore(
+        TEST_PRIVATE_KEY,
+        "password-123"
+      )
+      process.env.ETH_KEYSTORE_PASSWORD = "password-123"
+
+      const signer = await createSigner({
+        keystore: tempKeystorePath,
+        chainId: 1
+      })
+
+      expect(signer.address.toLowerCase()).toBe(EXPECTED_ADDRESS.toLowerCase())
+    })
+
+    test("throws when keystore password is missing without interactive mode", async () => {
+      const tempKeystorePath = await writeKeystore(
+        TEST_PRIVATE_KEY,
+        "password-123"
+      )
+
+      await expect(
+        createSigner({
+          keystore: tempKeystorePath,
+          chainId: 1
+        })
+      ).rejects.toThrow(
+        "Keystore password required. Use --password, set ETH_KEYSTORE_PASSWORD, or pass --interactive to prompt."
+      )
+    })
+
     test("throws when keystore file doesn't exist", async () => {
       await expect(
         createSigner({
@@ -190,40 +268,52 @@ describe("wallet creation", () => {
       ).rejects.toThrow("Failed to load keystore")
     })
 
-    // Note: Keystore decryption is not yet implemented, so we can't test successful keystore loading
-    // This test documents the current behavior
-    test("throws keystore decryption not implemented error for valid keystore", async () => {
-      const consoleSpy = spyOn(console, "error").mockImplementation(() => {})
+    test("throws on invalid keystore password", async () => {
+      const tempKeystorePath = await writeKeystore(
+        TEST_PRIVATE_KEY,
+        "password-123"
+      )
+      await expect(
+        createSigner({
+          keystore: tempKeystorePath,
+          password: "wrong-password",
+          chainId: 1
+        })
+      ).rejects.toThrow("Invalid keystore password.")
+    })
 
-      // Create a minimal valid keystore structure
-      const tempKeystorePath = "/tmp/test-keystore.json"
+    test("throws on unsupported keystore version", async () => {
+      const tempKeystorePath = await getTempPath(
+        `test-keystore-v4-${Date.now()}.json`
+      )
       await Bun.write(
         tempKeystorePath,
         JSON.stringify({
-          version: 3,
+          version: 4,
           id: "test-id",
           address: "14dc79964da2c08b23698b3d3cc7ca32193d9955",
           crypto: {}
         })
       )
 
-      await expect(
+      expect(
         createSigner({
           keystore: tempKeystorePath,
           password: "password",
           chainId: 1
         })
-      ).rejects.toThrow("Keystore decryption not yet implemented")
-
-      consoleSpy.mockRestore()
+      ).rejects.toThrow("Unsupported keystore version: 4. Expected version 3.")
     })
   })
 
   describe("keyfile handling", () => {
     test("creates signer from keyfile", async () => {
       const consoleSpy = spyOn(console, "error").mockImplementation(() => {})
-      const tempKeyPath = "/tmp/test-keyfile.key"
-      await Bun.write(tempKeyPath, TEST_PRIVATE_KEY)
+      const tempKeyPath = path.join(
+        process.cwd(),
+        "src",
+        "test-fixtures-keyfile.txt"
+      )
 
       const signer = await createSigner({
         keyfile: tempKeyPath,
@@ -316,3 +406,64 @@ describe("wallet creation", () => {
     })
   })
 })
+
+async function writeKeystore(
+  privateKey: string,
+  password: string
+): Promise<string> {
+  const privateKeyBytes = Buffer.from(privateKey.replace(/^0x/, ""), "hex")
+  const salt = randomBytes(32)
+  const iv = randomBytes(16)
+  const n = 4096
+  const r = 8
+  const p = 1
+  const dklen = 32
+
+  const derivedKey = scryptSync(password, salt, dklen, { N: n, r, p })
+  const cipher = createCipheriv("aes-128-ctr", derivedKey.subarray(0, 16), iv)
+  const ciphertext = Buffer.concat([
+    cipher.update(privateKeyBytes),
+    cipher.final()
+  ])
+  const mac = keccak256(
+    Buffer.concat([derivedKey.subarray(16, 32), ciphertext])
+  )
+
+  const targetPath = await getTempPath(`test-keystore-${randomUUID()}.json`)
+  await Bun.write(
+    targetPath,
+    JSON.stringify({
+      version: 3,
+      id: randomUUID(),
+      address: EXPECTED_ADDRESS.toLowerCase().slice(2),
+      crypto: {
+        cipher: "aes-128-ctr",
+        cipherparams: { iv: iv.toString("hex") },
+        ciphertext: ciphertext.toString("hex"),
+        kdf: "scrypt",
+        kdfparams: {
+          dklen,
+          n,
+          r,
+          p,
+          salt: salt.toString("hex")
+        },
+        mac: mac.replace(/^0x/, "")
+      }
+    })
+  )
+  return targetPath
+}
+
+async function getTempPath(filename: string): Promise<string> {
+  const tempDir = await ensureTestTempDir()
+  return path.join(tempDir, filename)
+}
+
+let testTempDir: string | undefined
+async function ensureTestTempDir(): Promise<string> {
+  if (!testTempDir) {
+    testTempDir = await mkdtemp(path.join(tmpdir(), "erc8128-cli-test-"))
+  }
+  return testTempDir
+}

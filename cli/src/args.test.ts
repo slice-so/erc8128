@@ -301,6 +301,16 @@ describe("CLI argument parsing", () => {
       ])
       expect(opts.password).toBe("secret")
     })
+
+    test("parses --interactive", () => {
+      const opts = parseTestArgs([
+        "--keystore",
+        "/path/to/keystore.json",
+        "--interactive",
+        "https://example.com"
+      ])
+      expect(opts.interactive).toBe(true)
+    })
   })
 
   describe("URL parsing", () => {
