@@ -226,8 +226,9 @@ For agents and automated systems:
 
 | Method | Security | Use Case |
 |--------|----------|----------|
+| `--keystore --interactive` | High | Encrypted JSON keystore, password prompted interactively |
+| `--keystore --password` | High | Encrypted JSON keystore, password via flag or `ETH_KEYSTORE_PASSWORD` env |
 | `--keyfile` | Medium | Unencrypted key file, file permissions for protection |
-| `--keystore` | High | Encrypted JSON keystore, password required |
 | `ETH_PRIVATE_KEY` | Low | Environment variable, avoid in production |
 | Signing service | High | Delegate to external service (SIWA, AWAL) |
 
