@@ -51,6 +51,16 @@ export default defineConfig({
       ]
     },
     {
+      text: "CLI",
+      items: [
+        { text: "Overview", link: "/cli" },
+        { text: "Wallet Options", link: "/cli/wallet-options" },
+        { text: "Signature Options", link: "/cli/signature-options" },
+        { text: "Configuration", link: "/cli/configuration" },
+        { text: "Examples", link: "/cli/examples" }
+      ]
+    },
+    {
       text: "Specification",
       link: "/specification"
     }

@@ -1,0 +1,110 @@
+# Examples
+
+Common usage patterns for the ERC-8128 CLI.
+
+## GET Requests
+
+### Simple authenticated GET
+
+```bash
+erc8128 curl --keystore ./keyfile.json https://api.example.com/data
+```
+
+### Verbose output
+
+```bash
+erc8128 curl -v \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
+```
+
+### Include response headers
+
+```bash
+erc8128 curl -i \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
+```
+
+### Save response to file
+
+```bash
+erc8128 curl -o response.json \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
+```
+
+## POST Requests
+
+### POST with JSON body
+
+```bash
+erc8128 curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"foo":"bar"}' \
+  --keystore ./keyfile.json \
+  https://api.example.com/submit
+```
+
+### POST with body from file
+
+```bash
+erc8128 curl -X POST \
+  -d @body.json \
+  --keyfile ~/.keys/bot.key \
+  https://api.example.com/orders
+```
+
+### POST with keyid
+
+```bash
+erc8128 curl -X POST \
+  -d @body.json \
+  --keyfile ~/.keys/bot.key \
+  --keyid erc8128:8453:0xabc... \
+  https://api.example.com/orders
+```
+
+## Dry Run
+
+Sign a request without sending it — useful for debugging or generating signatures for other tools:
+
+```bash
+erc8128 curl -X POST \
+  -d @body.json \
+  --keyfile ~/.keys/bot.key \
+  --dry-run \
+  https://api.example.com/orders
+```
+
+## Advanced Signatures
+
+### Custom chain, binding mode, and TTL
+
+```bash
+erc8128 curl \
+  --chain-id 137 \
+  --binding class-bound \
+  --replay replayable \
+  --ttl 300 \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
+```
+
+### Interactive keystore password
+
+```bash
+erc8128 curl \
+  --keystore ~/.ethereum/keystores/my-key \
+  --interactive \
+  https://api.example.com/data
+```
+
+## How It Works
+
+Under the hood, `erc8128 curl`:
+
+1. Creates an Ethereum signer from your wallet
+2. Builds the HTTP request with your specified options
+3. Signs the request according to [ERC-8128](https://eips.ethereum.org/EIPS/eip-8128) using [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) HTTP Message Signatures
+4. Sends the signed request and displays the response

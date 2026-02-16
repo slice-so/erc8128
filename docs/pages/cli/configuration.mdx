@@ -1,0 +1,61 @@
+# Configuration
+
+Set defaults in a `.erc8128rc.json` file to avoid repeating options on every command.
+
+## Config Resolution
+
+The CLI looks for configuration in this order:
+
+1. `--config <path>` — explicit path, if provided
+2. `./.erc8128rc.json` — current working directory
+3. `~/.erc8128rc.json` — home directory
+
+## Config File Format
+
+```json
+{
+  "chainId": 8453,
+  "binding": "request-bound",
+  "replay": "non-replayable",
+  "ttl": 120,
+  "keyfile": "/Users/you/.keys/bot.key",
+  "keyid": "erc8128:8453:0xabc...",
+  "headers": ["Content-Type: application/json"],
+  "components": ["x-idempotency-key"]
+}
+```
+
+All fields are optional. CLI flags override config file values.
+
+## Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `chainId` | `number` | Default chain ID |
+| `binding` | `string` | `"request-bound"` or `"class-bound"` |
+| `replay` | `string` | `"non-replayable"` or `"replayable"` |
+| `ttl` | `number` | Signature TTL in seconds |
+| `keyfile` | `string` | Path to private key file |
+| `keyid` | `string` | Default key id (`erc8128:chainId:address`) |
+| `headers` | `string[]` | Default headers to include |
+| `components` | `string[]` | Default components to sign |
+
+## Example: Bot Configuration
+
+A typical config for an automated agent on Base:
+
+```json
+{
+  "chainId": 8453,
+  "ttl": 120,
+  "keyfile": "/opt/bot/.keys/signer.key",
+  "keyid": "erc8128:8453:0x1234...",
+  "headers": ["Content-Type: application/json"]
+}
+```
+
+Then all you need is:
+
+```bash
+erc8128 curl -X POST -d '{"action":"buy"}' https://api.example.com/orders
+```

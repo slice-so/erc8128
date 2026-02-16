@@ -1,0 +1,55 @@
+# Signature Options
+
+Configure how ERC-8128 signatures are generated.
+
+## HTTP Options
+
+Standard HTTP options that mirror `curl` behavior:
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `-X, --request <method>` | HTTP method (GET, POST, etc.) | `GET` |
+| `-H, --header <header>` | Add header (repeatable) | — |
+| `-d, --data <data>` | Request body (use `@file` or `@-` for stdin) | — |
+| `-o, --output <file>` | Write response to file | stdout |
+| `-i, --include` | Include response headers in output | `false` |
+| `-v, --verbose` | Show request details | `false` |
+| `--json` | Output response as JSON | `false` |
+| `--dry-run` | Sign only, do not send the request | `false` |
+| `--fail` | Exit non-zero for non-2xx responses | `false` |
+| `--config <path>` | Path to `.erc8128rc.json` | auto-detected |
+
+## ERC-8128 Options
+
+Control the Ethereum signature parameters:
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `--chain-id <id>` | Chain ID | `1` |
+| `--binding <mode>` | `request-bound` or `class-bound` | `request-bound` |
+| `--replay <mode>` | `non-replayable` or `replayable` | `non-replayable` |
+| `--ttl <seconds>` | Signature TTL in seconds | `60` |
+| `--components <component>` | Components to sign (repeatable) | — |
+| `--keyid <keyid>` | Expected key id (`erc8128:chainId:address`) | — |
+
+### Binding Modes
+
+- **`request-bound`** (default) — The signature is tied to the specific request URL, method, and body. `--components` adds *additional* components to sign.
+- **`class-bound`** — The signature covers only the components you explicitly specify via `--components`.
+
+### Replay Protection
+
+- **`non-replayable`** (default) — Each signed request includes a nonce and can only be used once.
+- **`replayable`** — The signature can be reused within the TTL window.
+
+### Custom Chain ID
+
+```bash
+erc8128 curl \
+  --chain-id 137 \
+  --binding class-bound \
+  --replay replayable \
+  --ttl 300 \
+  --keystore ./keyfile.json \
+  https://api.example.com/data
+```

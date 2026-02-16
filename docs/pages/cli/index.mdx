@@ -1,0 +1,44 @@
+# CLI
+
+`@slicekit/erc8128-cli` is a command-line tool for signing HTTP requests with ERC-8128 — think of it as `curl` with built-in Ethereum authentication.
+
+## Installation
+
+Install globally:
+
+:::code-group
+
+```bash [npm]
+npm install -g @slicekit/erc8128-cli
+```
+
+```bash [bun]
+bun install -g @slicekit/erc8128-cli
+```
+
+:::
+
+Or run directly with npx:
+
+```bash
+npx @slicekit/erc8128-cli curl <url>
+```
+
+## Basic Usage
+
+```bash
+erc8128 curl [options] <url>
+```
+
+If you have a [config file](/cli/configuration) set up, the minimal command is just:
+
+```bash
+erc8128 curl https://api.example.com/orders
+```
+
+## Next Steps
+
+- [Wallet Options](/cli/wallet-options) — Configure how you provide your Ethereum wallet
+- [Signature Options](/cli/signature-options) — Control chain ID, binding mode, replay protection, and more
+- [Configuration](/cli/configuration) — Set defaults with `.erc8128rc.json`
+- [Examples](/cli/examples) — Common usage patterns
