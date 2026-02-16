@@ -1,5 +1,5 @@
-import { type ContentDigestMode, Erc8128Error } from "../types"
-import { base64Encode, readBodyBytes, sha256 } from "../utilities"
+import { type ContentDigestMode, Erc8128Error } from "../types.js"
+import { base64Encode, readBodyBytes, sha256 } from "../utilities.js"
 
 /**
  * Sets or validates the Content-Digest header on the request.

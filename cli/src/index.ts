@@ -1,8 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises"
 import { signedFetch, signRequest } from "@slicekit/erc8128"
-import { type CliOptions, parseArgs } from "./args"
-import { handleResponse, logVerbose } from "./output"
-import { createSigner } from "./wallet"
+import { type CliOptions, parseArgs } from "./args.js"
+import { handleResponse, logVerbose } from "./output.js"
+import { createSigner } from "./wallet.js"
 
 async function main(): Promise<void> {
   try {

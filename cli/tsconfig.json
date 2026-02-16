@@ -1,29 +1,16 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@slice/typescript-config/base.json",
   "compilerOptions": {
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "skipLibCheck": true,
-    "strictNullChecks": true,
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "types": ["bun-types", "node"],
-    "composite": false,
-    "declaration": false,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "preserveWatchOutput": true,
-    "inlineSources": false,
     "outDir": "./dist",
+    "target": "ES2022",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "baseUrl": "."
+    "noEmit": true,
+    "types": ["bun-types", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@slicekit/erc8128": ["../src/index.ts"]
+    }
   },
-  "exclude": ["node_modules", "dist"],
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

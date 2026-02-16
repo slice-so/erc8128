@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { Erc8128Error } from "../types"
+import { Erc8128Error } from "../types.js"
 import {
   parseContentDigest,
   setContentDigestHeader,
   verifyContentDigest
-} from "./contentDigest"
+} from "./contentDigest.js"
 
 describe("parseContentDigest", () => {
   test("parses valid sha-256 digest", () => {

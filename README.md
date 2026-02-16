@@ -7,7 +7,7 @@ Sign and verify HTTP requests with Ethereum wallets using [ERC-8128](https://git
 - **Fetch-native** — Works in browsers, workers, Node.js 18+, Bun, Deno
 - **RFC 9421 compliant** — HTTP Message Signatures with Ethereum extension
 - **Request binding** — Sign URL, method, headers, and body
-- **Replay protection** — Non-replayable by default (nonce required); nonce omission is only for explicitly allowed replayable signatures
+- **Replay protection** — Optional nonce handling
 
 ## Installation
 
@@ -49,12 +49,9 @@ import { mainnet } from 'viem/chains'
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
 
-const verifier = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
-  nonceStore
-})
+const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
 
-const result = await verifier.verifyRequest({ request })
+const result = await verifier.verifyRequest(request)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address}`)
@@ -74,24 +71,17 @@ client.fetch(input, init?)       // Sign and send
 client.signRequest(input, init?) // Sign only
 ```
 
-### `createVerifierClient({ verifyMessage, nonceStore, defaults? })`
+### `createVerifierClient(verifyMessage, nonceStore, policy?)`
 
 Creates a client with verification dependencies.
 
 ```typescript
-const verifier = createVerifierClient({
-  verifyMessage,
-  nonceStore
-})
+const verifier = createVerifierClient(verifyMessage, nonceStore)
 
-verifier.verifyRequest({
-  request,
-  policy,     // optional
-  setHeaders  // optional
-})
+verifier.verifyRequest(request, policy?, setHeaders?)
 ```
 
-### `verifyRequest({ request, verifyMessage, nonceStore, policy?, setHeaders? })`
+### `verifyRequest(request, verifyMessage, nonceStore, policy?, setHeaders?)`
 
 Verifies a signed request.
 
@@ -110,42 +100,6 @@ type VerifyResult =
   | { ok: false; reason: VerifyFailReason }
 ```
 
-### `formatDiscoveryDocument(config)`
-
-Formats the `/.well-known/erc8128` discovery document for your server.
-
-```typescript
-import { formatDiscoveryDocument } from '@slicekit/erc8128'
-
-const doc = formatDiscoveryDocument({
-  verificationEndpoint: 'https://api.example.com/erc8128/verify',
-  invalidationEndpoint: 'https://api.example.com/erc8128/invalidate',
-  maxValiditySec: 300,
-  routePolicy: {
-    '/api/public/*': { replayable: true },
-    '/api/orders/*': [
-      {
-        methods: ['POST', 'PUT'],
-        additionalRequestBoundComponents: ['content-type'],
-      },
-      {
-        methods: ['GET'],
-        classBoundPolicies: [['@authority', '@path']],
-      },
-    ],
-    default: { replayable: false },
-  },
-})
-// {
-//   verification_endpoint: "https://api.example.com/erc8128/verify",
-//   invalidation_endpoint: "https://api.example.com/erc8128/invalidate",
-//   max_validity_sec: 300,
-//   route_policies: { ... }
-// }
-```
-
-`invalidation_endpoint` is only included when at least one policy enables `replayable`. Route policy entries set to `false` are filtered out.
-
 ### `signRequest(input, init?, signer, options?)`
 
 Signs a fetch `Request` and returns a new `Request` with signature headers.
@@ -161,7 +115,7 @@ Signs and sends a request in one call.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `binding` | `"request-bound"` \| `"class-bound"` | `"request-bound"` | Components to sign |
-| `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Non-replayable includes nonce; replayable omits nonce |
+| `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Include nonce |
 | `ttlSeconds` | `number` | `60` | Signature validity window |
 | `label` | `string` | `"eth"` | Signature label |
 | `components` | `string[]` | — | Override signed components |
@@ -176,7 +130,7 @@ Signs and sends a request in one call.
 | `strictLabel` | `boolean` | `false` | Require exact label match |
 | `replayable` | `boolean` | `false` | Allow replayable (nonce-less) signatures |
 | `additionalRequestBoundComponents` | `string[]` | — | Extra components required for request-bound |
-| `classBoundPolicies` | `string[] \| string[][]` | — | `undefined` disables class-bound, `[]` means authority-only, other entries require `@authority` plus those components |
+| `classBoundPolicies` | `string[] \| string[][]` | — | Acceptable class-bound component policies |
 
 ## Nonce store
 

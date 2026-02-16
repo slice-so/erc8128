@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test"
-import { Erc8128Error } from "../types"
+import { Erc8128Error } from "../types.js"
 import {
   assertLabel,
   parseSignatureDictionary,
   parseSignatureInputDictionary
-} from "./createSignatureInput"
+} from "./createSignatureInput.js"
 
 describe("assertLabel", () => {
   test("accepts valid lowercase labels", () => {

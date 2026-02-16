@@ -2,18 +2,18 @@
 
 Create a client with a bound signer for convenient repeated use.
 
-The client provides `signRequest`, `signedFetch`, `fetch`, and `setServerConfig` methods that automatically use the configured signer and default options.
+The client provides `signRequest`, `signedFetch`, and `fetch` methods that automatically use the configured signer and default options.
 
 ## Usage
 
-Create a client by passing a signer and optional default configuration. The returned client exposes `signRequest`, `signedFetch`, `fetch`, and `setServerConfig`.
+Create a client by passing a signer and optional default configuration. The returned client exposes `signRequest`, `signedFetch`, and `fetch` methods.
 
 ```typescript
 import { createSignerClient } from '@slicekit/erc8128'
 
 const client = createSignerClient(signer, {
   ttlSeconds: 120,
-  preferReplayable: true,
+  replay: 'non-replayable',
 })
 
 // Use client.fetch (alias for signedFetch)
@@ -35,13 +35,12 @@ const signedRequest = await client.signRequest('https://api.example.com/orders')
 
 ## Returns
 
-[`SignerClient`](/api/types#signerclient)
+[`Client`](/api/types#client)
 
 An object with bound methods:
 - `signRequest` — Sign a request
 - `signedFetch` — Sign and send a request
 - `fetch` — Alias for `signedFetch`
-- `setServerConfig` — Set or remove per-origin discovery config
 
 ## Parameters
 
@@ -53,14 +52,14 @@ The signer to use for all requests.
 
 ### defaults (optional)
 
-- **Type:** [`SignerClientOptions`](/api/types#signerclientoptions)
+- **Type:** [`ClientOptions`](/api/types#clientoptions)
 
 Default options for all requests. Can be overridden per-call.
 
 ```typescript
 const client = createSignerClient(signer, {
   ttlSeconds: 300,
-  preferReplayable: true,
+  replay: 'non-replayable',
   fetch: customFetch,
 })
 ```

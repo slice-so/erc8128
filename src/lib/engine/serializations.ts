@@ -1,5 +1,9 @@
-import { type BindingMode, Erc8128Error, type SignatureParams } from "../types"
-import { assertLabel } from "./createSignatureInput"
+import {
+  type BindingMode,
+  Erc8128Error,
+  type SignatureParams
+} from "../types.js"
+import { assertLabel } from "./createSignatureInput.js"
 
 export function serializeSignatureParamsInnerList(
   components: string[],

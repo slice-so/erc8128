@@ -42,14 +42,13 @@ erc8128 curl [options] <url>
 | Option | Description |
 |--------|-------------|
 | `--keystore <path>` | Encrypted keystore file |
-| `--password <pass>` | Keystore password |
-| `--interactive` | Prompt for keystore password interactively |
+| `--password <pass>` | Keystore password (or prompts) |
 | `--keyfile <path>` | Raw private key file (`-` for stdin) |
 | `--private-key <key>` | Raw private key (⚠️ insecure) |
+| `--ledger` | Use Ledger hardware wallet (not yet implemented) |
+| `--trezor` | Use Trezor hardware wallet (not yet implemented) |
 
-`ETH_PRIVATE_KEY` and `ETH_KEYSTORE_PASSWORD` env vars also supported.
-
-**Wallet resolution order:** `--private-key` → `--keyfile` → `--keystore` → `ETH_PRIVATE_KEY` env var. If none are provided, the CLI exits with an error.
+`ETH_PRIVATE_KEY` env var also supported.
 
 ### ERC-8128
 
@@ -60,7 +59,7 @@ erc8128 curl [options] <url>
 | `--replay <mode>` | `non-replayable` \| `replayable` |
 | `--ttl <seconds>` | Signature TTL (default: 60) |
 | `--components <comp>` | Components to sign (repeatable, comma-separated) |
-| `--keyid <keyid>` | Expected key id (`erc8128:<chainId>:<address>`) used to validate the signer and infer `chainId` |
+| `--keyid <keyid>` | Expected keyid (`erc8128:<chainId>:<address>`) |
 
 ## Examples
 
@@ -68,12 +67,6 @@ erc8128 curl [options] <url>
 
 ```bash
 erc8128 curl --keystore ./key.json https://api.example.com/data
-```
-
-### Keystore with interactive password prompt
-
-```bash
-erc8128 curl --keystore ~/.ethereum/keystores/my-key --interactive https://api.example.com/data
 ```
 
 ### POST with JSON

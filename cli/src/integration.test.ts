@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test"
+import type { Address, Hex } from "@slicekit/erc8128"
 import { signedFetch, signRequest, verifyRequest } from "@slicekit/erc8128"
-import type { Address, Hex } from "viem"
 import { createPublicClient, http } from "viem"
-import { createSigner } from "./wallet"
+import { privateKeyToAccount } from "viem/accounts"
+import { createSigner } from "./wallet.js"
 
 // Test private key (well-known test key, DO NOT USE IN PRODUCTION)
 const TEST_PRIVATE_KEY =
@@ -117,13 +118,8 @@ describe("integration tests", () => {
         }
       }
 
-      const result = await verifyRequest({
-        request: signedReq,
-        verifyMessage,
-        nonceStore,
-        policy: {
-          now: () => created
-        }
+      const result = await verifyRequest(signedReq, verifyMessage, nonceStore, {
+        now: () => created
       })
 
       expect(result.ok).toBe(true)
@@ -341,7 +337,7 @@ describe("integration tests", () => {
       let capturedRequest: Request | null = null
 
       // Mock fetch to capture the request
-      const mockFetch = (async (
+      globalThis.fetch = async (
         input: RequestInfo | URL,
         init?: RequestInit
       ) => {
@@ -354,9 +350,7 @@ describe("integration tests", () => {
           status: 200,
           headers: { "Content-Type": "application/json" }
         })
-      }) as typeof fetch
-
-      globalThis.fetch = mockFetch
+      }
 
       try {
         const response = await signedFetch(
@@ -365,13 +359,9 @@ describe("integration tests", () => {
           signer
         )
 
-        const request = capturedRequest as Request | null
-        expect(request).toBeTruthy()
-        if (!request) {
-          throw new Error("Expected captured request to be set by fetch mock")
-        }
-        expect(request.headers.get("Signature-Input")).toBeTruthy()
-        expect(request.headers.get("Signature")).toBeTruthy()
+        expect(capturedRequest).toBeTruthy()
+        expect(capturedRequest!.headers.get("Signature-Input")).toBeTruthy()
+        expect(capturedRequest!.headers.get("Signature")).toBeTruthy()
 
         const body = await response.json()
         expect(body.success).toBe(true)

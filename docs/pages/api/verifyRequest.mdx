@@ -4,19 +4,14 @@ Verify an ERC-8128 signed HTTP request.
 
 ## Usage
 
-Pass an argument object with `request`, `verifyMessage`, `nonceStore`, and optional `policy`/`setHeaders`. The function returns a `VerifyResult` indicating success or failure.
+Pass a `Request`, a `verifyMessage` implementation, a `nonceStore`, and an optional policy. The function returns a `VerifyResult` indicating success or failure.
 
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
 // Simple: request + required dependencies + policy
-const result = await verifyRequest({
-  request,
-  verifyMessage,
-  nonceStore,
-  policy: {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   maxValiditySec: 300,
-  },
 })
 
 if (result.ok) {
@@ -51,7 +46,7 @@ if (result.ok) {
 ## Parameters
 
 ```typescript
-verifyRequest({
+verifyRequest(
   request: Request,
   verifyMessage: VerifyMessageFn,
   nonceStore: NonceStore,
@@ -88,7 +83,7 @@ Verification policy with rules for validation. Signatures are verified in the or
 
 - **Type:** `(name: string, value: string) => void`
 
-Callback to set response headers. When provided, `verifyRequest` sets `Accept-Signature` with one canonical signature shape per supported policy: the nonce-bearing request-bound baseline, plus one representative shape for each class-bound policy.
+Callback to set response headers. When provided, `verifyRequest` sets `Accept-Signature` with the required components for each supported policy.
 
 ## Examples
 
@@ -97,44 +92,29 @@ These examples show strict, relaxed, and custom-component verification policies.
 :::code-group
 
 ```typescript [Strict Policy]
-const result = await verifyRequest({
-  request,
-  verifyMessage,
-  nonceStore,
-  policy: {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   label: 'eth',
   strictLabel: true,
   replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
-  },
 })
 ```
 
 ```typescript [Relaxed Policy]
-const result = await verifyRequest({
-  request,
-  verifyMessage,
-  nonceStore,
-  policy: {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   replayable: true,
   replayableNotBefore: async (keyid) => await getNotBeforeForKeyId(keyid),
   maxValiditySec: 300,
   clockSkewSec: 30,
-  },
 })
 ```
 
 ```typescript [Custom Components]
-const result = await verifyRequest({
-  request,
-  verifyMessage,
-  nonceStore,
-  policy: {
+const result = await verifyRequest(request, verifyMessage, nonceStore, {
   additionalRequestBoundComponents: ['x-custom-header'],
   classBoundPolicies: ['@authority', 'x-custom-header'],
-  },
 })
 ```
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parseArgs } from "./args"
+import { parseArgs } from "./args.js"
 
 function parseTestArgs(argv: string[]) {
   return parseArgs(["node", "erc8128", "curl", ...argv], {
@@ -322,16 +322,6 @@ describe("CLI argument parsing", () => {
     test("URL can have query params", () => {
       const opts = parseTestArgs(["https://example.com/api?foo=bar&baz=qux"])
       expect(opts.url).toBe("https://example.com/api?foo=bar&baz=qux")
-    })
-
-    test("adds https scheme when omitted", () => {
-      const opts = parseTestArgs(["erc8128.org/verify"])
-      expect(opts.url).toBe("https://erc8128.org/verify")
-    })
-
-    test("keeps explicit http scheme", () => {
-      const opts = parseTestArgs(["http://erc8128.org/verify"])
-      expect(opts.url).toBe("http://erc8128.org/verify")
     })
   })
 

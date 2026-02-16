@@ -182,12 +182,7 @@ function deriveKeystoreKey(
     const n = getNumber(kdfparams.n, "kdfparams.n")
     const r = getNumber(kdfparams.r, "kdfparams.r")
     const p = getNumber(kdfparams.p, "kdfparams.p")
-    return scryptSync(password, salt, dklen, {
-      N: n,
-      r,
-      p,
-      maxmem: calculateScryptMaxmem(n, r, p, dklen)
-    })
+    return scryptSync(password, salt, dklen, { N: n, r, p })
   }
 
   if (kdf === "pbkdf2") {
@@ -200,19 +195,6 @@ function deriveKeystoreKey(
   }
 
   throw new Error(`Unsupported kdf: ${kdf}. Expected scrypt or pbkdf2.`)
-}
-
-function calculateScryptMaxmem(
-  n: number,
-  r: number,
-  p: number,
-  dklen: number
-): number {
-  // Approximate memory needed by scrypt plus a safety buffer.
-  const estimatedBytes = 128 * n * r + 128 * r * p + dklen
-  const oneMiB = 1024 * 1024
-  const defaultNodeLimit = 32 * oneMiB
-  return Math.max(defaultNodeLimit, estimatedBytes + oneMiB)
 }
 
 function normalizeHex(value: string): `0x${string}` {

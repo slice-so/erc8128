@@ -1,8 +1,8 @@
-import { Erc8128Error, type VerifyPolicy, type VerifyResult } from "../types"
+import { Erc8128Error, type VerifyPolicy, type VerifyResult } from "../types.js"
 import {
   parseSignatureDictionary,
   parseSignatureInputDictionary
-} from "./createSignatureInput"
+} from "./createSignatureInput.js"
 
 export type SelectedSignature = {
   label: string

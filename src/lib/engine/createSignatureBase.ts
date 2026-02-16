@@ -1,6 +1,6 @@
-import { Erc8128Error } from "../types"
-import { sanitizeUrl, utf8Encode } from "../utilities"
-import { quoteSfString } from "./serializations"
+import { Erc8128Error } from "../types.js"
+import { sanitizeUrl, utf8Encode } from "../utilities.js"
+import { quoteSfString } from "./serializations.js"
 
 export function createSignatureBaseMinimal(args: {
   request: Request

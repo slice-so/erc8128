@@ -36,8 +36,6 @@ export interface CliOptions {
   url: string
 }
 
-const CLI_VERSION = resolveCliVersion()
-
 export function parseArgs(
   argv: string[] = process.argv,
   options: { exitOverride?: boolean } = {}
@@ -53,7 +51,7 @@ export function parseArgs(
   program
     .name("erc8128")
     .description("ERC-8128 tools")
-    .version(CLI_VERSION)
+    .version("0.1.0")
     .command("curl")
     .description("Sign and send a curl-like HTTP request with ERC-8128")
     .argument("<url>", "URL to fetch")
@@ -139,7 +137,6 @@ export function parseArgs(
           : undefined
       const chainId = resolveChainId(options.chainId, keyIdInfo)
       const components = normalizeComponents(options.components as string[])
-      const normalizedUrl = normalizeUrl(url)
 
       if (
         (options.binding as BindingMode) === "class-bound" &&
@@ -170,7 +167,7 @@ export function parseArgs(
         replay: options.replay as ReplayMode,
         ttl: options.ttl as number,
         components,
-        url: normalizedUrl
+        url
       }
     })
 
@@ -260,27 +257,6 @@ function parseKeyId(value: string): { chainId: number; address: string } {
   }
 
   return { chainId, address: address.toLowerCase() }
-}
-
-function normalizeUrl(url: string): string {
-  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(url)) {
-    return `https://${url}`
-  }
-  return url
-}
-
-function resolveCliVersion(): string {
-  try {
-    const packageJsonPath = new URL("../package.json", import.meta.url)
-    const raw = readFileSync(packageJsonPath, "utf-8")
-    const parsed = JSON.parse(raw) as { version?: unknown }
-    if (typeof parsed.version === "string" && parsed.version.length > 0) {
-      return parsed.version
-    }
-  } catch {
-    // Keep CLI usable even if package metadata is unavailable.
-  }
-  return "0.0.0"
 }
 
 type CliConfig = {

@@ -1,126 +1,46 @@
-import { buildAcceptSignatureHeader } from "./lib/acceptSignature"
-import { verifyContentDigest } from "./lib/engine/contentDigest"
-import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders"
-import { parseKeyId } from "./lib/keyId"
-import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound"
+import { buildAcceptSignatureHeader } from "./lib/acceptSignature.js"
+import { verifyContentDigest } from "./lib/engine/contentDigest.js"
+import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders.js"
+import { parseKeyId } from "./lib/keyId.js"
+import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound.js"
 import {
   ensureAuthority,
   normalizeClassBoundPolicies,
   normalizeComponentsList
-} from "./lib/policies/normalizePolicies"
-import type { Address, VerifyRequestArgs, VerifyResult } from "./lib/types"
-import { base64Decode, bytesToHex, sanitizeUrl, unixNow } from "./lib/utilities"
+} from "./lib/policies/normalizePolicies.js"
+import type {
+  Address,
+  NonceStore,
+  SetHeadersFn,
+  VerifyMessageFn,
+  VerifyPolicy,
+  VerifyResult
+} from "./lib/types.js"
+import {
+  base64Decode,
+  bytesToHex,
+  sanitizeUrl,
+  unixNow
+} from "./lib/utilities.js"
 import {
   buildAttempts,
   buildSignatureBase,
   runNonceChecks,
   runTimeChecks,
   type VerifyCandidate
-} from "./lib/verifyUtils"
+} from "./lib/verifyUtils.js"
 
 const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
-type ReplayableInvalidationArgs = NonNullable<
-  Parameters<
-    NonNullable<
-      NonNullable<VerifyRequestArgs["policy"]>["replayableInvalidated"]
-    >
-  >[0]
->
-type ReplayableCheckArgs = ReplayableInvalidationArgs & {
-  created: number
-}
-type VerifyMessageOutcome = {
-  ok: boolean
-  failure: VerifyResult | null
-}
-
-async function runVerifyMessageCheck(args: {
-  replayable: boolean
-  verifyMessageCheck: () => ReturnType<
-    NonNullable<VerifyRequestArgs["verifyMessage"]>
-  >
-  replayableNotBefore:
-    | NonNullable<
-        NonNullable<VerifyRequestArgs["policy"]>["replayableNotBefore"]
-      >
-    | undefined
-  replayableInvalidated:
-    | NonNullable<
-        NonNullable<VerifyRequestArgs["policy"]>["replayableInvalidated"]
-      >
-    | undefined
-  replayableArgs: ReplayableCheckArgs
-}): Promise<VerifyMessageOutcome> {
-  const {
-    replayable,
-    verifyMessageCheck,
-    replayableNotBefore,
-    replayableInvalidated,
-    replayableArgs
-  } = args
-
-  if (replayable) {
-    const [verifyOutcome, notBefore, invalidated] = await Promise.all([
-      (async () => {
-        try {
-          return {
-            ok: await verifyMessageCheck(),
-            failure: null
-          }
-        } catch {
-          return {
-            ok: false,
-            failure: {
-              ok: false,
-              reason: "bad_signature_check"
-            } as VerifyResult
-          }
-        }
-      })(),
-      replayableNotBefore?.(replayableArgs.keyid),
-      replayableInvalidated?.(replayableArgs)
-    ])
-
-    if (
-      typeof notBefore === "number" &&
-      Number.isFinite(notBefore) &&
-      replayableArgs.created < notBefore
-    ) {
-      return {
-        ok: false,
-        failure: { ok: false, reason: "replayable_not_before" }
-      }
-    }
-
-    if (invalidated) {
-      return {
-        ok: false,
-        failure: { ok: false, reason: "replayable_invalidated" }
-      }
-    }
-
-    return verifyOutcome
-  }
-
-  try {
-    return {
-      ok: await verifyMessageCheck(),
-      failure: null
-    }
-  } catch {
-    return {
-      ok: false,
-      failure: { ok: false, reason: "bad_signature_check" }
-    }
-  }
-}
 
 export async function verifyRequest(
-  args: VerifyRequestArgs
+  request: Request,
+  verifyMessage: VerifyMessageFn,
+  nonceStore: NonceStore,
+  policy?: VerifyPolicy,
+  setHeaders?: SetHeadersFn
 ): Promise<VerifyResult> {
-  const { request, verifyMessage, nonceStore, policy, setHeaders } = args
   const resolvedPolicy = {
     ...policy,
     verifyMessage,
@@ -154,7 +74,7 @@ export async function verifyRequest(
       const acceptSignature = buildAcceptSignatureHeader({
         requestBoundRequired,
         classBoundPolicies,
-        allowReplayable
+        requireNonce: !allowReplayable
       })
       setHeaders("Accept-Signature", acceptSignature)
     } catch {
@@ -253,6 +173,17 @@ export async function verifyRequest(
         lastFailure = { ok: false, reason: "replayable_invalidation_required" }
         continue
       }
+      if (typeof resolvedPolicy.replayableNotBefore === "function") {
+        const notBefore = await resolvedPolicy.replayableNotBefore(params.keyid)
+        if (
+          typeof notBefore === "number" &&
+          Number.isFinite(notBefore) &&
+          params.created < notBefore
+        ) {
+          lastFailure = { ok: false, reason: "replayable_not_before" }
+          continue
+        }
+      }
     }
 
     // If content-digest is covered, enforce header exists and matches body bytes
@@ -280,6 +211,25 @@ export async function verifyRequest(
     }
     const sigHex = bytesToHex(sigBytes)
 
+    if (
+      replayable &&
+      typeof resolvedPolicy.replayableInvalidated === "function"
+    ) {
+      const invalidated = await resolvedPolicy.replayableInvalidated({
+        keyid: params.keyid,
+        created: params.created,
+        expires: params.expires,
+        label,
+        signature: sigHex,
+        signatureBase: M,
+        signatureParamsValue
+      })
+      if (invalidated) {
+        lastFailure = { ok: false, reason: "replayable_invalidated" }
+        continue
+      }
+    }
+
     const verifyFn = resolvedPolicy.verifyMessage
     if (!verifyFn) {
       lastFailure = {
@@ -290,51 +240,38 @@ export async function verifyRequest(
       continue
     }
 
-    const verifyMessageArgs = {
-      address,
-      message: { raw: bytesToHex(M) },
-      signature: sigHex
-    }
-
-    // Verification may fall through to later signatures, so record the
-    // current failure and keep iterating instead of returning immediately.
-    const verifyOutcome = await runVerifyMessageCheck({
-      replayable,
-      verifyMessageCheck: () => verifyFn(verifyMessageArgs),
-      replayableNotBefore: resolvedPolicy.replayableNotBefore,
-      replayableInvalidated: resolvedPolicy.replayableInvalidated,
-      replayableArgs: {
-        keyid: params.keyid,
-        created: params.created,
+    // Verify signature (EOA / ERC-1271 / ERC-6492 / ERC-8010 depending on implementation)
+    try {
+      const ok = await verifyFn({
+        address,
+        message: { raw: bytesToHex(M) },
         signature: sigHex
-      }
-    })
-    if (verifyOutcome.failure) {
-      lastFailure = verifyOutcome.failure
-      continue
-    }
-
-    if (verifyOutcome.ok) {
-      if (noncePlan.replayKey && noncePlan.replayStore) {
-        const consumed = await noncePlan.replayStore.consume(
-          noncePlan.replayKey,
-          noncePlan.replayTtlSeconds
-        )
-        if (!consumed) {
-          lastFailure = { ok: false, reason: "replay" }
-          continue
+      })
+      if (ok) {
+        if (noncePlan.replayKey && noncePlan.replayStore) {
+          const consumed = await noncePlan.replayStore.consume(
+            noncePlan.replayKey,
+            noncePlan.replayTtlSeconds
+          )
+          if (!consumed) {
+            lastFailure = { ok: false, reason: "replay" }
+            continue
+          }
+        }
+        return {
+          ok: true,
+          address: address as Address,
+          chainId,
+          label,
+          components,
+          params,
+          replayable,
+          binding: attempt.kind
         }
       }
-      return {
-        ok: true,
-        address: address as Address,
-        chainId,
-        label,
-        components,
-        params,
-        replayable,
-        binding: attempt.kind
-      }
+    } catch {
+      lastFailure = { ok: false, reason: "bad_signature_check" }
+      continue
     }
 
     lastFailure = { ok: false, reason: "bad_signature" }

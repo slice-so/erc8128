@@ -67,12 +67,9 @@ const publicClient = createPublicClient({
   transport: http(),
 })
 
-const verifierClient = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
-  nonceStore,
-})
+const verifierClient = createVerifierClient(publicClient.verifyMessage, nonceStore)
 
-const result = await verifierClient.verifyRequest({ request })
+const result = await verifierClient.verifyRequest(request)
 
 if (result.ok) {
   console.log(\`Authenticated: \${result.address}\`)

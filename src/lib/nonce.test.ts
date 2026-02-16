@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { resolveNonce } from "./nonce"
+import { resolveNonce } from "./nonce.js"
 
 describe("resolveNonce", () => {
   test("returns string nonce as-is", async () => {

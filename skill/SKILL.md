@@ -70,12 +70,9 @@ const nonceStore: NonceStore = {
 }
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
-const verifier = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
-  nonceStore
-})
+const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
 
-const result = await verifier.verifyRequest({ request: request })
+const result = await verifier.verifyRequest(request)
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
@@ -139,7 +136,7 @@ erc8128 curl --dry-run -d @body.json --keyfile ~/.keys/bot.key https://api.examp
 ### Express middleware
 
 ```typescript
-import { createVerifierClient } from '@slicekit/erc8128'
+import { verifyRequest } from '@slicekit/erc8128'
 import type { NonceStore } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
@@ -154,15 +151,12 @@ const nonceStore: NonceStore = {
   }
 }
 
-const verifier = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
-  nonceStore
-})
-
 async function erc8128Auth(req, res, next) {
-  // Convert Express req to a Fetch API Request (use your own helper or a library like node-fetch)
-  const fetchReq = toFetchRequest(req)
-  const result = await verifier.verifyRequest({ request: fetchReq })
+  const result = await verifyRequest(
+    toFetchRequest(req), // Convert Express req to Fetch Request
+    publicClient.verifyMessage,
+    nonceStore
+  )
 
   if (!result.ok) {
     return res.status(401).json({ error: result.reason })
@@ -195,18 +189,36 @@ const client = createSignerClient(signer)
 // Use client.fetch() for all authenticated requests
 ```
 
-### Common verify failure reasons
+### Verify failure reasons
 
-| Reason | Meaning |
-|--------|---------|
-| `missing_headers` | Required `Signature` / `Signature-Input` headers not found |
-| `expired` | Signature TTL has elapsed |
-| `replay` | Nonce already consumed (replay attempt) |
-| `bad_keyid` | `keyid` doesn't match `erc8128:<chainId>:<address>` format |
-| `bad_signature_check` | Signature doesn't match the claimed address |
-| `digest_mismatch` | Body was modified after signing |
+```typescript
+type VerifyFailReason =
+  | 'missing_headers'
+  | 'label_not_found'
+  | 'bad_signature_input'
+  | 'bad_signature'
+  | 'bad_keyid'
+  | 'bad_time'
+  | 'not_yet_valid'
+  | 'expired'
+  | 'validity_too_long'
+  | 'nonce_required'
+  | 'replayable_not_allowed'
+  | 'replayable_invalidation_required'
+  | 'replayable_not_before'
+  | 'replayable_invalidated'
+  | 'class_bound_not_allowed'
+  | 'not_request_bound'
+  | 'nonce_window_too_long'
+  | 'replay'
+  | 'digest_mismatch'
+  | 'digest_required'
+  | 'alg_not_allowed'
+  | 'bad_signature_bytes'
+  | 'bad_signature_check'
+```
 
-📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for the full list of 23 failure reasons.
+📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for descriptions.
 
 ## Key Management
 
@@ -214,9 +226,8 @@ For agents and automated systems:
 
 | Method | Security | Use Case |
 |--------|----------|----------|
-| `--keystore --interactive` | High | Encrypted JSON keystore, password prompted interactively |
-| `--keystore --password` | High | Encrypted JSON keystore, password via flag or `ETH_KEYSTORE_PASSWORD` env |
 | `--keyfile` | Medium | Unencrypted key file, file permissions for protection |
+| `--keystore` | High | Encrypted JSON keystore, password required |
 | `ETH_PRIVATE_KEY` | Low | Environment variable, avoid in production |
 | Signing service | High | Delegate to external service (SIWA, AWAL) |
 

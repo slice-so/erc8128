@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex */
-import { setContentDigestHeader } from "./lib/engine/contentDigest"
-import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
+import { setContentDigestHeader } from "./lib/engine/contentDigest.js"
+import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase.js"
 import {
   appendDictionaryMember,
   assertSignatureParamsForSerialization,
@@ -8,15 +8,15 @@ import {
   serializeSignatureHeader,
   serializeSignatureInputHeader,
   serializeSignatureParamsInnerList
-} from "./lib/engine/serializations"
-import { formatKeyId } from "./lib/keyId"
-import { resolveNonce } from "./lib/nonce"
+} from "./lib/engine/serializations.js"
+import { formatKeyId } from "./lib/keyId.js"
+import { resolveNonce } from "./lib/nonce.js"
 import {
   Erc8128Error,
   type EthHttpSigner,
   type SignatureParams,
   type SignOptions
-} from "./lib/types"
+} from "./lib/types.js"
 import {
   base64Encode,
   hexToBytes,
@@ -24,7 +24,7 @@ import {
   sanitizeUrl,
   toRequest,
   unixNow
-} from "./lib/utilities"
+} from "./lib/utilities.js"
 
 /**
  *   Minimal ERC-8128 signing

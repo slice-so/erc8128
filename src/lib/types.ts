@@ -17,14 +17,6 @@ export type VerifyMessageFn = (
 
 export type SetHeadersFn = (name: string, value: string) => void
 
-export type VerifyRequestArgs = {
-  request: Request
-  verifyMessage: VerifyMessageFn
-  nonceStore: NonceStore
-  policy?: VerifyPolicy
-  setHeaders?: SetHeadersFn
-}
-
 export type BindingMode = "request-bound" | "class-bound"
 export type ReplayMode = "non-replayable" | "replayable"
 export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
@@ -63,34 +55,19 @@ export interface NonceStore {
   consume(key: string, ttlSeconds: number): Promise<boolean>
 }
 
-export type RoutePolicy = {
-  /** Restrict this policy to specific HTTP methods. If omitted, it applies to all methods. */
-  methods?: string[]
-
-  /** Allow replayable (nonce-less) signatures (default false). */
-  replayable?: boolean
+export type VerifyPolicy = {
+  /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
+  label?: string
+  strictLabel?: boolean // default false
 
   /** Extra components required in addition to default request-bound set. */
   additionalRequestBoundComponents?: string[]
 
-  /**
-   * Class-bound component policies.
-   * - `undefined`: route is request-bound only
-   * - `["@authority"]`: allow minimal class-bound
-   * - entries: require @authority plus those components
-   * - `[]`: supported shorthand for `["@authority"]`
-   */
+  /** Class-bound components policies (one list or a list of lists). @authority is always required. */
   classBoundPolicies?: string[] | string[][]
-}
 
-export type RoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]> & {
-  default?: RoutePolicy
-}
-
-export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
-  /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
-  label?: string
-  strictLabel?: boolean // default false
+  /** Allow replayable (nonce-less) signatures (default false). */
+  replayable?: boolean
 
   /**
    * Optional replayable invalidation policy.
@@ -107,7 +84,12 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
    */
   replayableInvalidated?: (args: {
     keyid: string
+    created: number
+    expires: number
+    label: string
     signature: Hex
+    signatureBase: Uint8Array
+    signatureParamsValue: string
   }) => boolean | Promise<boolean>
 
   /** Maximum number of signatures to verify (default 3). */
@@ -121,11 +103,6 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
 
   /** Replay protection */
   nonceKey?: (keyid: string, nonce: string) => string // default `${keyid}:${nonce}`
-}
-
-export type ServerConfig = {
-  max_validity_sec: number
-  route_policies?: RoutePolicyConfig
 }
 
 export type SignatureParams = {
@@ -173,18 +150,6 @@ export type VerifyFailReason =
   | "alg_not_allowed"
   | "bad_signature_bytes"
   | "bad_signature_check"
-
-export type VerifierClientVerifyRequestArgs = {
-  request: Request
-  policy?: VerifyPolicy
-  setHeaders?: SetHeadersFn
-}
-
-export type CreateVerifierClientArgs = {
-  verifyMessage: VerifyMessageFn
-  nonceStore: NonceStore
-  defaults?: VerifyPolicy
-}
 
 export class Erc8128Error extends Error {
   constructor(

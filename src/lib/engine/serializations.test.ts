@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Erc8128Error } from "../types"
+import { Erc8128Error } from "../types.js"
 import {
   appendDictionaryMember,
   assertSignatureParamsForSerialization,
@@ -10,7 +10,7 @@ import {
   serializeSignatureHeader,
   serializeSignatureInputHeader,
   serializeSignatureParamsInnerList
-} from "./serializations"
+} from "./serializations.js"
 
 describe("quoteSfString", () => {
   test("quotes a simple string", () => {
