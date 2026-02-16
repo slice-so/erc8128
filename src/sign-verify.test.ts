@@ -464,8 +464,7 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       created,
       expires,
       nonce: "nonce-request",
-      label: "request",
-      headerMode: "append"
+      label: "request"
     })
 
     const res = await verifyWithPolicy(
@@ -515,7 +514,7 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(res.replayable).toBe(false)
   })
 
-  test("headerMode=append appends a second signature label and verifier can target it", async () => {
+  test("appends a second signature label and verifier can target it", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
     const expires = created + 60
@@ -532,8 +531,7 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       created,
       expires,
       nonce: "nonce-2",
-      label: "b",
-      headerMode: "append"
+      label: "b"
     })
 
     expect(twice.headers.get("Signature-Input")).toContain("a=")
@@ -569,8 +567,7 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       created,
       expires,
       nonce: "nonce-b",
-      label: "b",
-      headerMode: "append"
+      label: "b"
     })
 
     const res = await verifyWithPolicy(

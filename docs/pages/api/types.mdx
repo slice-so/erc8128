@@ -88,9 +88,6 @@ type SignOptions = {
   /** Content-Digest handling (default: "auto") */
   contentDigest?: ContentDigestMode
   
-  /** How to add headers when signatures exist (default: "replace") */
-  headerMode?: HeaderMode
-  
   /** Additional components to sign beyond the default set */
   components?: string[]
 }
@@ -142,21 +139,6 @@ type ContentDigestMode = "auto" | "recompute" | "require" | "off"
 | `recompute` | Always recompute Content-Digest even if header exists. |
 | `require` | Require existing Content-Digest header. |
 | `off` | Don't add Content-Digest. |
-
----
-
-## HeaderMode
-
-Controls how signature headers are written.
-
-```typescript
-type HeaderMode = "replace" | "append"
-```
-
-| Value | Description |
-|-------|-------------|
-| `replace` | Replace existing Signature-Input and Signature headers. Default. |
-| `append` | Append new signature to existing headers (for multi-signature scenarios). |
 
 ---
 

@@ -15,8 +15,7 @@ async function main(): Promise<void> {
       keyfile: opts.keyfile,
       keystore: opts.keystore,
       password: opts.password,
-      ledger: opts.ledger,
-      trezor: opts.trezor,
+      interactive: opts.interactive,
       chainId: opts.chainId
     })
 

@@ -9,7 +9,6 @@ export {
   type ContentDigestMode,
   Erc8128Error,
   type EthHttpSigner,
-  type HeaderMode,
   type NonceStore,
   type ReplayMode,
   type SetHeadersFn,

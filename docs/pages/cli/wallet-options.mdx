@@ -1,0 +1,75 @@
+# Wallet Options
+
+The CLI supports multiple ways to provide an Ethereum wallet for signing requests.
+
+## Keystore (Recommended)
+
+The most secure option. Uses an encrypted keystore file:
+
+```bash
+erc8128 curl --keystore ./keyfile.json https://api.example.com/data
+```
+
+For interactive password prompts:
+
+```bash
+erc8128 curl \
+  --keystore ~/.ethereum/keystores/my-key \
+  --interactive \
+  https://api.example.com/data
+```
+
+You can also set the password via environment variable:
+
+```bash
+export ETH_KEYSTORE_PASSWORD=your-password
+erc8128 curl --keystore ./keyfile.json https://api.example.com/data
+```
+
+## Keyfile
+
+A file containing a raw private key:
+
+```bash
+erc8128 curl --keyfile ~/.keys/bot.key https://api.example.com/data
+```
+
+Use `-` to read from stdin:
+
+```bash
+cat ~/.keys/bot.key | erc8128 curl --keyfile - https://api.example.com/data
+```
+
+## Private Key
+
+Pass a raw private key directly:
+
+```bash
+erc8128 curl --private-key 0x... https://api.example.com/data
+```
+
+Or via environment variable:
+
+```bash
+export ETH_PRIVATE_KEY=0x...
+erc8128 curl https://api.example.com/data
+```
+
+:::warning
+Using `--private-key` or `ETH_PRIVATE_KEY` is insecure — the key may be visible in shell history or process listings. Use `--keystore` for production workloads.
+:::
+
+## Options Reference
+
+| Option | Description |
+| --- | --- |
+| `--keystore <path>` | Path to encrypted keystore file |
+| `--password <pass>` | Keystore password |
+| `--interactive` | Prompt for keystore password interactively |
+| `--keyfile <path>` | Path to raw private key file (use `-` for stdin) |
+| `--private-key <key>` | Raw private key |
+
+| Environment Variable | Description |
+| --- | --- |
+| `ETH_KEYSTORE_PASSWORD` | Non-interactive keystore decryption |
+| `ETH_PRIVATE_KEY` | Raw private key |

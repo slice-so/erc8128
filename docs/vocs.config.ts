@@ -34,8 +34,7 @@ export default defineConfig({
         {
           text: "Smart Contract Accounts",
           link: "/guides/smart-contract-accounts"
-        },
-        { text: "eth-fetch CLI", link: "/guides/cli" }
+        }
       ]
     },
     {
@@ -49,6 +48,16 @@ export default defineConfig({
         { text: "formatKeyId", link: "/api/formatKeyId" },
         { text: "parseKeyId", link: "/api/parseKeyId" },
         { text: "Types", link: "/api/types" }
+      ]
+    },
+    {
+      text: "CLI",
+      items: [
+        { text: "Overview", link: "/cli" },
+        { text: "Wallet Options", link: "/cli/wallet-options" },
+        { text: "Signature Options", link: "/cli/signature-options" },
+        { text: "Configuration", link: "/cli/configuration" },
+        { text: "Examples", link: "/cli/examples" }
       ]
     },
     {

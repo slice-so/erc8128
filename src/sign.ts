@@ -80,7 +80,6 @@ export async function signRequest(
   const label = resolvedOpts.label ?? "eth"
   const binding = resolvedOpts.binding ?? "request-bound"
   const replay = resolvedOpts.replay ?? "non-replayable"
-  const headerMode = resolvedOpts.headerMode ?? "replace"
   const digestMode = resolvedOpts.contentDigest ?? "auto"
 
   const now = unixNow()
@@ -151,22 +150,14 @@ export async function signRequest(
   const signatureHeader = serializeSignatureHeader(label, sigB64)
 
   const headers = new Headers(signedRequest.headers)
-  if (headerMode === "replace") {
-    headers.set("Signature-Input", signatureInputHeader)
-    headers.set("Signature", signatureHeader)
-  } else {
-    headers.set(
-      "Signature-Input",
-      appendDictionaryMember(
-        headers.get("Signature-Input"),
-        signatureInputHeader
-      )
-    )
-    headers.set(
-      "Signature",
-      appendDictionaryMember(headers.get("Signature"), signatureHeader)
-    )
-  }
+  headers.set(
+    "Signature-Input",
+    appendDictionaryMember(headers.get("Signature-Input"), signatureInputHeader)
+  )
+  headers.set(
+    "Signature",
+    appendDictionaryMember(headers.get("Signature"), signatureHeader)
+  )
 
   return new Request(signedRequest, { headers })
 }
