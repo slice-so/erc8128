@@ -39,6 +39,17 @@ bun run preview
 npx wrangler pages deploy dist --project-name=erc8128-site
 ```
 
+## Demo Endpoint
+
+For the ERC-8128 demo, a runtime debug endpoint is available at:
+
+- `/get`
+
+It returns:
+
+- `Signature-Input` and `Signature` request headers
+- Request metadata used in ERC-8128 signing (`method`, `authority`, `path`, `query`)
+
 ## Project Structure
 
 ```
