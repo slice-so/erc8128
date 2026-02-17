@@ -1,2 +1,9 @@
 name = "erc8128-site"
 compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./dist"
+
+[[routes]]
+pattern = "erc8128.org"
+custom_domain = true
