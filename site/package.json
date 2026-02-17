@@ -11,7 +11,9 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.17.1"
+    "@slicekit/erc8128": "workspace:*",
+    "astro": "^5.17.1",
+    "viem": "catalog:"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.0",

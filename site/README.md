@@ -41,14 +41,27 @@ npx wrangler pages deploy dist --project-name=erc8128-site
 
 ## Demo Endpoint
 
-For the ERC-8128 demo, a runtime debug endpoint is available at:
+For the ERC-8128 demo, a runtime endpoint is available at:
 
 - `/get`
 
-It returns:
+By default, it returns only the raw `VerifyResult` payload from `@slicekit/erc8128`
+to keep demo output short and terminal-friendly.
 
+Use `GET /get?verbose=1` to include expanded debug payload:
+
+- Signature verification result (`verified`, `verification`)
 - `Signature-Input` and `Signature` request headers
 - Request metadata used in ERC-8128 signing (`method`, `authority`, `path`, `query`)
+- Full request headers map for debugging
+
+Verification notes:
+
+- Uses `@slicekit/erc8128` + `viem` `verifyMessage`
+- Optional RPC override via `ERC8128_DEMO_RPC_URL`
+- Optional fake verification mode for local demos via `ERC8128_DEMO_FAKE_VERIFY=true`
+
+note: nonce usage is not verified
 
 ## Project Structure
 
