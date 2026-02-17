@@ -136,7 +136,7 @@ erc8128 curl --dry-run -d @body.json --keyfile ~/.keys/bot.key https://api.examp
 ### Express middleware
 
 ```typescript
-import { verifyRequest } from '@slicekit/erc8128'
+import { createVerifierClient } from '@slicekit/erc8128'
 import type { NonceStore } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
@@ -151,12 +151,12 @@ const nonceStore: NonceStore = {
   }
 }
 
+const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+
 async function erc8128Auth(req, res, next) {
-  const result = await verifyRequest(
-    toFetchRequest(req), // Convert Express req to Fetch Request
-    publicClient.verifyMessage,
-    nonceStore
-  )
+  // Convert Express req to a Fetch API Request (use your own helper or a library like node-fetch)
+  const fetchReq = toFetchRequest(req)
+  const result = await verifier.verifyRequest(fetchReq)
 
   if (!result.ok) {
     return res.status(401).json({ error: result.reason })
@@ -189,36 +189,18 @@ const client = createSignerClient(signer)
 // Use client.fetch() for all authenticated requests
 ```
 
-### Verify failure reasons
+### Common verify failure reasons
 
-```typescript
-type VerifyFailReason =
-  | 'missing_headers'
-  | 'label_not_found'
-  | 'bad_signature_input'
-  | 'bad_signature'
-  | 'bad_keyid'
-  | 'bad_time'
-  | 'not_yet_valid'
-  | 'expired'
-  | 'validity_too_long'
-  | 'nonce_required'
-  | 'replayable_not_allowed'
-  | 'replayable_invalidation_required'
-  | 'replayable_not_before'
-  | 'replayable_invalidated'
-  | 'class_bound_not_allowed'
-  | 'not_request_bound'
-  | 'nonce_window_too_long'
-  | 'replay'
-  | 'digest_mismatch'
-  | 'digest_required'
-  | 'alg_not_allowed'
-  | 'bad_signature_bytes'
-  | 'bad_signature_check'
-```
+| Reason | Meaning |
+|--------|---------|
+| `missing_headers` | Required `Signature` / `Signature-Input` headers not found |
+| `expired` | Signature TTL has elapsed |
+| `replay` | Nonce already consumed (replay attempt) |
+| `bad_keyid` | `keyid` doesn't match `eip8128:<chainId>:<address>` format |
+| `bad_signature_check` | Signature doesn't match the claimed address |
+| `digest_mismatch` | Body was modified after signing |
 
-📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for descriptions.
+📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for the full list of 23 failure reasons.
 
 ## Key Management
 

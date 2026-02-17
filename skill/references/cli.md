@@ -49,6 +49,8 @@ erc8128 curl [options] <url>
 
 `ETH_PRIVATE_KEY` and `ETH_KEYSTORE_PASSWORD` env vars also supported.
 
+**Wallet resolution order:** `--keystore` → `--keyfile` → `--private-key` → `ETH_PRIVATE_KEY` env var. If none are provided, the CLI exits with an error.
+
 ### ERC-8128
 
 | Option | Description |
@@ -58,7 +60,7 @@ erc8128 curl [options] <url>
 | `--replay <mode>` | `non-replayable` \| `replayable` |
 | `--ttl <seconds>` | Signature TTL (default: 60) |
 | `--components <comp>` | Components to sign (repeatable, comma-separated) |
-| `--keyid <keyid>` | Expected keyid (`erc8128:<chainId>:<address>`) |
+| `--keyid <keyid>` | Override auto-derived keyid (`erc8128:<chainId>:<address>`) |
 
 ## Examples
 
