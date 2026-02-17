@@ -16,6 +16,7 @@
     "viem": "catalog:"
   },
   "devDependencies": {
+    "@astrojs/cloudflare": "^12.6.7",
     "@resvg/resvg-js": "^2.6.0",
     "@tailwindcss/vite": "~4.1.18",
     "@types/node": "~24.3.1",
