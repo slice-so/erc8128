@@ -11,9 +11,9 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@slicekit/erc8128": "workspace:*",
+    "@slicekit/erc8128": "0.1.1",
     "astro": "^5.17.1",
-    "viem": "catalog:"
+    "viem": "^2.37.5"
   },
   "devDependencies": {
     "@astrojs/cloudflare": "^12.6.7",
