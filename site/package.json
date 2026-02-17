@@ -4,20 +4,22 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
+    "dev": "astro build && wrangler dev",
     "build": "astro build",
-    "preview": "astro preview",
+    "preview": "wrangler dev",
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.17.1"
+    "@slicekit/erc8128": "workspace:*",
+    "astro": "^5.17.1",
+    "viem": "catalog:"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.0",
     "@tailwindcss/vite": "~4.1.18",
     "@types/node": "~24.3.1",
     "satori": "^0.12.0",
-    "tailwindcss": "~4.1.18"
+    "tailwindcss": "~4.1.18",
+    "wrangler": "catalog:"
   }
 }
