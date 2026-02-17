@@ -1,14 +1,15 @@
 import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
-import { Resvg } from "@resvg/resvg-js"
 import type { APIRoute } from "astro"
 import satori from "satori"
+
+export const prerender = true
 
 async function loadFont(family: string, weight: number): Promise<ArrayBuffer> {
   const url = `https://fonts.googleapis.com/css2?family=${family}:wght@${weight}`
   const css = await fetch(url, {
     headers: {
-      // This UA makes Google Fonts return TTF URLs
+      // This UA makes Google Fonts return TTF URLs.
       "User-Agent":
         "Mozilla/5.0 (BB10; Touch) AppleWebKit/537.10+ (KHTML, like Gecko) Version/10.0.9.2372 Mobile Safari/537.10+"
     }
@@ -52,7 +53,6 @@ export const GET: APIRoute = async () => {
         overflow: "hidden" as const
       },
       children: [
-        // Left content panel
         {
           type: "div",
           props: {
@@ -74,7 +74,6 @@ export const GET: APIRoute = async () => {
                     flexDirection: "column" as const
                   },
                   children: [
-                    // White bar
                     {
                       type: "div",
                       props: {
@@ -86,7 +85,6 @@ export const GET: APIRoute = async () => {
                         }
                       }
                     },
-                    // ERC
                     {
                       type: "div",
                       props: {
@@ -99,7 +97,6 @@ export const GET: APIRoute = async () => {
                         children: "ERC"
                       }
                     },
-                    // 8128
                     {
                       type: "div",
                       props: {
@@ -115,7 +112,6 @@ export const GET: APIRoute = async () => {
                   ]
                 }
               },
-              // Subtitle
               {
                 type: "div",
                 props: {
@@ -156,7 +152,6 @@ export const GET: APIRoute = async () => {
             ]
           }
         },
-        // Right: globe image
         ...(globeDataUri
           ? [
               {
@@ -207,14 +202,9 @@ export const GET: APIRoute = async () => {
     ]
   })
 
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: "width" as const, value: 1200 }
-  })
-  const png = resvg.render().asPng()
-
-  return new Response(Buffer.from(png), {
+  return new Response(svg, {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": "image/svg+xml; charset=utf-8",
       "Cache-Control": "public, max-age=31536000, immutable"
     }
   })

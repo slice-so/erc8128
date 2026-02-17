@@ -1,13 +1,14 @@
-import type { APIRoute } from "astro"
+import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
 import { createPublicClient, http } from "viem"
-import { createVerifierClient } from "../../../src/index.js"
-import type { NonceStore } from "../../../src/lib/types.js"
 
-export const prerender = false
-
-type HeaderMap = Record<string, string[]>
+interface Env {
+  ASSETS: { fetch: typeof fetch }
+  ERC8128_DEMO_RPC_URL?: string
+}
 
 const DEFAULT_RPC_URL = "https://eth.llamarpc.com"
+
+type HeaderMap = Record<string, string[]>
 
 const nonceExpirations = new Map<string, number>()
 const nonceStore: NonceStore = {
@@ -26,14 +27,21 @@ const nonceStore: NonceStore = {
   }
 }
 
-const publicClient = createPublicClient({
-  transport: http(import.meta.env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
-})
+let verifier: ReturnType<typeof createVerifierClient> | undefined
 
-const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore, {
-  strictLabel: false,
-  maxValiditySec: 300
-})
+const getVerifier = (env: Env) => {
+  if (!verifier) {
+    const publicClient = createPublicClient({
+      transport: http(env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
+    })
+
+    verifier = createVerifierClient(publicClient.verifyMessage, nonceStore, {
+      strictLabel: false,
+      maxValiditySec: 300
+    })
+  }
+  return verifier
+}
 
 const collectHeaders = (headers: Headers): HeaderMap => {
   const result: HeaderMap = {}
@@ -68,7 +76,9 @@ const isVerboseRequest = (request: Request): boolean => {
 
 const createVerbosePayload = (
   request: Request,
-  verification: Awaited<ReturnType<typeof verifier.verifyRequest>>
+  verification: Awaited<
+    ReturnType<ReturnType<typeof createVerifierClient>["verifyRequest"]>
+  >
 ) => {
   const url = new URL(request.url)
 
@@ -92,7 +102,9 @@ const createVerbosePayload = (
 }
 
 const verificationStatus = (
-  verification: Awaited<ReturnType<typeof verifier.verifyRequest>>
+  verification: Awaited<
+    ReturnType<ReturnType<typeof createVerifierClient>["verifyRequest"]>
+  >
 ): number => {
   if (verification.ok) return 200
 
@@ -147,31 +159,65 @@ const createErrorPayload = (
   }
 }
 
-export const OPTIONS: APIRoute = async () =>
-  new Response(null, {
-    status: 204,
-    headers: {
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "*",
-      "access-control-max-age": "86400"
-    }
-  })
+const corsHeaders = new Response(null, {
+  status: 204,
+  headers: {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+    "access-control-allow-headers": "*",
+    "access-control-max-age": "86400"
+  }
+})
 
-export const GET: APIRoute = async ({ request }) => {
-  const verbose = isVerboseRequest(request)
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
 
-  try {
-    const verification = await verifier.verifyRequest(request.clone())
-    if (!verbose) {
-      return json(verification, verificationStatus(verification))
+    if (url.pathname !== "/verify") {
+      return env.ASSETS.fetch(request)
     }
 
-    return json(
-      createVerbosePayload(request, verification),
-      verificationStatus(verification)
-    )
-  } catch (error) {
-    return json(createErrorPayload(request, error, verbose), 500)
+    if (request.method === "OPTIONS") {
+      return corsHeaders.clone()
+    }
+
+    const verbose = isVerboseRequest(request)
+    const v = getVerifier(env)
+
+    const responseHeaders = new Headers()
+
+    try {
+      const verification = await v.verifyRequest(
+        request.clone(),
+        undefined,
+        (name, value) => {
+          responseHeaders.set(name, value)
+        }
+      )
+      const status = verificationStatus(verification)
+      const acceptSignature = responseHeaders.get("accept-signature")
+
+      const body =
+        status === 400 && acceptSignature
+          ? { ...verification, acceptSignature }
+          : verification
+
+      if (!verbose) {
+        const res = json(body, status)
+        for (const [k, v] of responseHeaders) res.headers.set(k, v)
+        return res
+      }
+
+      const verboseBody =
+        status === 400 && acceptSignature
+          ? { ...createVerbosePayload(request, verification), acceptSignature }
+          : createVerbosePayload(request, verification)
+
+      const res = json(verboseBody, status)
+      for (const [k, v] of responseHeaders) res.headers.set(k, v)
+      return res
+    } catch (error) {
+      return json(createErrorPayload(request, error, verbose), 500)
+    }
   }
 }
