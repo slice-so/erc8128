@@ -1,6 +1,6 @@
 {
   "name": "@slicekit/erc8128",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Minimal ERC-8128 implementation for signing and verifying HTTP requests with Ethereum accounts",
   "scripts": {
     "format": "biome format --write",

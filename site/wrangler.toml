@@ -1,8 +1,11 @@
 name = "erc8128-site"
+main = "src/worker.ts"
 compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 
 [[routes]]
 pattern = "erc8128.org"

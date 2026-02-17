@@ -16,6 +16,7 @@ import {
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { keccak256 } from "viem"
 import { createSigner } from "./wallet.js"
 
@@ -309,10 +310,8 @@ describe("wallet creation", () => {
   describe("keyfile handling", () => {
     test("creates signer from keyfile", async () => {
       const consoleSpy = spyOn(console, "error").mockImplementation(() => {})
-      const tempKeyPath = path.join(
-        process.cwd(),
-        "src",
-        "test-fixtures-keyfile.txt"
+      const tempKeyPath = fileURLToPath(
+        new URL("./test-fixtures-keyfile.txt", import.meta.url)
       )
 
       const signer = await createSigner({
