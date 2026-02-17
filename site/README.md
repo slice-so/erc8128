@@ -22,6 +22,11 @@ bun run preview
 
 ## Deployment (Cloudflare Pages)
 
+This project uses a single Cloudflare Pages deployment:
+
+- Static pages are prerendered at build time
+- `/get` runs server-side as a Pages Function
+
 ### Option 1: Dashboard (recommended)
 
 1. Go to [Cloudflare Pages](https://dash.cloudflare.com/?to=/:account/pages) → Create project
@@ -30,7 +35,14 @@ bun run preview
    - **Build command:** `cd packages/erc8128/site && bun install && bun run build`
    - **Build output directory:** `packages/erc8128/site/dist`
    - **Root directory:** `/` (monorepo root)
-4. Add custom domain: `erc8128.xyz`
+4. Add environment variable:
+   - `ERC8128_DEMO_RPC_URL=<your-rpc-url>`
+5. Add custom domain: `erc8128.xyz`
+
+Important:
+
+- Use Cloudflare Pages deployment flow (dashboard or `wrangler pages deploy`)
+- Do not use `wrangler deploy` for this project
 
 ### Option 2: Wrangler CLI
 
