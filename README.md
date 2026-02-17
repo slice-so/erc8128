@@ -7,7 +7,7 @@ Sign and verify HTTP requests with Ethereum wallets using [ERC-8128](https://git
 - **Fetch-native** — Works in browsers, workers, Node.js 18+, Bun, Deno
 - **RFC 9421 compliant** — HTTP Message Signatures with Ethereum extension
 - **Request binding** — Sign URL, method, headers, and body
-- **Replay protection** — Optional nonce handling
+- **Replay protection** — Non-replayable by default (nonce required); nonce omission is only for explicitly allowed replayable signatures
 
 ## Installation
 
@@ -115,7 +115,7 @@ Signs and sends a request in one call.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `binding` | `"request-bound"` \| `"class-bound"` | `"request-bound"` | Components to sign |
-| `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Include nonce |
+| `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Non-replayable includes nonce; replayable omits nonce |
 | `ttlSeconds` | `number` | `60` | Signature validity window |
 | `label` | `string` | `"eth"` | Signature label |
 | `components` | `string[]` | — | Override signed components |

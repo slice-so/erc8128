@@ -26,7 +26,7 @@
   "author": "slice-so",
   "license": "MIT",
   "dependencies": {
-    "@slicekit/erc8128": "0.1.0",
+    "@slicekit/erc8128": "0.1.1",
     "commander": "^14.0.0",
     "viem": "^2.37.5"
   },
