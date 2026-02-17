@@ -59,7 +59,6 @@ Verification notes:
 
 - Uses `@slicekit/erc8128` + `viem` `verifyMessage`
 - Optional RPC override via `ERC8128_DEMO_RPC_URL`
-- Optional fake verification mode for local demos via `ERC8128_DEMO_FAKE_VERIFY=true`
 
 note: nonce usage is not verified
 

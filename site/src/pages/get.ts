@@ -8,8 +8,6 @@ export const prerender = false
 type HeaderMap = Record<string, string[]>
 
 const DEFAULT_RPC_URL = "https://eth.llamarpc.com"
-const DEMO_FAKE_VERIFY =
-  String(import.meta.env.ERC8128_DEMO_FAKE_VERIFY ?? "false") === "true"
 
 const nonceExpirations = new Map<string, number>()
 const nonceStore: NonceStore = {
@@ -32,11 +30,7 @@ const publicClient = createPublicClient({
   transport: http(import.meta.env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
 })
 
-const verifyMessage = DEMO_FAKE_VERIFY
-  ? async () => true
-  : publicClient.verifyMessage
-
-const verifier = createVerifierClient(verifyMessage, nonceStore, {
+const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore, {
   strictLabel: false,
   maxValiditySec: 300
 })
