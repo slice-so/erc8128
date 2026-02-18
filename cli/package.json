@@ -8,7 +8,6 @@
   },
   "scripts": {
     "build": "bun run build.ts",
-    "dev": "bun run --watch ./src/index.ts",
     "test": "bun test",
     "format": "biome format --write",
     "lint": "biome lint --write",
