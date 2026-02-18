@@ -35,9 +35,13 @@ const getVerifier = (env: Env) => {
       transport: http(env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
     })
 
-    verifier = createVerifierClient(publicClient.verifyMessage, nonceStore, {
-      strictLabel: false,
-      maxValiditySec: 300
+    verifier = createVerifierClient({
+      verifyMessage: publicClient.verifyMessage,
+      nonceStore,
+      defaults: {
+        strictLabel: false,
+        maxValiditySec: 300
+      }
     })
   }
   return verifier
@@ -187,13 +191,12 @@ export default {
     const responseHeaders = new Headers()
 
     try {
-      const verification = await v.verifyRequest(
-        request.clone(),
-        undefined,
-        (name, value) => {
+      const verification = await v.verifyRequest({
+        request: request.clone(),
+        setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
-      )
+      })
       const status = verificationStatus(verification)
       const acceptSignature = responseHeaders.get("accept-signature")
 

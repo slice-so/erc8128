@@ -49,9 +49,12 @@ import { mainnet } from 'viem/chains'
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
 
-const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+const verifier = createVerifierClient({
+  verifyMessage: publicClient.verifyMessage,
+  nonceStore
+})
 
-const result = await verifier.verifyRequest(request)
+const result = await verifier.verifyRequest({ request })
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address}`)
@@ -71,17 +74,24 @@ client.fetch(input, init?)       // Sign and send
 client.signRequest(input, init?) // Sign only
 ```
 
-### `createVerifierClient(verifyMessage, nonceStore, policy?)`
+### `createVerifierClient({ verifyMessage, nonceStore, defaults? })`
 
 Creates a client with verification dependencies.
 
 ```typescript
-const verifier = createVerifierClient(verifyMessage, nonceStore)
+const verifier = createVerifierClient({
+  verifyMessage,
+  nonceStore
+})
 
-verifier.verifyRequest(request, policy?, setHeaders?)
+verifier.verifyRequest({
+  request,
+  policy,     // optional
+  setHeaders  // optional
+})
 ```
 
-### `verifyRequest(request, verifyMessage, nonceStore, policy?, setHeaders?)`
+### `verifyRequest({ request, verifyMessage, nonceStore, policy?, setHeaders? })`
 
 Verifies a signed request.
 

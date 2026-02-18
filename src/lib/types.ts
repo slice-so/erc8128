@@ -17,6 +17,14 @@ export type VerifyMessageFn = (
 
 export type SetHeadersFn = (name: string, value: string) => void
 
+export type VerifyRequestArgs = {
+  request: Request
+  verifyMessage: VerifyMessageFn
+  nonceStore: NonceStore
+  policy?: VerifyPolicy
+  setHeaders?: SetHeadersFn
+}
+
 export type BindingMode = "request-bound" | "class-bound"
 export type ReplayMode = "non-replayable" | "replayable"
 export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
@@ -150,6 +158,18 @@ export type VerifyFailReason =
   | "alg_not_allowed"
   | "bad_signature_bytes"
   | "bad_signature_check"
+
+export type VerifierClientVerifyRequestArgs = {
+  request: Request
+  policy?: VerifyPolicy
+  setHeaders?: SetHeadersFn
+}
+
+export type CreateVerifierClientArgs = {
+  verifyMessage: VerifyMessageFn
+  nonceStore: NonceStore
+  defaults?: VerifyPolicy
+}
 
 export class Erc8128Error extends Error {
   constructor(

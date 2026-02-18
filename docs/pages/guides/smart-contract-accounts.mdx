@@ -73,11 +73,11 @@ const publicClient = createPublicClient({
 })
 
 // Use directly in policy — works for both EOA and SCA
-const result = await verifyRequest(
+const result = await verifyRequest({
   request,
-  publicClient.verifyMessage,
+  verifyMessage: publicClient.verifyMessage,
   nonceStore
-)
+})
 ```
 
 No extra configuration is needed. When the signer address is a contract, viem automatically calls `isValidSignature` on it instead of using ecrecover.

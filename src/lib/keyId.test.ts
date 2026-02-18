@@ -100,7 +100,7 @@ describe("parseKeyId", () => {
       "erc8128:1:0xAbCdEf0000000000000000000000000000000001"
     )
     expect(result).not.toBeNull()
-    expect(result!.address).toBe("0xabcdef0000000000000000000000000000000001")
+    expect(result?.address).toBe("0xabcdef0000000000000000000000000000000001")
   })
 
   test("round-trips with formatKeyId", () => {

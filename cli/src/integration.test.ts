@@ -117,8 +117,13 @@ describe("integration tests", () => {
         }
       }
 
-      const result = await verifyRequest(signedReq, verifyMessage, nonceStore, {
-        now: () => created
+      const result = await verifyRequest({
+        request: signedReq,
+        verifyMessage,
+        nonceStore,
+        policy: {
+          now: () => created
+        }
       })
 
       expect(result.ok).toBe(true)
