@@ -221,7 +221,12 @@ Choose a policy tier based on the sensitivity of the endpoint — tighter constr
 Even with valid signatures, apply rate limits:
 
 ```typescript
-const result = await verifyRequest(request, verifyMessage, nonceStore, policy)
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy
+})
 if (result.ok) {
   // Check rate limit for this address
   const allowed = await rateLimit(result.address)

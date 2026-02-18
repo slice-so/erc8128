@@ -4,14 +4,19 @@ Verify an ERC-8128 signed HTTP request.
 
 ## Usage
 
-Pass a `Request`, a `verifyMessage` implementation, a `nonceStore`, and an optional policy. The function returns a `VerifyResult` indicating success or failure.
+Pass an argument object with `request`, `verifyMessage`, `nonceStore`, and optional `policy`/`setHeaders`. The function returns a `VerifyResult` indicating success or failure.
 
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
 // Simple: request + required dependencies + policy
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   maxValiditySec: 300,
+  },
 })
 
 if (result.ok) {
@@ -46,7 +51,7 @@ if (result.ok) {
 ## Parameters
 
 ```typescript
-verifyRequest(
+verifyRequest({
   request: Request,
   verifyMessage: VerifyMessageFn,
   nonceStore: NonceStore,
@@ -92,29 +97,44 @@ These examples show strict, relaxed, and custom-component verification policies.
 :::code-group
 
 ```typescript [Strict Policy]
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   label: 'eth',
   strictLabel: true,
   replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,
   clockSkewSec: 5,
+  },
 })
 ```
 
 ```typescript [Relaxed Policy]
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   replayable: true,
   replayableNotBefore: async (keyid) => await getNotBeforeForKeyId(keyid),
   maxValiditySec: 300,
   clockSkewSec: 30,
+  },
 })
 ```
 
 ```typescript [Custom Components]
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   additionalRequestBoundComponents: ['x-custom-header'],
   classBoundPolicies: ['@authority', 'x-custom-header'],
+  },
 })
 ```
 

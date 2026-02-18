@@ -83,7 +83,7 @@ On the server, use `createVerifierClient` to bind a nonce store and a message ve
 ```typescript [verify.ts]
 import { verifier } from './client'
 
-const result = await verifier.verifyRequest(request)
+const result = await verifier.verifyRequest({ request: request })
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
@@ -103,10 +103,10 @@ export const publicClient = createPublicClient({
   transport: http(),
 })
 
-export const verifier = createVerifierClient(
-  publicClient.verifyMessage,
+export const verifier = createVerifierClient({
+  verifyMessage: publicClient.verifyMessage,
   nonceStore
-)
+})
 ```
 
 ```typescript [nonce.ts]

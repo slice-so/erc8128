@@ -18,7 +18,11 @@ The simplest way to verify a request using [verifyRequest](/api/verifyRequest):
 ```typescript
 import { verifyRequest } from '@slicekit/erc8128'
 
-const result = await verifyRequest(request, verifyMessage, nonceStore)
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore
+})
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address}`)
@@ -35,11 +39,18 @@ For repeated verification with the same dependencies, use [createVerifierClient]
 ```typescript
 import { createVerifierClient } from '@slicekit/erc8128'
 
-const verifier = createVerifierClient(verifyMessage, nonceStore, {
+const verifier = createVerifierClient({
+  verifyMessage,
+  nonceStore,
+  defaults: {
   maxValiditySec: 120,
+  },
 })
 
-const result = await verifier.verifyRequest(request, { strictLabel: true })
+const result = await verifier.verifyRequest({
+  request,
+  policy: { strictLabel: true },
+})
 ```
 
 ## Required Setup
@@ -88,20 +99,30 @@ Choose the appropriate policy based on your endpoint's security requirements:
 
 ```typescript [Strict (Mutations)]
 // For high-security endpoints that modify state
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
   replayable: false,
   maxValiditySec: 60,       // Short window
   maxNonceWindowSec: 60,
   clockSkewSec: 5,          // Small tolerance
+  },
 })
 ```
 
 ```typescript [Relaxed (Reads)]
 // For idempotent read operations
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
   replayable: true,         // Allow replayable signatures
   maxValiditySec: 300,      // Longer window
   clockSkewSec: 30,         // More tolerance
+  },
 })
 ```
 
@@ -115,16 +136,26 @@ When multiple signatures exist on a request:
 
 ```typescript [Default (Prefer Label)]
 // Prefer "eth" label, fall back to first valid
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
   label: 'eth',
+  },
 })
 ```
 
 ```typescript [Strict (Require Label)]
 // Require exact label match
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
   label: 'user',
   strictLabel: true,  // Fail if "user" label not found
+  },
 })
 ```
 
@@ -138,16 +169,30 @@ Use `additionalRequestBoundComponents` to require additional components alongsid
 
 ```typescript
 // Default: rejects class-bound signatures (full request-bound check)
-const result = await verifyRequest(request, verifyMessageFn, nonceStore)
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore
+})
 
 // Require custom headers in request-bound signatures
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
   additionalRequestBoundComponents: ['x-idempotency-key'],
+  },
 })
 
 // Accept class-bound signatures that cover a minimal policy
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
   classBoundPolicies: ['@authority', '@method'],
+  },
 })
 ```
 
@@ -178,7 +223,11 @@ import { verifyRequest } from '@slicekit/erc8128'
 import { createMiddleware } from 'hono/factory'
 
 const erc8128Auth = createMiddleware(async (c, next) => {
-  const result = await verifyRequest(c.req.raw, verifyMessageFn, nonceStore, {
+  const result = await verifyRequest({
+  request: c.req.raw,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
     maxValiditySec: 300,
   })
 
@@ -192,6 +241,7 @@ const erc8128Auth = createMiddleware(async (c, next) => {
   })
 
   await next()
+  },
 })
 ```
 
@@ -200,7 +250,11 @@ import { verifyRequest } from '@slicekit/erc8128'
 import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const result = await verifyRequest(req, verifyMessageFn, nonceStore)
+  const result = await verifyRequest({
+  request: req,
+  verifyMessage: verifyMessageFn,
+  nonceStore
+})
 
   if (!result.ok) {
     return Response.json({ error: result.reason }, { status: 401 })
@@ -224,7 +278,11 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
     body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
   })
 
-  const result = await verifyRequest(fetchRequest, verifyMessageFn, nonceStore, {
+  const result = await verifyRequest({
+  request: fetchRequest,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy: {
     maxValiditySec: 300,
   })
 
@@ -252,7 +310,12 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
 When verification fails, inspect `result.reason` to return appropriate HTTP status codes and error messages.
 
 ```typescript
-const result = await verifyRequest(request, verifyMessageFn, nonceStore, policy)
+const result = await verifyRequest({
+  request,
+  verifyMessage: verifyMessageFn,
+  nonceStore,
+  policy,
+})
 
 if (!result.ok) {
   switch (result.reason) {
