@@ -5,7 +5,6 @@ pages_build_output_dir = "dist"
 
 [assets]
 directory = "./dist"
-binding = "ASSETS"
 
 [[routes]]
 pattern = "erc8128.org"
