@@ -224,11 +224,12 @@ import { createMiddleware } from 'hono/factory'
 
 const erc8128Auth = createMiddleware(async (c, next) => {
   const result = await verifyRequest({
-  request: c.req.raw,
-  verifyMessage: verifyMessageFn,
-  nonceStore,
-  policy: {
-    maxValiditySec: 300,
+    request: c.req.raw,
+    verifyMessage: verifyMessageFn,
+    nonceStore,
+    policy: {
+      maxValiditySec: 300,
+    },
   })
 
   if (!result.ok) {
@@ -241,7 +242,6 @@ const erc8128Auth = createMiddleware(async (c, next) => {
   })
 
   await next()
-  },
 })
 ```
 
@@ -279,11 +279,12 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
   })
 
   const result = await verifyRequest({
-  request: fetchRequest,
-  verifyMessage: verifyMessageFn,
-  nonceStore,
-  policy: {
-    maxValiditySec: 300,
+    request: fetchRequest,
+    verifyMessage: verifyMessageFn,
+    nonceStore,
+    policy: {
+      maxValiditySec: 300,
+    },
   })
 
   if (!result.ok) {
