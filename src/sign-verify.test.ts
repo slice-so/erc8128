@@ -55,7 +55,7 @@ function verifyWithPolicy(
 ) {
   const verifyMessage = deps?.verifyMessage ?? makeVerifyMessage()
   const nonceStore = deps?.nonceStore ?? makeNonceStore()
-  return verifyRequest(request, verifyMessage, nonceStore, policy)
+  return verifyRequest({ request, verifyMessage, nonceStore, policy })
 }
 
 async function sha256B64(bytes: Uint8Array): Promise<string> {

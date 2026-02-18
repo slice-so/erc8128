@@ -8,14 +8,7 @@ import {
   normalizeClassBoundPolicies,
   normalizeComponentsList
 } from "./lib/policies/normalizePolicies.js"
-import type {
-  Address,
-  NonceStore,
-  SetHeadersFn,
-  VerifyMessageFn,
-  VerifyPolicy,
-  VerifyResult
-} from "./lib/types.js"
+import type { Address, VerifyRequestArgs, VerifyResult } from "./lib/types.js"
 import {
   base64Decode,
   bytesToHex,
@@ -35,12 +28,9 @@ const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
 
 export async function verifyRequest(
-  request: Request,
-  verifyMessage: VerifyMessageFn,
-  nonceStore: NonceStore,
-  policy?: VerifyPolicy,
-  setHeaders?: SetHeadersFn
+  args: VerifyRequestArgs
 ): Promise<VerifyResult> {
+  const { request, verifyMessage, nonceStore, policy, setHeaders } = args
   const resolvedPolicy = {
     ...policy,
     verifyMessage,

@@ -11,12 +11,19 @@ Create a client by passing a verification function, a nonce store, and optional 
 ```typescript
 import { createVerifierClient } from '@slicekit/erc8128'
 
-const verifier = createVerifierClient(verifyMessage, nonceStore, {
-  maxValiditySec: 120,
-  replayable: false,
+const verifier = createVerifierClient({
+  verifyMessage,
+  nonceStore,
+  defaults: {
+    maxValiditySec: 120,
+    replayable: false,
+  },
 })
 
-const result = await verifier.verifyRequest(request, { strictLabel: true })
+const result = await verifier.verifyRequest({
+  request,
+  policy: { strictLabel: true },
+})
 ```
 
 ## Returns
@@ -47,8 +54,12 @@ Nonce store used for replay protection.
 Default verification policy applied to all requests. Can be overridden per-call.
 
 ```typescript
-const verifier = createVerifierClient(verifyMessage, nonceStore, {
-  clockSkewSec: 10,
-  maxValiditySec: 180,
+const verifier = createVerifierClient({
+  verifyMessage,
+  nonceStore,
+  defaults: {
+    clockSkewSec: 10,
+    maxValiditySec: 180,
+  },
 })
 ```

@@ -1,7 +1,7 @@
+import type { NonceStore } from "@slicekit/erc8128"
+import { createVerifierClient } from "@slicekit/erc8128"
 import type { APIRoute } from "astro"
 import { createPublicClient, http } from "viem"
-import { createVerifierClient } from "../../../src/index.js"
-import type { NonceStore } from "../../../src/lib/types.js"
 
 export const prerender = false
 
@@ -30,9 +30,13 @@ const publicClient = createPublicClient({
   transport: http(import.meta.env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
 })
 
-const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore, {
-  strictLabel: false,
-  maxValiditySec: 300
+const verifier = createVerifierClient({
+  verifyMessage: publicClient.verifyMessage,
+  nonceStore,
+  defaults: {
+    strictLabel: false,
+    maxValiditySec: 300
+  }
 })
 
 const collectHeaders = (headers: Headers): HeaderMap => {
@@ -162,7 +166,9 @@ export const GET: APIRoute = async ({ request }) => {
   const verbose = isVerboseRequest(request)
 
   try {
-    const verification = await verifier.verifyRequest(request.clone())
+    const verification = await verifier.verifyRequest({
+      request: request.clone()
+    })
     if (!verbose) {
       return json(verification, verificationStatus(verification))
     }

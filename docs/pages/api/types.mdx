@@ -384,11 +384,11 @@ Return type of [createVerifierClient](/api/createVerifierClient). Provides a bou
 
 ```typescript
 type VerifierClient = {
-  verifyRequest: (
-    request: Request,
-    policy?: VerifyPolicy,
+  verifyRequest: (args: {
+    request: Request
+    policy?: VerifyPolicy
     setHeaders?: (name: string, value: string) => void
-  ) => Promise<VerifyResult>
+  }) => Promise<VerifyResult>
 }
 ```
 
@@ -407,6 +407,74 @@ Options for [createVerifierClient](/api/createVerifierClient) and client methods
 ```typescript
 type VerifierClientOptions = VerifyPolicy
 ```
+
+---
+
+## SetHeadersFn
+
+Callback to set response headers. Used by `verifyRequest` to emit `Accept-Signature`.
+
+```typescript
+type SetHeadersFn = (name: string, value: string) => void
+```
+
+---
+
+## VerifyRequestArgs
+
+Argument object for [verifyRequest](/api/verifyRequest).
+
+```typescript
+type VerifyRequestArgs = {
+  request: Request
+  verifyMessage: VerifyMessageFn
+  nonceStore: NonceStore
+  policy?: VerifyPolicy
+  setHeaders?: SetHeadersFn
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `request` | `Request` | The HTTP request to verify |
+| `verifyMessage` | [`VerifyMessageFn`](#verifymessagefn) | Signature verification function |
+| `nonceStore` | [`NonceStore`](#noncestore) | Replay protection store |
+| `policy` | [`VerifyPolicy`](#verifypolicy) | Optional verification policy |
+| `setHeaders` | [`SetHeadersFn`](#setheadersfn) | Optional callback to set `Accept-Signature` response header |
+
+---
+
+## VerifierClientVerifyRequestArgs
+
+Argument object for `verifierClient.verifyRequest()`. The client already has `verifyMessage` and `nonceStore` bound, so only `request` and optional overrides are needed.
+
+```typescript
+type VerifierClientVerifyRequestArgs = {
+  request: Request
+  policy?: VerifyPolicy
+  setHeaders?: SetHeadersFn
+}
+```
+
+---
+
+## CreateVerifierClientArgs
+
+Argument object for [createVerifierClient](/api/createVerifierClient).
+
+```typescript
+type CreateVerifierClientArgs = {
+  verifyMessage: VerifyMessageFn
+  nonceStore: NonceStore
+  defaults?: VerifyPolicy
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `verifyMessage` | [`VerifyMessageFn`](#verifymessagefn) | Signature verification function |
+| `nonceStore` | [`NonceStore`](#noncestore) | Replay protection store |
+| `defaults` | [`VerifyPolicy`](#verifypolicy) | Default policy applied to all requests |
 
 ---
 
@@ -444,7 +512,7 @@ Catch `Erc8128Error` to handle specific error codes during signing or verificati
 import { signRequest, Erc8128Error } from '@slicekit/erc8128'
 
 try {
-  const signedRequest = await signRequest({ input, signer })
+  const signedRequest = await signRequest(input, signer)
 } catch (error) {
   if (error instanceof Erc8128Error) {
     console.error(`Error (${error.code}): ${error.message}`)

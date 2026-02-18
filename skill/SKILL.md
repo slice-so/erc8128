@@ -70,9 +70,12 @@ const nonceStore: NonceStore = {
 }
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
-const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+const verifier = createVerifierClient({
+  verifyMessage: publicClient.verifyMessage,
+  nonceStore
+})
 
-const result = await verifier.verifyRequest(request)
+const result = await verifier.verifyRequest({ request: request })
 
 if (result.ok) {
   console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
@@ -151,12 +154,15 @@ const nonceStore: NonceStore = {
   }
 }
 
-const verifier = createVerifierClient(publicClient.verifyMessage, nonceStore)
+const verifier = createVerifierClient({
+  verifyMessage: publicClient.verifyMessage,
+  nonceStore
+})
 
 async function erc8128Auth(req, res, next) {
   // Convert Express req to a Fetch API Request (use your own helper or a library like node-fetch)
   const fetchReq = toFetchRequest(req)
-  const result = await verifier.verifyRequest(fetchReq)
+  const result = await verifier.verifyRequest({ request: fetchReq })
 
   if (!result.ok) {
     return res.status(401).json({ error: result.reason })

@@ -105,7 +105,11 @@ const signedRequest = await signRequest(
 During verification, the server checks that the `Content-Digest` header matches the actual body bytes. A mismatch indicates tampering.
 
 ```typescript
-const result = await verifyRequest(request, verifyMessage, nonceStore)
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore
+})
 
 // If content-digest is in components:
 // 1. Header must exist
@@ -206,7 +210,11 @@ If the signature omits any of these (given the request shape), verification fail
 
 ```typescript
 // Default: enforces full request-bound check
-const result = await verifyRequest(request, verifyMessage, nonceStore)
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore
+})
 // A class-bound signature (e.g. only @authority) would be rejected
 ```
 
@@ -215,8 +223,13 @@ const result = await verifyRequest(request, verifyMessage, nonceStore)
 Use `additionalRequestBoundComponents` to require additional components alongside the default set:
 
 ```typescript
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   additionalRequestBoundComponents: ['x-api-version', 'x-idempotency-key'],
+  },
 })
 ```
 
@@ -227,11 +240,16 @@ The signature must now cover the request-bound set **plus** `x-api-version` and 
 Use `classBoundPolicies` to opt in to class-bound signatures. Each policy list is an acceptable component set (order does not matter). If any policy is covered by the signed components, the signature can be accepted:
 
 ```typescript
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   classBoundPolicies: [
     ['@authority', '@method'],
     ['@authority', '@path'],
   ],
+  },
 })
 ```
 

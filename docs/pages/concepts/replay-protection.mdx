@@ -47,11 +47,16 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Server Side]
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   maxValiditySec: 300,  // Max 5 minutes allowed
   clockSkewSec: 30,     // Allow 30s clock drift
   now: () => Math.floor(Date.now() / 1000),  // Time source
   ...
+  },
 })
 ```
 
@@ -107,10 +112,15 @@ const signedRequest = await signRequest(
 ```
 
 ```typescript [Server]
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   replayable: false,     // Reject requests without nonce
   maxNonceWindowSec: 60, // Optional: limit nonce validity window
   ...
+  },
 })
 ```
 
@@ -153,9 +163,14 @@ By default: `${keyid}:${nonce}`
 This scopes nonces per signer. Custom format:
 
 ```typescript
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   nonceKey: (keyid, nonce) => `myapp:${keyid}:${nonce}`,
   ...
+  },
 })
 ```
 
@@ -215,8 +230,13 @@ const signedRequest = await signRequest(
 
 ```typescript [Server]
 // Allow missing nonce, must implement early invalidation
-const result = await verifyRequest(request, verifyMessage, nonceStore, {
+const result = await verifyRequest({
+  request,
+  verifyMessage,
+  nonceStore,
+  policy: {
   replayable: true,  // Accept with or without nonce
+  },
 })
 ```
 
