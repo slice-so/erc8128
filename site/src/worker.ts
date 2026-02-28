@@ -34,8 +34,23 @@ const getVerifier = (env: Env) => {
       transport: http(env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
     })
 
+    const debugVerifyMessage = async (args: any) => {
+      console.log(
+        "VERIFY_DEBUG:",
+        JSON.stringify({
+          address: args.address,
+          messageHex:
+            typeof args.message?.raw === "string"
+              ? args.message.raw
+              : "not-hex",
+          signatureHex: args.signature
+        })
+      )
+      return publicClient.verifyMessage(args)
+    }
+
     verifier = createVerifierClient({
-      verifyMessage: publicClient.verifyMessage,
+      verifyMessage: debugVerifyMessage,
       nonceStore,
       defaults: {
         strictLabel: false,

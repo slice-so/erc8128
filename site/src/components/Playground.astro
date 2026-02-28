@@ -269,18 +269,19 @@
       signMessage: async (message) => {
         const messageHex = toHex(message);
 
-        if (window.ethereum?.isPorto && window.ethereum.request) {
-          // Porto-compatible path (same personal_sign payload)
-          return await window.ethereum.request({
-            method: "personal_sign",
-            params: [messageHex, connectedAddress]
-          });
-        }
+        console.log("SIGN_DEBUG:", JSON.stringify({
+          messageHex,
+          messageUtf8: new TextDecoder().decode(message),
+          address: connectedAddress,
+        }));
 
-        return await window.ethereum.request({
+        const sig = await window.ethereum.request({
           method: "personal_sign",
           params: [messageHex, connectedAddress]
         });
+
+        console.log("SIGN_DEBUG signature:", sig);
+        return sig;
       }
     };
 
@@ -290,6 +291,8 @@
         "content-type": "application/json",
         ...(includeNonce ? { nonce: currentNonce } : {}),
       };
+
+      console.log("SIGN_URL:", verifyUrl);
 
       const signed = await signRequest(
         verifyUrl,
