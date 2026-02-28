@@ -218,7 +218,7 @@
     const lines = [];
     const allComponents = [];
 
-    const authority = window.location.host;
+    const authority = "erc8128.org";
     lines.push(`<span style=\"color:#86efac\">\"@authority\": ${authority}</span>`);
     allComponents.push("@authority");
 
@@ -289,7 +289,9 @@
     const method = methodInput.value.toUpperCase();
     const body = bodyInput.value;
     const path = normalizePath(pathInput.value);
-    const verifyUrl = `${window.location.origin}${path}`;
+    // Sign against the production authority (miniflare rewrites localhost → erc8128.org server-side)
+    const signUrl = `https://erc8128.org${path}`;
+    const fetchUrl = `${window.location.origin}${path}`;
     const components = selectedComponents();
 
     const signer = {
@@ -312,7 +314,7 @@
       };
 
       const signed = await signRequest(
-        verifyUrl,
+        signUrl,
         {
           method,
           headers: requestHeaders,
@@ -332,10 +334,12 @@
       const digest = signed.headers.get("Content-Digest") || "(missing)";
       signedHeaders.textContent = `Signature-Input: ${sigInput}\nSignature: ${signature}\nContent-Digest: ${digest}`;
 
-      // Transport hint: miniflare rewrites Host/Origin based on [[routes]] config.
-      // This custom header lets the worker know the real client-facing host.
-      signed.headers.set("x-signed-host", window.location.host);
-      const response = await fetch(signed);
+      // Fetch to local server with signed headers (signed URL is the production origin)
+      const response = await fetch(fetchUrl, {
+        method: signed.method,
+        headers: signed.headers,
+        body: method === "GET" || method === "DELETE" ? undefined : body,
+      });
 
       let payload = null;
       try {

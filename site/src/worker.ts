@@ -79,13 +79,11 @@ const isVerboseRequest = (request: Request): boolean => {
 
 const createVerbosePayload = (
   request: Request,
-  verifyRequest: Request,
   verification: Awaited<
     ReturnType<ReturnType<typeof createVerifierClient>["verifyRequest"]>
   >
 ) => {
   const url = new URL(request.url)
-  const verifyUrl = new URL(verifyRequest.url)
 
   return {
     ok: verification.ok,
@@ -95,8 +93,7 @@ const createVerbosePayload = (
       method: request.method,
       path: url.pathname,
       query: url.search,
-      receivedAuthority: request.headers.get("host"),
-      verifiedAuthority: verifyUrl.host
+      authority: request.headers.get("host")
     },
     signatureHeaders: {
       signatureInput: request.headers.get("signature-input"),
@@ -127,12 +124,10 @@ const verificationStatus = (
 
 const createErrorPayload = (
   request: Request,
-  verifyRequest: Request,
   error: unknown,
   verbose: boolean
 ) => {
   const url = new URL(request.url)
-  const verifyUrl = new URL(verifyRequest.url)
   const detail =
     error instanceof Error
       ? error.message
@@ -158,8 +153,7 @@ const createErrorPayload = (
       method: request.method,
       path: url.pathname,
       query: url.search,
-      receivedAuthority: request.headers.get("host"),
-      verifiedAuthority: verifyUrl.host
+      authority: request.headers.get("host")
     },
     signatureHeaders: {
       signatureInput: request.headers.get("signature-input"),
@@ -194,34 +188,10 @@ export default {
     const v = getVerifier(env)
 
     const responseHeaders = new Headers()
-    let verifyRequest = request.clone()
 
     try {
-      // Fix authority mismatch: miniflare rewrites Host/Origin headers based on [[routes]] config.
-      // The client sends x-signed-host with the actual browser host (e.g., localhost:8787).
-      // Use it to reconstruct the URL so @authority matches what was signed.
-      const signedHost = request.headers.get("x-signed-host")
-      if (signedHost) {
-        const originalUrl = new URL(request.url)
-        const scheme =
-          signedHost.includes("localhost") || signedHost.includes("127.0.0.1")
-            ? "http"
-            : "https"
-        const clientUrl = new URL(
-          originalUrl.pathname + originalUrl.search,
-          `${scheme}://${signedHost}`
-        )
-        verifyRequest = new Request(clientUrl.toString(), {
-          method: request.method,
-          headers: request.headers,
-          body: request.body,
-          // @ts-expect-error - duplex needed for streaming body
-          duplex: "half"
-        })
-      }
-
       const verification = await v.verifyRequest({
-        request: verifyRequest,
+        request: request.clone(),
         setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
@@ -242,20 +212,14 @@ export default {
 
       const verboseBody =
         status === 400 && acceptSignature
-          ? {
-              ...createVerbosePayload(request, verifyRequest, verification),
-              acceptSignature
-            }
-          : createVerbosePayload(request, verifyRequest, verification)
+          ? { ...createVerbosePayload(request, verification), acceptSignature }
+          : createVerbosePayload(request, verification)
 
       const res = json(verboseBody, status)
       for (const [k, v] of responseHeaders) res.headers.set(k, v)
       return res
     } catch (error) {
-      return json(
-        createErrorPayload(request, verifyRequest, error, verbose),
-        500
-      )
+      return json(createErrorPayload(request, error, verbose), 500)
     }
   }
 }
