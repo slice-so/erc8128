@@ -332,17 +332,10 @@
       const digest = signed.headers.get("Content-Digest") || "(missing)";
       signedHeaders.textContent = `Signature-Input: ${sigInput}\nSignature: ${signature}\nContent-Digest: ${digest}`;
 
-      // Add transport hint for the worker to know the real client host
-      // (miniflare rewrites Host/Origin headers based on [[routes]] config)
-      const fetchRequest = new Request(signed.url, {
-        method: signed.method,
-        headers: new Headers(signed.headers),
-        body: signed.body,
-        duplex: "half",
-      });
-      fetchRequest.headers.set("x-signed-host", window.location.host);
-
-      const response = await fetch(fetchRequest);
+      // Transport hint: miniflare rewrites Host/Origin based on [[routes]] config.
+      // This custom header lets the worker know the real client-facing host.
+      signed.headers.set("x-signed-host", window.location.host);
+      const response = await fetch(signed);
 
       let payload = null;
       try {
