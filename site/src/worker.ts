@@ -34,23 +34,8 @@ const getVerifier = (env: Env) => {
       transport: http(env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
     })
 
-    const debugVerifyMessage = async (args: any) => {
-      console.log(
-        "VERIFY_DEBUG:",
-        JSON.stringify({
-          address: args.address,
-          messageHex:
-            typeof args.message?.raw === "string"
-              ? args.message.raw
-              : "not-hex",
-          signatureHex: args.signature
-        })
-      )
-      return publicClient.verifyMessage(args)
-    }
-
     verifier = createVerifierClient({
-      verifyMessage: debugVerifyMessage,
+      verifyMessage: publicClient.verifyMessage,
       nonceStore,
       defaults: {
         strictLabel: false,
@@ -205,8 +190,28 @@ export default {
     const responseHeaders = new Headers()
 
     try {
+      // Fix authority mismatch: miniflare rewrites Host header based on [[routes]] config,
+      // but the client signed with their actual origin (e.g., localhost:8787).
+      // Use the Origin header to reconstruct the correct URL for verification.
+      const origin = request.headers.get("origin")
+      let verifyRequest = request.clone()
+      if (origin) {
+        const originalUrl = new URL(request.url)
+        const clientUrl = new URL(
+          originalUrl.pathname + originalUrl.search,
+          origin
+        )
+        verifyRequest = new Request(clientUrl.toString(), {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
+          // @ts-expect-error - duplex needed for streaming body
+          duplex: "half"
+        })
+      }
+
       const verification = await v.verifyRequest({
-        request: request.clone(),
+        request: verifyRequest,
         setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
