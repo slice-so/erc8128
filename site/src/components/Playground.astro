@@ -1,0 +1,406 @@
+<section class="border-b border-border px-6 py-14 md:px-10 lg:px-14" id="playground">
+  <div class="mb-8 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+    <div>
+      <h2 class="text-4xl font-extrabold uppercase tracking-[-0.03em]">PLAYGROUND</h2>
+      <p class="mt-2 text-xs uppercase tracking-[0.25em] text-white/55">
+        SIGN AND VERIFY AN HTTP REQUEST WITH YOUR ETHEREUM WALLET
+      </p>
+    </div>
+
+    <button
+      id="connectWalletBtn"
+      class="border border-border px-5 py-3 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-white hover:text-black"
+      type="button"
+    >
+      CONNECT WALLET [WEB3]
+    </button>
+  </div>
+
+  <div class="grid gap-0 border border-border lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
+    <div class="border-b border-border p-5 md:p-6 lg:border-b-0 lg:border-r lg:border-border">
+      <div class="mb-5">
+        <p class="font-mono text-xs uppercase tracking-[0.12em] text-white/55">&gt; 01 // COMPOSE REQUEST</p>
+      </div>
+
+      <div class="mb-5 grid gap-4 md:grid-cols-[140px_1fr]">
+        <label class="block">
+          <span class="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Method</span>
+          <select id="methodInput" class="playground-field h-11 w-full">
+            <option>GET</option>
+            <option selected>POST</option>
+            <option>PUT</option>
+            <option>DELETE</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Path</span>
+          <input id="pathInput" class="playground-field h-11 w-full" type="text" value="/verify" />
+        </label>
+      </div>
+
+      <label class="mb-9 block">
+        <span class="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">Body (JSON)</span>
+        <textarea id="bodyInput" class="playground-field min-h-44 w-full resize-y" spellcheck="false"></textarea>
+      </label>
+
+      <div class="mb-4 flex items-center justify-between">
+        <p class="font-mono text-xs uppercase tracking-[0.12em] text-white/55">&gt; 02 // SIGNATURE COMPONENTS</p>
+        <button id="resetBtn" class="font-mono text-[11px] uppercase tracking-[0.15em] text-white/45 transition-colors hover:text-white" type="button">Reset</button>
+      </div>
+
+      <div class="mb-8 grid grid-cols-1 gap-2 border border-border p-3 md:grid-cols-2">
+        <label class="component-chip text-[#86efac]">
+          <input class="component-checkbox" type="checkbox" value="@method" checked />
+          <span>@method</span>
+          <button class="component-tip" type="button" data-tip="@method signs the HTTP method to prevent GET/POST swapping.">What's this?</button>
+        </label>
+        <label class="component-chip text-[#86efac]">
+          <input class="component-checkbox" type="checkbox" value="@path" checked />
+          <span>@path</span>
+          <button class="component-tip" type="button" data-tip="@path binds the request to a specific route path.">What's this?</button>
+        </label>
+        <label class="component-chip text-[#c4b5fd]">
+          <input class="component-checkbox" type="checkbox" value="content-digest" checked />
+          <span>content-digest</span>
+          <button class="component-tip" type="button" data-tip="content-digest signs a SHA-256 digest of the request body.">What's this?</button>
+        </label>
+        <label class="component-chip text-[#67e8f9]">
+          <input class="component-checkbox" type="checkbox" value="nonce" checked />
+          <span>nonce</span>
+          <button class="component-tip" type="button" data-tip="nonce prevents replay by making each signature unique.">What's this?</button>
+        </label>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <button
+          id="signRequestBtn"
+          class="h-12 w-full border border-[#67e8f9] bg-transparent font-mono text-sm font-semibold uppercase tracking-[0.12em] text-[#67e8f9] transition-colors duration-200 hover:bg-[#67e8f9] hover:text-black"
+          type="button"
+        >
+          SIGN REQUEST
+        </button>
+        <p class="text-center font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">PORTO: AUTO-APPROVE ENABLED</p>
+      </div>
+    </div>
+
+    <div class="p-5 md:p-6">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <p class="font-mono text-xs uppercase tracking-[0.12em] text-white/55">&gt; 03 // SIGNATURE BASE PREVIEW</p>
+        <span class="border border-border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">RFC 9421</span>
+      </div>
+
+      <pre id="signatureBasePreview" class="mb-6 overflow-x-auto border border-border bg-white/5 p-4 font-mono text-[13px] leading-7 text-white/70"></pre>
+
+      <div class="mb-6 border border-border p-4">
+        <div class="mb-2 flex items-center justify-between">
+          <p class="font-mono text-xs uppercase tracking-[0.12em] text-white/55">&gt; 04 // SIGNED HEADERS</p>
+          <button id="copyCurlBtn" class="font-mono text-[11px] uppercase tracking-[0.14em] text-white/50 transition-colors hover:text-white" type="button">
+            Copy as cURL
+          </button>
+        </div>
+        <pre id="signedHeaders" class="overflow-x-auto bg-white/5 p-3 font-mono text-[12px] leading-6 text-white/55">Sign the request to generate headers.</pre>
+      </div>
+
+      <div class="border border-border p-4">
+        <p class="mb-2 font-mono text-xs uppercase tracking-[0.12em] text-white/55">&gt; 05 // VERIFICATION RESULT</p>
+        <pre id="verificationResult" class="overflow-x-auto bg-white/5 p-3 font-mono text-[12px] leading-6 text-white/55">Not sent yet.</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .playground-field {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: transparent;
+    padding: 0.65rem 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    color: white;
+    transition: border-color 180ms ease;
+  }
+
+  .playground-field:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.8);
+  }
+
+  .component-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.2;
+  }
+
+  .component-checkbox {
+    accent-color: white;
+  }
+
+  .component-tip {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: color 180ms ease;
+  }
+
+  .component-tip:hover {
+    color: rgba(255, 255, 255, 0.9);
+  }
+</style>
+
+<script type="module">
+  import { signRequest } from "@slicekit/erc8128";
+
+  const methodInput = document.getElementById("methodInput");
+  const pathInput = document.getElementById("pathInput");
+  const bodyInput = document.getElementById("bodyInput");
+  const signatureBasePreview = document.getElementById("signatureBasePreview");
+  const signedHeaders = document.getElementById("signedHeaders");
+  const verificationResult = document.getElementById("verificationResult");
+  const connectWalletBtn = document.getElementById("connectWalletBtn");
+  const signRequestBtn = document.getElementById("signRequestBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const copyCurlBtn = document.getElementById("copyCurlBtn");
+
+  const defaultBody = `{
+  "action": "mint",
+  "tokenId": 42
+}`;
+
+  let connectedAddress = "";
+  let lastSignedRequest = null;
+  let currentNonce = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+
+  bodyInput.value = defaultBody;
+
+  function selectedComponents() {
+    return Array.from(document.querySelectorAll(".component-checkbox:checked")).map((el) => el.value);
+  }
+
+  function normalizePath(rawPath) {
+    const trimmed = rawPath.trim();
+    if (!trimmed) return "/verify";
+    return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  }
+
+  function toHex(bytes) {
+    return `0x${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  async function sha256Base64(text) {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text || ""));
+    let binary = "";
+    new Uint8Array(digest).forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary);
+  }
+
+  async function buildSignatureBasePreview() {
+    const method = methodInput.value.toUpperCase();
+    const path = normalizePath(pathInput.value);
+    const body = bodyInput.value;
+    const components = selectedComponents();
+    const lines = [];
+
+    if (components.includes("@method")) {
+      lines.push(`<span style=\"color:#86efac\">\"@method\": ${method}</span>`);
+    }
+
+    if (components.includes("@path")) {
+      lines.push(`<span style=\"color:#86efac\">\"@path\": ${path}</span>`);
+    }
+
+    if (components.includes("content-digest")) {
+      const bodyDigest = await sha256Base64(body);
+      lines.push(`<span style=\"color:#c4b5fd\">\"content-digest\": sha-256=:${bodyDigest}: </span>`);
+    }
+
+    if (components.includes("nonce")) {
+      lines.push(`<span style=\"color:#67e8f9\">\"nonce\": ${currentNonce}</span>`);
+    }
+
+    lines.push(`<span style=\"color:rgba(255,255,255,0.35)\">\"@signature-params\": (${components.map((x) => `\"${x}\"`).join(" ")});keyid=\"eip8128:1:${connectedAddress || "0x..."}\";nonce=\"${currentNonce}\"</span>`);
+
+    signatureBasePreview.innerHTML = lines.join("\n");
+  }
+
+  async function connectWallet() {
+    if (!window.ethereum) {
+      verificationResult.textContent = "No injected provider found. Install MetaMask/Rabby/Porto-enabled wallet.";
+      return;
+    }
+
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      connectedAddress = accounts?.[0] || "";
+      connectWalletBtn.textContent = connectedAddress
+        ? `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)} [WEB3]`
+        : "CONNECT WALLET [WEB3]";
+      await buildSignatureBasePreview();
+    } catch (error) {
+      verificationResult.textContent = `Wallet connection rejected: ${error?.message || "Unknown error"}`;
+    }
+  }
+
+  async function signAndVerify() {
+    if (!connectedAddress) {
+      await connectWallet();
+      if (!connectedAddress) return;
+    }
+
+    const method = methodInput.value.toUpperCase();
+    const path = normalizePath(pathInput.value);
+    const body = bodyInput.value;
+    const url = `${window.location.origin}${path}`;
+    const components = selectedComponents();
+
+    const signer = {
+      address: connectedAddress,
+      chainId: Number.parseInt(await window.ethereum.request({ method: "eth_chainId" }), 16) || 1,
+      signMessage: async (message) => {
+        const messageHex = toHex(message);
+
+        if (window.ethereum?.isPorto && window.ethereum.request) {
+          // Porto-compatible path (same personal_sign payload)
+          return await window.ethereum.request({
+            method: "personal_sign",
+            params: [messageHex, connectedAddress]
+          });
+        }
+
+        return await window.ethereum.request({
+          method: "personal_sign",
+          params: [messageHex, connectedAddress]
+        });
+      }
+    };
+
+    try {
+      const includeNonce = components.includes("nonce");
+      const requestHeaders = {
+        "content-type": "application/json",
+        ...(includeNonce ? { nonce: currentNonce } : {}),
+      };
+
+      const signed = await signRequest(
+        url,
+        {
+          method,
+          headers: requestHeaders,
+          body: method === "GET" || method === "DELETE" ? undefined : body,
+        },
+        signer,
+        {
+          nonce: includeNonce ? currentNonce : undefined,
+          components,
+        }
+      );
+
+      lastSignedRequest = signed;
+
+      const sigInput = signed.headers.get("Signature-Input") || "(missing)";
+      const signature = signed.headers.get("Signature") || "(missing)";
+      const digest = signed.headers.get("Content-Digest") || "(missing)";
+      signedHeaders.textContent = `Signature-Input: ${sigInput}\nSignature: ${signature}\nContent-Digest: ${digest}`;
+
+      const response = await fetch("/verify", {
+        method,
+        headers: signed.headers,
+        body: method === "GET" || method === "DELETE" ? undefined : body,
+      });
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = { ok: response.ok, status: response.status, message: await response.text() };
+      }
+
+      verificationResult.textContent = JSON.stringify(payload, null, 2);
+
+      if (!response.ok) {
+        verificationResult.textContent += "\n\n(Endpoint /verify unavailable or rejected request in this environment.)";
+      }
+
+      currentNonce = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+      await buildSignatureBasePreview();
+    } catch (error) {
+      verificationResult.textContent = `Signing failed: ${error?.message || "Unknown error"}`;
+    }
+  }
+
+  async function copyCurl() {
+    if (!lastSignedRequest) {
+      verificationResult.textContent = "Sign a request first, then copy as cURL.";
+      return;
+    }
+
+    const method = methodInput.value.toUpperCase();
+    const path = normalizePath(pathInput.value);
+    const body = bodyInput.value.replaceAll("'", "'\\''");
+    const headers = [];
+
+    lastSignedRequest.headers.forEach((value, key) => {
+      headers.push(`-H '${key}: ${value.replaceAll("'", "'\\''")}'`);
+    });
+
+    const curl = [
+      `curl -X ${method} '${window.location.origin}${path}'`,
+      ...headers,
+      method === "GET" || method === "DELETE" ? "" : `--data '${body}'`
+    ]
+      .filter(Boolean)
+      .join(" \\\n  ");
+
+    await navigator.clipboard.writeText(curl);
+    const original = copyCurlBtn.textContent;
+    copyCurlBtn.textContent = "Copied";
+    setTimeout(() => {
+      copyCurlBtn.textContent = original;
+    }, 1200);
+  }
+
+  function resetAll() {
+    methodInput.value = "POST";
+    pathInput.value = "/verify";
+    bodyInput.value = defaultBody;
+    document.querySelectorAll(".component-checkbox").forEach((checkbox) => {
+      checkbox.checked = true;
+    });
+    signedHeaders.textContent = "Sign the request to generate headers.";
+    verificationResult.textContent = "Not sent yet.";
+    currentNonce = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+    lastSignedRequest = null;
+    buildSignatureBasePreview();
+  }
+
+  connectWalletBtn?.addEventListener("click", connectWallet);
+  signRequestBtn?.addEventListener("click", signAndVerify);
+  resetBtn?.addEventListener("click", resetAll);
+  copyCurlBtn?.addEventListener("click", copyCurl);
+
+  document.querySelectorAll(".component-tip").forEach((btn) => {
+    const tip = btn.getAttribute("data-tip") || "";
+    btn.setAttribute("title", tip);
+  });
+
+  [methodInput, pathInput, bodyInput].forEach((el) => {
+    el?.addEventListener("input", buildSignatureBasePreview);
+  });
+
+  document.querySelectorAll(".component-checkbox").forEach((el) => {
+    el.addEventListener("change", buildSignatureBasePreview);
+  });
+
+  buildSignatureBasePreview();
+</script>
