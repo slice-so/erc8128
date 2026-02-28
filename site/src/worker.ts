@@ -2,7 +2,7 @@ import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
 import { createPublicClient, http } from "viem"
 
 interface Env {
-  ASSETS: { fetch: typeof fetch }
+  ASSETS?: { fetch: typeof fetch }
   ERC8128_DEMO_RPC_URL?: string
 }
 
@@ -178,6 +178,15 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname !== "/verify") {
+      if (!env.ASSETS) {
+        return new Response(
+          "Static assets not available (ASSETS binding missing)",
+          {
+            status: 404
+          }
+        )
+      }
+
       return env.ASSETS.fetch(request)
     }
 
