@@ -2,7 +2,6 @@ import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
 import { createPublicClient, http } from "viem"
 
 interface Env {
-  ASSETS: { fetch: typeof fetch }
   ERC8128_DEMO_RPC_URL?: string
 }
 
@@ -178,7 +177,7 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname !== "/verify") {
-      return env.ASSETS.fetch(request)
+      return new Response("Not Found", { status: 404 })
     }
 
     if (request.method === "OPTIONS") {
