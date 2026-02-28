@@ -259,9 +259,8 @@
     }
 
     const method = methodInput.value.toUpperCase();
-    const path = normalizePath(pathInput.value);
     const body = bodyInput.value;
-    const url = `${window.location.origin}${path}`;
+    const verifyUrl = `${window.location.origin}/verify?verbose=1`;
     const components = selectedComponents();
 
     const signer = {
@@ -293,7 +292,7 @@
       };
 
       const signed = await signRequest(
-        url,
+        verifyUrl,
         {
           method,
           headers: requestHeaders,
@@ -306,6 +305,8 @@
         }
       );
 
+      console.log("Signed headers:", Object.fromEntries(signed.headers.entries()));
+
       lastSignedRequest = signed;
 
       const sigInput = signed.headers.get("Signature-Input") || "(missing)";
@@ -313,11 +314,7 @@
       const digest = signed.headers.get("Content-Digest") || "(missing)";
       signedHeaders.textContent = `Signature-Input: ${sigInput}\nSignature: ${signature}\nContent-Digest: ${digest}`;
 
-      const response = await fetch("/verify", {
-        method,
-        headers: signed.headers,
-        body: method === "GET" || method === "DELETE" ? undefined : body,
-      });
+      const response = await fetch(signed);
 
       let payload = null;
       try {
