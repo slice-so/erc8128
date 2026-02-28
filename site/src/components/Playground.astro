@@ -51,11 +51,6 @@
 
       <div class="mb-8 grid grid-cols-1 gap-2 border border-border p-3 md:grid-cols-2">
         <label class="component-chip text-[#86efac]">
-          <input class="component-checkbox" type="checkbox" value="@authority" checked disabled />
-          <span>@authority</span>
-          <button class="component-tip" type="button" data-tip="@authority binds the signature to this domain. Always included.">What's this?</button>
-        </label>
-        <label class="component-chip text-[#86efac]">
           <input class="component-checkbox" type="checkbox" value="@method" checked />
           <span>@method</span>
           <button class="component-tip" type="button" data-tip="@method signs the HTTP method to prevent GET/POST swapping.">What's this?</button>
@@ -164,17 +159,24 @@
 
 <script>
   import { signRequest } from "@slicekit/erc8128";
+  declare global {
+    interface Window {
+      ethereum?: {
+        request: (args: { method: string; params?: unknown[] }) => Promise<any>;
+      };
+    }
+  }
 
-  const methodInput = document.getElementById("methodInput");
-  const pathInput = document.getElementById("pathInput");
-  const bodyInput = document.getElementById("bodyInput");
-  const signatureBasePreview = document.getElementById("signatureBasePreview");
-  const signedHeaders = document.getElementById("signedHeaders");
-  const verificationResult = document.getElementById("verificationResult");
-  const connectWalletBtn = document.getElementById("connectWalletBtn");
-  const signRequestBtn = document.getElementById("signRequestBtn");
-  const resetBtn = document.getElementById("resetBtn");
-  const copyCurlBtn = document.getElementById("copyCurlBtn");
+  const methodInput = document.getElementById("methodInput") as HTMLSelectElement;
+  const pathInput = document.getElementById("pathInput") as HTMLInputElement;
+  const bodyInput = document.getElementById("bodyInput") as HTMLTextAreaElement;
+  const signatureBasePreview = document.getElementById("signatureBasePreview") as HTMLPreElement;
+  const signedHeaders = document.getElementById("signedHeaders") as HTMLPreElement;
+  const verificationResult = document.getElementById("verificationResult") as HTMLPreElement;
+  const connectWalletBtn = document.getElementById("connectWalletBtn") as HTMLButtonElement;
+  const signRequestBtn = document.getElementById("signRequestBtn") as HTMLButtonElement;
+  const resetBtn = document.getElementById("resetBtn") as HTMLButtonElement;
+  const copyCurlBtn = document.getElementById("copyCurlBtn") as HTMLButtonElement;
 
   const defaultBody = `{
   "action": "mint",
@@ -182,26 +184,26 @@
 }`;
 
   let connectedAddress = "";
-  let lastSignedRequest = null;
+  let lastSignedRequest: Request | null = null;
   let currentNonce = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
 
   bodyInput.value = defaultBody;
 
   function selectedComponents() {
-    return Array.from(document.querySelectorAll(".component-checkbox:checked")).map((el) => el.value);
+    return Array.from(document.querySelectorAll<HTMLInputElement>(".component-checkbox:checked")).map((el) => el.value);
   }
 
-  function normalizePath(rawPath) {
+  function normalizePath(rawPath: string) {
     const trimmed = rawPath.trim();
     if (!trimmed) return "/verify";
     return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
   }
 
-  function toHex(bytes) {
+  function toHex(bytes: Uint8Array) {
     return `0x${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
   }
 
-  async function sha256Base64(text) {
+  async function sha256Base64(text: string) {
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text || ""));
     let binary = "";
     new Uint8Array(digest).forEach((byte) => {
@@ -239,15 +241,10 @@
       allComponents.push("@query");
     }
 
-    if (components.includes("content-digest") && method !== "GET" && method !== "DELETE") {
+    if (components.includes("content-digest") && method !== "GET" && body.length > 0) {
       const bodyDigest = await sha256Base64(body);
       lines.push(`<span style=\"color:#c4b5fd\">\"content-digest\": sha-256=:${bodyDigest}:</span>`);
       allComponents.push("content-digest");
-    }
-
-    if (components.includes("nonce")) {
-      lines.push(`<span style=\"color:#67e8f9\">\"nonce\": ${currentNonce}</span>`);
-      allComponents.push("nonce");
     }
 
     let chainId = 1;
@@ -257,7 +254,14 @@
       }
     } catch {}
 
-    lines.push(`<span style=\"color:rgba(255,255,255,0.35)\">\"@signature-params\": (${allComponents.map((x) => `\"${x}\"`).join(" ")});keyid=\"erc8128:${chainId}:${connectedAddress || "0x..."}\";nonce=\"${currentNonce}\"</span>`);
+    const now = Math.floor(Date.now() / 1000);
+    const expires = now + 60;
+    const isNonceEnabled = components.includes("nonce");
+    let paramsStr = `;created=${now};expires=${expires}`;
+    if (isNonceEnabled) paramsStr += `;nonce=\"${currentNonce}\"`;
+    paramsStr += `;keyid=\"erc8128:${chainId}:${connectedAddress || "0x..."}\"`;
+
+    lines.push(`<span style=\"color:rgba(255,255,255,0.35)\">\"@signature-params\": (${allComponents.map((x) => `\"${x}\"`).join(" ")})${paramsStr}</span>`);
 
     signatureBasePreview.innerHTML = lines.join("\n");
   }
@@ -276,7 +280,7 @@
         : "CONNECT WALLET [WEB3]";
       await buildSignatureBasePreview();
     } catch (error) {
-      verificationResult.textContent = `Wallet connection rejected: ${error?.message || "Unknown error"}`;
+      verificationResult.textContent = `Wallet connection rejected: ${(error as Error)?.message || "Unknown error"}`;
     }
   }
 
@@ -292,25 +296,28 @@
     // Sign against the production authority (miniflare rewrites localhost → erc8128.org server-side)
     const signUrl = `https://erc8128.org${path}`;
     const fetchUrl = `${window.location.origin}${path}`;
-    const components = selectedComponents();
+    const allSelected = selectedComponents();
+    const includeNonce = allSelected.includes("nonce");
+    const hasBody = method !== "GET" && body.length > 0;
+    const components = allSelected
+      .filter((c) => c !== "nonce")
+      .filter((c) => !(c === "content-digest" && !hasBody));
 
     const signer = {
-      address: connectedAddress,
-      chainId: Number.parseInt(await window.ethereum.request({ method: "eth_chainId" }), 16) || 1,
-      signMessage: async (message) => {
+      address: connectedAddress as `0x${string}`,
+      chainId: Number.parseInt(await window.ethereum!.request({ method: "eth_chainId" }), 16) || 1,
+      signMessage: async (message: Uint8Array) => {
         const messageHex = toHex(message);
-        return await window.ethereum.request({
+        return await window.ethereum!.request({
           method: "personal_sign",
           params: [messageHex, connectedAddress]
-        });
+        }) as `0x${string}`;
       }
     };
 
     try {
-      const includeNonce = components.includes("nonce");
       const requestHeaders = {
         "content-type": "application/json",
-        ...(includeNonce ? { nonce: currentNonce } : {}),
       };
 
       const signed = await signRequest(
@@ -318,10 +325,12 @@
         {
           method,
           headers: requestHeaders,
-          body: method === "GET" || method === "DELETE" ? undefined : body,
+          body: hasBody ? body : undefined,
         },
         signer,
         {
+          binding: "class-bound",
+          replay: includeNonce ? "non-replayable" : "replayable",
           nonce: includeNonce ? currentNonce : undefined,
           components,
         }
@@ -338,7 +347,7 @@
       const response = await fetch(fetchUrl, {
         method: signed.method,
         headers: signed.headers,
-        body: method === "GET" || method === "DELETE" ? undefined : body,
+        body: hasBody ? body : undefined,
       });
 
       let payload = null;
@@ -350,14 +359,10 @@
 
       verificationResult.textContent = JSON.stringify(payload, null, 2);
 
-      if (!response.ok) {
-        verificationResult.textContent += "\n\n(Endpoint /verify unavailable or rejected request in this environment.)";
-      }
-
       currentNonce = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
       await buildSignatureBasePreview();
     } catch (error) {
-      verificationResult.textContent = `Signing failed: ${error?.message || "Unknown error"}`;
+      verificationResult.textContent = `Signing failed: ${(error as Error)?.message || "Unknown error"}`;
     }
   }
 
@@ -370,9 +375,9 @@
     const method = methodInput.value.toUpperCase();
     const path = normalizePath(pathInput.value);
     const body = bodyInput.value.replaceAll("'", "'\\''");
-    const headers = [];
+    const headers: string[] = [];
 
-    lastSignedRequest.headers.forEach((value, key) => {
+    lastSignedRequest!.headers.forEach((value, key) => {
       headers.push(`-H '${key}: ${value.replaceAll("'", "'\\''")}'`);
     });
 
@@ -396,7 +401,7 @@
     methodInput.value = "POST";
     pathInput.value = "/verify";
     bodyInput.value = defaultBody;
-    document.querySelectorAll(".component-checkbox").forEach((checkbox) => {
+    document.querySelectorAll<HTMLInputElement>(".component-checkbox").forEach((checkbox) => {
       checkbox.checked = true;
     });
     signedHeaders.textContent = "Sign the request to generate headers.";

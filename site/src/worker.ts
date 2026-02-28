@@ -39,7 +39,10 @@ const getVerifier = (env: Env) => {
       nonceStore,
       defaults: {
         strictLabel: false,
-        maxValiditySec: 300
+        maxValiditySec: 300,
+        replayable: true,
+        replayableNotBefore: () => null,
+        classBoundPolicies: [["@authority"]]
       }
     })
   }
@@ -182,6 +185,22 @@ export default {
 
     if (request.method === "OPTIONS") {
       return corsHeaders.clone()
+    }
+
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      try {
+        const bodyText = await request.clone().text()
+        if (bodyText) JSON.parse(bodyText)
+      } catch {
+        return json(
+          {
+            ok: false,
+            error: "invalid_json",
+            detail: "Request body is not valid JSON"
+          },
+          400
+        )
+      }
     }
 
     const verbose = isVerboseRequest(request)
