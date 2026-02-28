@@ -2,7 +2,7 @@ import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
 import { createPublicClient, http } from "viem"
 
 interface Env {
-  ERC8128_DEMO_RPC_URL?: string
+  SECRET_ALCHEMY_KEY?: string
 }
 
 const DEFAULT_RPC_URL = "https://eth.llamarpc.com"
@@ -31,7 +31,11 @@ let verifier: ReturnType<typeof createVerifierClient> | undefined
 const getVerifier = (env: Env) => {
   if (!verifier) {
     const publicClient = createPublicClient({
-      transport: http(env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
+      transport: http(
+        env.SECRET_ALCHEMY_KEY
+          ? `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY}`
+          : DEFAULT_RPC_URL
+      )
     })
 
     verifier = createVerifierClient({
@@ -209,19 +213,21 @@ export default {
     const responseHeaders = new Headers()
 
     try {
+      const t0 = performance.now()
       const verification = await v.verifyRequest({
-        request: request.clone(),
+        request,
         setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
       })
+      const verifyMs = Math.round((performance.now() - t0) * 10) / 10
       const status = verificationStatus(verification)
       const acceptSignature = responseHeaders.get("accept-signature")
 
       const body =
         status === 400 && acceptSignature
-          ? { ...verification, acceptSignature }
-          : verification
+          ? { ...verification, acceptSignature, verifyMs }
+          : { ...verification, verifyMs }
 
       if (!verbose) {
         const res = json(body, status)
@@ -231,8 +237,12 @@ export default {
 
       const verboseBody =
         status === 400 && acceptSignature
-          ? { ...createVerbosePayload(request, verification), acceptSignature }
-          : createVerbosePayload(request, verification)
+          ? {
+              ...createVerbosePayload(request, verification),
+              acceptSignature,
+              verifyMs
+            }
+          : { ...createVerbosePayload(request, verification), verifyMs }
 
       const res = json(verboseBody, status)
       for (const [k, v] of responseHeaders) res.headers.set(k, v)
