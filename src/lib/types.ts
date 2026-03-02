@@ -113,6 +113,18 @@ export type VerifyPolicy = {
   nonceKey?: (keyid: string, nonce: string) => string // default `${keyid}:${nonce}`
 }
 
+export type ServerConfig = {
+  replay_protection: { replayable: boolean }
+  max_validity_sec: number
+  route_policies?: Record<
+    string,
+    {
+      replayable?: boolean
+      classBoundPolicies?: string[] | string[][]
+    }
+  >
+}
+
 export type SignatureParams = {
   created: number
   expires: number

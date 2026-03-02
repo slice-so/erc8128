@@ -1,9 +1,12 @@
 export {
   type Client,
   type ClientOptions,
-  createSignerClient
-} from "./client.js"
-export { formatKeyId, parseKeyId } from "./lib/keyId.js"
+  createSignerClient,
+  type FetchOptions
+} from "./client"
+export { formatKeyId, parseKeyId } from "./lib/keyId"
+export { matchRoutePolicy } from "./lib/matchRoutePolicy"
+export { type ResolvedPosture, resolvePosture } from "./lib/resolvePosture"
 export {
   type BindingMode,
   type ContentDigestMode,
@@ -12,6 +15,7 @@ export {
   type EthHttpSigner,
   type NonceStore,
   type ReplayMode,
+  type ServerConfig,
   type SetHeadersFn,
   type SignatureParams,
   type SignOptions,
@@ -20,11 +24,11 @@ export {
   type VerifyPolicy,
   type VerifyRequestArgs,
   type VerifyResult
-} from "./lib/types.js"
-export { signedFetch, signRequest } from "./sign.js"
+} from "./lib/types"
+export { signedFetch, signRequest } from "./sign"
 export {
   createVerifierClient,
   type VerifierClient,
   type VerifierClientOptions
-} from "./verifierClient.js"
-export { verifyRequest } from "./verify.js"
+} from "./verifierClient"
+export { verifyRequest } from "./verify"
