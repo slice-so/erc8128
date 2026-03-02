@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   includesAllComponents,
   isRequestBoundForThisRequest
-} from "./isRequestBound.js"
+} from "./isRequestBound"
 
 describe("includesAllComponents", () => {
   test("returns true when required is empty", () => {

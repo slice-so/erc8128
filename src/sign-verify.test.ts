@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { Erc8128Error, signRequest, verifyRequest } from "./index.js"
-import type { Address, Hex, VerifyPolicy } from "./lib/types.js"
+import { Erc8128Error, signRequest, verifyRequest } from "."
+import type { Address, Hex, VerifyPolicy } from "./lib/types"
 
 const publicClient = createPublicClient({
   transport: http("http://localhost:8787")

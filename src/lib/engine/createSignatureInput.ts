@@ -2,7 +2,7 @@
 // Parsing: Signature-Input / Signature
 //////////////////////////////
 
-import { Erc8128Error, type SignatureParams } from "../types.js"
+import { Erc8128Error, type SignatureParams } from "../types"
 
 type ParsedSignatureInputMember = {
   label: string

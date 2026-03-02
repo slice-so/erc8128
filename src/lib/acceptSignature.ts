@@ -1,4 +1,4 @@
-import { quoteSfString } from "./engine/serializations.js"
+import { quoteSfString } from "./engine/serializations"
 
 function serializeAcceptSignatureValue(
   components: string[],

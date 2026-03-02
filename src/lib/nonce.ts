@@ -2,8 +2,8 @@
 // Nonce
 //////////////////////////////
 
-import type { SignOptions } from "./types.js"
-import { base64UrlEncode, randomBytes } from "./utilities.js"
+import type { SignOptions } from "./types"
+import { base64UrlEncode, randomBytes } from "./utilities"
 
 export async function resolveNonce(opts: SignOptions): Promise<string> {
   if (typeof opts.nonce === "string") return opts.nonce

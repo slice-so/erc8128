@@ -1,27 +1,22 @@
-import { buildAcceptSignatureHeader } from "./lib/acceptSignature.js"
-import { verifyContentDigest } from "./lib/engine/contentDigest.js"
-import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders.js"
-import { parseKeyId } from "./lib/keyId.js"
-import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound.js"
+import { buildAcceptSignatureHeader } from "./lib/acceptSignature"
+import { verifyContentDigest } from "./lib/engine/contentDigest"
+import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders"
+import { parseKeyId } from "./lib/keyId"
+import { requiredRequestBoundComponents } from "./lib/policies/isRequestBound"
 import {
   ensureAuthority,
   normalizeClassBoundPolicies,
   normalizeComponentsList
-} from "./lib/policies/normalizePolicies.js"
-import type { Address, VerifyRequestArgs, VerifyResult } from "./lib/types.js"
-import {
-  base64Decode,
-  bytesToHex,
-  sanitizeUrl,
-  unixNow
-} from "./lib/utilities.js"
+} from "./lib/policies/normalizePolicies"
+import type { Address, VerifyRequestArgs, VerifyResult } from "./lib/types"
+import { base64Decode, bytesToHex, sanitizeUrl, unixNow } from "./lib/utilities"
 import {
   buildAttempts,
   buildSignatureBase,
   runNonceChecks,
   runTimeChecks,
   type VerifyCandidate
-} from "./lib/verifyUtils.js"
+} from "./lib/verifyUtils"
 
 const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 

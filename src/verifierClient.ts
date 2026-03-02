@@ -3,8 +3,8 @@ import type {
   VerifierClientVerifyRequestArgs,
   VerifyPolicy,
   VerifyResult
-} from "./lib/types.js"
-import { verifyRequest } from "./verify.js"
+} from "./lib/types"
+import { verifyRequest } from "./verify"
 
 export type VerifierClientOptions = VerifyPolicy
 

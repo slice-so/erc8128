@@ -70,7 +70,7 @@ export function resolvePosture(
 
   if (useClassBound) {
     const merged = mergeComponents(
-      minComponents!,
+      minComponents ?? [],
       routePolicy?.classBoundPolicies
     )
     return { binding: "class-bound", replay: "replayable", components: merged }
