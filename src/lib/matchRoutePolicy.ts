@@ -47,8 +47,8 @@ export function matchRoutePolicy(
 
     if (
       !best ||
-      (isExactMethod && !best.exactMethod) ||
-      (isExactMethod === best.exactMethod && prefix.length > best.prefixLen)
+      prefix.length > best.prefixLen ||
+      (prefix.length === best.prefixLen && isExactMethod && !best.exactMethod)
     ) {
       best = {
         policy: policies[key],
