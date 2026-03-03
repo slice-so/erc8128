@@ -3,7 +3,7 @@ import { ConnectKitButton } from "connectkit"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
-import { useAccount, useChainId, useConnectorClient } from "wagmi"
+import { useAccount, useChainId } from "wagmi"
 import { ExpandablePre } from "./ExpandablePre"
 
 // ── helpers ──────────────────────────────────────────
@@ -73,7 +73,6 @@ const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 export function PlaygroundInner() {
   const { address, isConnected, connector } = useAccount()
   const chainId = useChainId()
-  const { data: connectorClient } = useConnectorClient()
 
   // Porto detection — Porto auto-approves personal_sign via embedded session key
   const isPorto =
@@ -177,7 +176,7 @@ export function PlaygroundInner() {
   // ── Sign & Verify ──────────────────────────────────
 
   const signAndVerify = useCallback(async () => {
-    if (!address || !connectorClient) return
+    if (!address || !connector) return
     setSigning(true)
 
     const normalizedPath = normalizePath(path)
@@ -188,6 +187,8 @@ export function PlaygroundInner() {
       .filter((c) => !(c === "content-digest" && !hasBody))
     const includeNonce = selectedComponents.has("nonce")
 
+    const provider = await connector.getProvider()
+
     let walletWaitMs = 0
     const signer = {
       address: address as `0x${string}`,
@@ -195,7 +196,7 @@ export function PlaygroundInner() {
       signMessage: async (message: Uint8Array) => {
         const messageHex = toHex(message)
         const t0 = performance.now()
-        const sig = (await (connectorClient as any).request({
+        const sig = (await provider.request({
           method: "personal_sign",
           params: [messageHex, address]
         })) as `0x${string}`
@@ -242,6 +243,7 @@ export function PlaygroundInner() {
       // Display signed headers
       const headerLines: string[] = []
       signed.headers.forEach((value, key) => {
+        if (key.toLowerCase() === "content-type") return
         headerLines.push(
           `<span style="color:#67e8f9">${escapeHtml(key)}:</span> ${escapeHtml(value)}`
         )
@@ -296,7 +298,7 @@ export function PlaygroundInner() {
     }
   }, [
     address,
-    connectorClient,
+    connector,
     method,
     path,
     selectedComponents,
@@ -541,7 +543,9 @@ export function PlaygroundInner() {
                     portoAutoSign ? "text-[#67e8f9]" : "text-white/45"
                   }`}
                 >
-                  {portoAutoSign ? "SESSION KEY: AUTO-SIGNING" : "PORTO: CONNECTED"}
+                  {portoAutoSign
+                    ? "SESSION KEY: AUTO-SIGNING"
+                    : "PORTO: CONNECTED"}
                 </span>
               </div>
             )}
