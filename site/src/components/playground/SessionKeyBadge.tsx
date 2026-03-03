@@ -1,5 +1,5 @@
 interface SessionKeyBadgeProps {
-  isPorto: boolean
+  isSmartWallet: boolean
   isConnected: boolean
   sessionKey: { id: string; publicKey: string; expiry: number } | null
   sessionKeyPending: boolean
@@ -7,13 +7,13 @@ interface SessionKeyBadgeProps {
 }
 
 export function SessionKeyBadge({
-  isPorto,
+  isSmartWallet,
   isConnected,
   sessionKey,
   sessionKeyPending,
   onGrantSessionKey
 }: SessionKeyBadgeProps) {
-  if (!isConnected || !isPorto) return null
+  if (!isConnected || !isSmartWallet) return null
 
   if (sessionKeyPending) {
     return (
@@ -41,7 +41,7 @@ export function SessionKeyBadge({
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-[#67e8f9] shadow-[0_0_6px_rgba(103,232,249,0.5)]" />
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#67e8f9]">
-            Session key active
+            SESSION KEY ACTIVE
           </span>
         </div>
         <span className="font-mono text-[10px] tracking-[0.12em] text-white/30">
@@ -51,14 +51,13 @@ export function SessionKeyBadge({
     )
   }
 
-  // Porto connected but no session key
   return (
     <button
       onClick={onGrantSessionKey}
       className="py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-white/45 transition-colors hover:text-[#67e8f9]"
       type="button"
     >
-      Grant session key for auto-signing →
+      Grant Session Key for smart wallet auto-signing →
     </button>
   )
 }

@@ -4,11 +4,40 @@ import { porto } from "porto/wagmi"
 import { type ReactNode, useState } from "react"
 import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
+import { injected, walletConnect } from "wagmi/connectors"
+
+function ambireProvider() {
+  if (typeof window === "undefined") return undefined
+
+  const ethereum = (window as any).ethereum
+  if (!ethereum) return undefined
+
+  if (Array.isArray(ethereum.providers)) {
+    return ethereum.providers.find((provider: any) => provider?.isAmbire)
+  }
+
+  if (ethereum?.isAmbire) return ethereum
+  return undefined
+}
 
 const config = createConfig(
   getDefaultConfig({
     chains: [mainnet],
-    connectors: [porto()],
+    connectors: [
+      injected(),
+      walletConnect({
+        projectId:
+          import.meta.env.PUBLIC_WALLETCONNECT_PROJECT_ID || "placeholder"
+      }),
+      injected({
+        target: {
+          id: "ambire",
+          name: "Ambire Wallet",
+          provider: ambireProvider
+        }
+      }),
+      porto()
+    ],
     transports: {
       [mainnet.id]: http()
     },

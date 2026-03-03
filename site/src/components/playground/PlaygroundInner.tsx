@@ -79,8 +79,8 @@ const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
 type SessionKeyState = { id: string; publicKey: string; expiry: number }
 
-const PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY = "porto_session_key"
-const PORTO_SESSION_EXPIRY_STORAGE_KEY = "porto_session_key_expiry"
+const SESSION_PRIVATE_KEY_STORAGE_KEY = "session_key"
+const SESSION_EXPIRY_STORAGE_KEY = "session_key_expiry"
 
 function findFirstString(value: unknown, keys: string[]): string | null {
   if (!value || typeof value !== "object") return null
@@ -117,8 +117,7 @@ function findFirstNumber(value: unknown, keys: string[]): number | null {
 function parseSessionKeyState(payload: unknown): SessionKeyState {
   const now = Math.floor(Date.now() / 1000)
   const id =
-    findFirstString(payload, ["id", "keyId", "identifier"]) ??
-    `porto-session-${now}`
+    findFirstString(payload, ["id", "keyId", "identifier"]) ?? `session-${now}`
   const publicKey =
     findFirstString(payload, ["publicKey", "pubkey", "key", "address"]) ??
     "wallet-managed"
@@ -138,10 +137,21 @@ export function PlaygroundInner() {
   const { address, isConnected, connector } = useAccount()
   const chainId = useChainId()
 
-  // Porto detection — Porto auto-approves personal_sign via embedded session key
-  const isPorto =
-    connector?.id === "porto" ||
-    connector?.name?.toLowerCase().includes("porto")
+  const isSmartWallet = useMemo(() => {
+    if (!connector) return false
+    const connectorName = connector.name?.toLowerCase() ?? ""
+    const connectorId = connector.id?.toLowerCase() ?? ""
+    const smartWalletNames = [
+      "porto",
+      "ambire",
+      "ambire wallet",
+      "smart wallet"
+    ]
+
+    return smartWalletNames.some(
+      (name) => connectorName.includes(name) || connectorId.includes(name)
+    )
+  }, [connector])
   const [sessionKey, setSessionKey] = useState<SessionKeyState | null>(null)
   const [sessionKeyPending, setSessionKeyPending] = useState(false)
 
@@ -182,13 +192,13 @@ export function PlaygroundInner() {
   const includeContentDigest =
     selectedComponents.has("content-digest") && hasBody
 
-  // Reset Porto state on disconnect
+  // Reset session key state on disconnect
   useEffect(() => {
     if (!isConnected) {
       setSessionKey(null)
       providerRef.current = null
-      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
     }
   }, [isConnected])
 
@@ -197,35 +207,35 @@ export function PlaygroundInner() {
   }, [connector?.id, address, chainId])
 
   useEffect(() => {
-    if (!isConnected || !isPorto) return
+    if (!isConnected || !isSmartWallet) return
 
     const privateKey = sessionStorage.getItem(
-      PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY
+      SESSION_PRIVATE_KEY_STORAGE_KEY
     ) as `0x${string}` | null
-    const expiryRaw = sessionStorage.getItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+    const expiryRaw = sessionStorage.getItem(SESSION_EXPIRY_STORAGE_KEY)
     const expiry = Number(expiryRaw)
 
     if (!privateKey || !Number.isFinite(expiry)) return
 
     if (expiry <= Math.floor(Date.now() / 1000)) {
-      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
       setSessionKey(null)
       return
     }
 
     const keyAccount = privateKeyToAccount(privateKey)
     setSessionKey({
-      id: `porto-session-${expiry}`,
+      id: `session-${expiry}`,
       publicKey: keyAccount.address,
       expiry
     })
-  }, [isConnected, isPorto])
+  }, [isConnected, isSmartWallet])
 
   useEffect(() => {
     const clearSessionKey = () => {
-      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
     }
 
     window.addEventListener("beforeunload", clearSessionKey)
@@ -252,9 +262,11 @@ export function PlaygroundInner() {
   }, [address, getProvider])
 
   const grantSessionKey = useCallback(async () => {
-    if (!isPorto || !isConnected || !address) return
+    if (!isSmartWallet || !isConnected || !address) return
     setSessionKeyPending(true)
-    setVerificationResultText("Requesting Porto session key permission...")
+    setVerificationResultText(
+      "Requesting smart wallet session key permission..."
+    )
 
     const privateKey = generatePrivateKey()
     const keyAccount = privateKeyToAccount(privateKey)
@@ -316,11 +328,8 @@ export function PlaygroundInner() {
         expiry: parsed.expiry || expiry
       }
 
-      sessionStorage.setItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY, privateKey)
-      sessionStorage.setItem(
-        PORTO_SESSION_EXPIRY_STORAGE_KEY,
-        `${granted.expiry}`
-      )
+      sessionStorage.setItem(SESSION_PRIVATE_KEY_STORAGE_KEY, privateKey)
+      sessionStorage.setItem(SESSION_EXPIRY_STORAGE_KEY, `${granted.expiry}`)
 
       setSessionKey(granted)
       setVerificationResultText(
@@ -330,15 +339,15 @@ export function PlaygroundInner() {
       )
     } catch (error) {
       setSessionKey(null)
-      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
       setVerificationResultText(
         `Session key grant failed: ${(error as Error)?.message || "Unknown error"}`
       )
     } finally {
       setSessionKeyPending(false)
     }
-  }, [address, getWalletClient, isConnected, isPorto])
+  }, [address, getWalletClient, isConnected, isSmartWallet])
 
   // ── Signature base preview ─────────────────────────
 
@@ -412,10 +421,10 @@ export function PlaygroundInner() {
         const t0 = performance.now()
 
         const storedPrivateKey = sessionStorage.getItem(
-          PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY
+          SESSION_PRIVATE_KEY_STORAGE_KEY
         ) as `0x${string}` | null
 
-        if (isPorto && storedPrivateKey && sessionKey?.publicKey) {
+        if (isSmartWallet && storedPrivateKey && sessionKey?.publicKey) {
           const key = Key.fromPrivateKey({
             privateKey: storedPrivateKey,
             type: "secp256k1"
@@ -482,8 +491,8 @@ export function PlaygroundInner() {
       setSignTiming(`${signMs}ms`)
       setLastSignedRequest(signed)
 
-      // Trigger pulse animation for Porto auto-signing (fast = session key)
-      if (isPorto && walletWaitMs < 1000) {
+      // Trigger pulse animation for smart wallet auto-signing (fast = session key)
+      if (isSmartWallet && walletWaitMs < 1000) {
         setSignPulse(true)
         setTimeout(() => setSignPulse(false), 800)
       }
@@ -555,7 +564,7 @@ export function PlaygroundInner() {
     nonce,
     hasBody,
     chainId,
-    isPorto,
+    isSmartWallet,
     includeContentDigest,
     getWalletClient,
     sessionKey
@@ -635,7 +644,8 @@ export function PlaygroundInner() {
           <p className="mt-3 max-w-xl font-mono text-sm leading-relaxed text-white/50">
             Test ERC-8128 HTTP signatures in real time. Compose a request,
             select signature components, and sign with your Ethereum wallet —
-            the server verifies instantly. No backend, no API keys.
+            the server verifies instantly. No backend, no API keys. Smart wallet
+            session keys are stored locally and expire when you close this tab.
           </p>
         </div>
 
@@ -775,7 +785,7 @@ export function PlaygroundInner() {
             >
               {signing
                 ? "SIGNING..."
-                : sessionKey && isPorto
+                : sessionKey && isSmartWallet
                   ? "SIGN REQUEST (AUTO-SIGN)"
                   : "SIGN REQUEST"}
               {signPulse && (
@@ -783,7 +793,7 @@ export function PlaygroundInner() {
               )}
             </button>
 
-            {isConnected && isPorto && !sessionKey && (
+            {isConnected && isSmartWallet && !sessionKey && (
               <button
                 onClick={grantSessionKey}
                 disabled={sessionKeyPending || signing}
@@ -802,15 +812,15 @@ export function PlaygroundInner() {
 
             <SessionKeyBadge
               isConnected={isConnected}
-              isPorto={isPorto}
+              isSmartWallet={isSmartWallet}
               sessionKey={sessionKey}
               sessionKeyPending={sessionKeyPending}
               onGrantSessionKey={grantSessionKey}
             />
 
-            {isConnected && isPorto && sessionKey && (
+            {isConnected && isSmartWallet && sessionKey && (
               <p className="text-center font-mono text-[10px] uppercase tracking-[0.16em] text-[#67e8f9]/80">
-                Sign Request uses Porto auto-signing
+                Sign Request uses smart wallet auto-signing
               </p>
             )}
           </div>
