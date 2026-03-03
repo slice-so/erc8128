@@ -1,7 +1,15 @@
 import { signRequest } from "@slicekit/erc8128"
 import { ConnectKitButton } from "connectkit"
+import { Key } from "porto/viem"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { createPublicClient, createWalletClient, custom, http } from "viem"
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  hashMessage,
+  http
+} from "viem"
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
 import { mainnet } from "viem/chains"
 import { useAccount, useChainId } from "wagmi"
 import { ExpandablePre } from "./ExpandablePre"
@@ -70,6 +78,9 @@ const DEFAULT_BODY = `{
 const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
 type SessionKeyState = { id: string; publicKey: string; expiry: number }
+
+const PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY = "porto_session_key"
+const PORTO_SESSION_EXPIRY_STORAGE_KEY = "porto_session_key_expiry"
 
 function findFirstString(value: unknown, keys: string[]): string | null {
   if (!value || typeof value !== "object") return null
@@ -176,12 +187,50 @@ export function PlaygroundInner() {
     if (!isConnected) {
       setSessionKey(null)
       providerRef.current = null
+      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
     }
   }, [isConnected])
 
   useEffect(() => {
     providerRef.current = null
   }, [connector?.id, address, chainId])
+
+  useEffect(() => {
+    if (!isConnected || !isPorto) return
+
+    const privateKey = sessionStorage.getItem(
+      PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY
+    ) as `0x${string}` | null
+    const expiryRaw = sessionStorage.getItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+    const expiry = Number(expiryRaw)
+
+    if (!privateKey || !Number.isFinite(expiry)) return
+
+    if (expiry <= Math.floor(Date.now() / 1000)) {
+      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+      setSessionKey(null)
+      return
+    }
+
+    const keyAccount = privateKeyToAccount(privateKey)
+    setSessionKey({
+      id: `porto-session-${expiry}`,
+      publicKey: keyAccount.address,
+      expiry
+    })
+  }, [isConnected, isPorto])
+
+  useEffect(() => {
+    const clearSessionKey = () => {
+      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
+    }
+
+    window.addEventListener("beforeunload", clearSessionKey)
+    return () => window.removeEventListener("beforeunload", clearSessionKey)
+  }, [])
 
   const getProvider = useCallback(async () => {
     if (!connector) return null
@@ -207,20 +256,36 @@ export function PlaygroundInner() {
     setSessionKeyPending(true)
     setVerificationResultText("Requesting Porto session key permission...")
 
+    const privateKey = generatePrivateKey()
+    const keyAccount = privateKeyToAccount(privateKey)
+    const expiry = Math.floor(Date.now() / 1000) + 60 * 60
+
     const requestParams = [
       {
-        signer: {
-          type: "key",
-          data: { keyType: "secp256k1" }
+        expiry,
+        feeToken: {
+          limit: "0.01",
+          symbol: "ETH"
         },
-        permissions: [
-          {
-            type: "native-token-transfer",
-            data: {
-              allowance: "0x0"
+        key: {
+          publicKey: keyAccount.address,
+          type: "secp256k1"
+        },
+        permissions: {
+          calls: [
+            {
+              to: address,
+              signature: "0x",
+              valueLimit: "0x0"
             }
-          }
-        ]
+          ],
+          spend: [
+            {
+              limit: "0x0",
+              period: "hour"
+            }
+          ]
+        }
       }
     ]
 
@@ -244,7 +309,19 @@ export function PlaygroundInner() {
         })
       }
 
-      const granted = parseSessionKeyState(permissions)
+      const parsed = parseSessionKeyState(permissions)
+      const granted = {
+        id: parsed.id,
+        publicKey: keyAccount.address,
+        expiry: parsed.expiry || expiry
+      }
+
+      sessionStorage.setItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY, privateKey)
+      sessionStorage.setItem(
+        PORTO_SESSION_EXPIRY_STORAGE_KEY,
+        `${granted.expiry}`
+      )
+
       setSessionKey(granted)
       setVerificationResultText(
         `Session key granted. Key ${granted.id} is active until ${new Date(
@@ -253,6 +330,8 @@ export function PlaygroundInner() {
       )
     } catch (error) {
       setSessionKey(null)
+      sessionStorage.removeItem(PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY)
+      sessionStorage.removeItem(PORTO_SESSION_EXPIRY_STORAGE_KEY)
       setVerificationResultText(
         `Session key grant failed: ${(error as Error)?.message || "Unknown error"}`
       )
@@ -331,6 +410,26 @@ export function PlaygroundInner() {
       chainId: chainId || 1,
       signMessage: async (message: Uint8Array) => {
         const t0 = performance.now()
+
+        const storedPrivateKey = sessionStorage.getItem(
+          PORTO_SESSION_PRIVATE_KEY_STORAGE_KEY
+        ) as `0x${string}` | null
+
+        if (isPorto && storedPrivateKey && sessionKey?.publicKey) {
+          const key = Key.fromPrivateKey({
+            privateKey: storedPrivateKey,
+            type: "secp256k1"
+          })
+          const payload = hashMessage({ raw: toHex(message) })
+          const signature = await Key.sign(key, {
+            address: sessionKey.publicKey as `0x${string}`,
+            payload,
+            wrap: false
+          })
+          walletWaitMs = performance.now() - t0
+          return signature as `0x${string}`
+        }
+
         let walletClient = await getWalletClient()
         if (!walletClient) throw new Error("Wallet provider unavailable")
 
@@ -450,6 +549,7 @@ export function PlaygroundInner() {
     connector,
     method,
     path,
+    body,
     selectedComponents,
     ttl,
     nonce,
@@ -457,7 +557,8 @@ export function PlaygroundInner() {
     chainId,
     isPorto,
     includeContentDigest,
-    getWalletClient
+    getWalletClient,
+    sessionKey
   ])
 
   // ── Copy as cURL ───────────────────────────────────
