@@ -1,63 +1,59 @@
+import { useEffect, useState } from "react"
+
 interface SessionKeyBadgeProps {
-  isSmartWallet: boolean
   isConnected: boolean
-  sessionKey: { id: string; publicKey: string; expiry: number } | null
-  sessionKeyPending: boolean
-  onGrantSessionKey: () => void
+  appWallet: { id: string; publicKey: string; expiry: number } | null
+  appWalletPending: boolean
+}
+
+function formatTimeRemaining(expirySeconds: number) {
+  const remaining = Math.max(0, expirySeconds - Math.floor(Date.now() / 1000))
+  if (remaining <= 0) return "expired"
+  const m = Math.floor(remaining / 60)
+  const s = remaining % 60
+  if (m >= 60) {
+    const h = Math.floor(m / 60)
+    const rm = m % 60
+    return rm > 0 ? `${h}h ${rm}m` : `${h}h`
+  }
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
 }
 
 export function SessionKeyBadge({
-  isSmartWallet,
   isConnected,
-  sessionKey,
-  sessionKeyPending,
-  onGrantSessionKey
+  appWallet,
+  appWalletPending
 }: SessionKeyBadgeProps) {
-  if (!isConnected || !isSmartWallet) return null
+  const [, setTick] = useState(0)
 
-  if (sessionKeyPending) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-1">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[#67e8f9]" />
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
-          Granting session key...
-        </span>
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (!appWallet) return
+    const id = setInterval(() => setTick((t) => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [appWallet])
 
-  if (sessionKey) {
-    const shortKey = sessionKey.publicKey
-      ? `${sessionKey.publicKey.slice(0, 6)}...${sessionKey.publicKey.slice(-4)}`
-      : "wallet-managed"
-    const expiresIn = Math.max(
-      0,
-      sessionKey.expiry - Math.floor(Date.now() / 1000)
-    )
-    const expiresMin = Math.ceil(expiresIn / 60)
+  if (!isConnected) return null
+
+  if (appWalletPending || !appWallet) return null
+
+  if (appWallet) {
+    const shortKey = `${appWallet.publicKey.slice(0, 6)}...${appWallet.publicKey.slice(-4)}`
 
     return (
       <div className="flex flex-col items-center gap-1 py-1">
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-[#67e8f9] shadow-[0_0_6px_rgba(103,232,249,0.5)]" />
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#67e8f9]">
-            SESSION KEY ACTIVE
+            AUTO-SIGN ENABLED
           </span>
         </div>
         <span className="font-mono text-[10px] tracking-[0.12em] text-white/30">
-          {shortKey} · expires in {expiresMin}m
+          {shortKey} · expires in {formatTimeRemaining(appWallet.expiry)}
         </span>
       </div>
     )
   }
 
-  return (
-    <button
-      onClick={onGrantSessionKey}
-      className="py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-white/45 transition-colors hover:text-[#67e8f9]"
-      type="button"
-    >
-      Grant Session Key for smart wallet auto-signing →
-    </button>
-  )
+  return null
 }

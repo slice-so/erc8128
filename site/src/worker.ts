@@ -1,11 +1,10 @@
 import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
 import { createPublicClient, http } from "viem"
+import { mainnet } from "viem/chains"
 
 interface Env {
   SECRET_ALCHEMY_KEY?: string
 }
-
-const DEFAULT_RPC_URL = "https://eth.llamarpc.com"
 
 type HeaderMap = Record<string, string[]>
 
@@ -27,28 +26,31 @@ const nonceStore: NonceStore = {
 }
 
 let verifier: ReturnType<typeof createVerifierClient> | undefined
+let verifierMode: "default" | "delete" | null = null
 
-const getVerifier = (env: Env) => {
-  if (!verifier) {
+const getRpcUrl = (env: Env) =>
+  `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
+
+const getVerifier = (env: Env, isDelete: boolean) => {
+  const mode: "default" | "delete" = isDelete ? "delete" : "default"
+  if (!verifier || verifierMode !== mode) {
+    const rpcUrl = getRpcUrl(env)
     const publicClient = createPublicClient({
-      transport: http(
-        env.SECRET_ALCHEMY_KEY
-          ? `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY}`
-          : DEFAULT_RPC_URL
-      )
+      chain: mainnet,
+      transport: http(rpcUrl)
     })
-
     verifier = createVerifierClient({
       verifyMessage: publicClient.verifyMessage,
       nonceStore,
       defaults: {
         strictLabel: false,
         maxValiditySec: 300,
-        replayable: true,
+        replayable: !isDelete,
         replayableNotBefore: () => null,
-        classBoundPolicies: [["@authority"]]
+        classBoundPolicies: isDelete ? [] : [["@authority"]]
       }
     })
+    verifierMode = mode
   }
   return verifier
 }
@@ -208,14 +210,16 @@ export default {
     }
 
     const verbose = isVerboseRequest(request)
-    const v = getVerifier(env)
 
+    const isDelete = request.method.toUpperCase() === "DELETE"
     const responseHeaders = new Headers()
 
     try {
+      const v = getVerifier(env, isDelete)
+
       const t0 = performance.now()
       const verification = await v.verifyRequest({
-        request,
+        request: request.clone(),
         setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
@@ -224,9 +228,30 @@ export default {
       const status = verificationStatus(verification)
       const acceptSignature = responseHeaders.get("accept-signature")
 
+      if (verification.ok) {
+        const successBody = {
+          ...verification,
+          verifyMs
+        }
+        if (!verbose) {
+          const res = json(successBody, 200)
+          for (const [k, v] of responseHeaders) res.headers.set(k, v)
+          return res
+        }
+        const res = json(
+          {
+            ...createVerbosePayload(request, verification),
+            verifyMs
+          },
+          200
+        )
+        for (const [k, v] of responseHeaders) res.headers.set(k, v)
+        return res
+      }
+
       const body =
-        status === 400 && acceptSignature
-          ? { ...verification, acceptSignature, verifyMs }
+        status !== 200 && acceptSignature
+          ? { ...verification, "accept-signature": acceptSignature, verifyMs }
           : { ...verification, verifyMs }
 
       if (!verbose) {
@@ -236,10 +261,10 @@ export default {
       }
 
       const verboseBody =
-        status === 400 && acceptSignature
+        status !== 200 && acceptSignature
           ? {
               ...createVerbosePayload(request, verification),
-              acceptSignature,
+              "accept-signature": acceptSignature,
               verifyMs
             }
           : { ...createVerbosePayload(request, verification), verifyMs }
@@ -248,7 +273,13 @@ export default {
       for (const [k, v] of responseHeaders) res.headers.set(k, v)
       return res
     } catch (error) {
-      return json(createErrorPayload(request, error, verbose), 500)
+      const res = json(createErrorPayload(request, error, verbose), 500)
+      const acceptSignature = responseHeaders.get("accept-signature")
+
+      if (acceptSignature) {
+        res.headers.set("accept-signature", acceptSignature)
+      }
+      return res
     }
   }
 }

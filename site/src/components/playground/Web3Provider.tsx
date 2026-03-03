@@ -4,15 +4,20 @@ import { porto } from "porto/wagmi"
 import { type ReactNode, useState } from "react"
 import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
-import { injected, walletConnect } from "wagmi/connectors"
+import { coinbaseWallet, walletConnect } from "wagmi/connectors"
 
-const walletConnectProjectId =
-  import.meta.env.PUBLIC_WALLETCONNECT_PROJECT_ID || "placeholder"
+const walletConnectProjectId = "07e58e0aa68cd2e122963d7405172add"
+const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.PUBLIC_ALCHEMY_KEY ?? ""}`
 
 const config = createConfig({
   chains: [mainnet],
   connectors: [
-    injected(),
+    coinbaseWallet({
+      appName: "ERC-8128",
+      preference: {
+        options: "smartWalletOnly"
+      }
+    }),
     walletConnect({
       projectId: walletConnectProjectId,
       showQrModal: false
@@ -20,7 +25,7 @@ const config = createConfig({
     porto()
   ],
   transports: {
-    [mainnet.id]: http()
+    [mainnet.id]: http(alchemyUrl)
   }
 })
 

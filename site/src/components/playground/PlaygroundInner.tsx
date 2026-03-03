@@ -1,15 +1,15 @@
 import { signRequest } from "@slicekit/erc8128"
-import { ConnectKitButton } from "connectkit"
-import { Key } from "porto/viem"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { ConnectKitButton, useModal } from "connectkit"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import {
   createPublicClient,
   createWalletClient,
   custom,
-  hashMessage,
-  http
+  type EIP1193Provider,
+  http,
+  keccak256
 } from "viem"
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
+import { privateKeyToAccount } from "viem/accounts"
 import { mainnet } from "viem/chains"
 import { useAccount, useChainId } from "wagmi"
 import { ExpandablePre } from "./ExpandablePre"
@@ -77,78 +77,31 @@ const DEFAULT_BODY = `{
 
 const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
-type SessionKeyState = { id: string; publicKey: string; expiry: number }
+type AppWalletState = { id: string; publicKey: string; expiry: number }
 
-const SESSION_PRIVATE_KEY_STORAGE_KEY = "session_key"
-const SESSION_EXPIRY_STORAGE_KEY = "session_key_expiry"
-
-function findFirstString(value: unknown, keys: string[]): string | null {
-  if (!value || typeof value !== "object") return null
-  const record = value as Record<string, unknown>
-  for (const key of keys) {
-    const v = record[key]
-    if (typeof v === "string" && v.length > 0) return v
-  }
-  for (const child of Object.values(record)) {
-    const nested = findFirstString(child, keys)
-    if (nested) return nested
-  }
-  return null
+type VerifyPayload = {
+  ok?: boolean
+  status?: number
+  message?: string
+  reason?: string
+  detail?: string
+  address?: string
+  binding?: string
+  replayable?: boolean
+  verifyMs?: number
 }
 
-function findFirstNumber(value: unknown, keys: string[]): number | null {
-  if (!value || typeof value !== "object") return null
-  const record = value as Record<string, unknown>
-  for (const key of keys) {
-    const v = record[key]
-    if (typeof v === "number" && Number.isFinite(v)) return v
-    if (typeof v === "string") {
-      const parsed = Number(v)
-      if (Number.isFinite(parsed)) return parsed
-    }
-  }
-  for (const child of Object.values(record)) {
-    const nested = findFirstNumber(child, keys)
-    if (nested != null) return nested
-  }
-  return null
-}
-
-function parseSessionKeyState(payload: unknown): SessionKeyState {
-  const now = Math.floor(Date.now() / 1000)
-  const id =
-    findFirstString(payload, ["id", "keyId", "identifier"]) ?? `session-${now}`
-  const publicKey =
-    findFirstString(payload, ["publicKey", "pubkey", "key", "address"]) ??
-    "wallet-managed"
-  const expiry =
-    findFirstNumber(payload, [
-      "expiry",
-      "expiresAt",
-      "expiration",
-      "validUntil"
-    ]) ?? now + 60 * 60
-  return { id, publicKey, expiry }
-}
+const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
+const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
 
 // ── component ────────────────────────────────────────
 
 export function PlaygroundInner() {
   const { address, isConnected, connector } = useAccount()
   const chainId = useChainId()
-
-  const isSmartWallet = useMemo(() => {
-    if (!connector) return false
-    const connectorName = connector.name?.toLowerCase() ?? ""
-    const connectorId = connector.id?.toLowerCase() ?? ""
-    const smartWalletNames = ["porto", "smart wallet"]
-
-    return smartWalletNames.some(
-      (name) => connectorName.includes(name) || connectorId.includes(name)
-    )
-  }, [connector])
-  const [sessionKey, setSessionKey] = useState<SessionKeyState | null>(null)
-  const [sessionKeyPending, setSessionKeyPending] = useState(false)
+  const { setOpen: openConnectModal } = useModal()
+  const [appWallet, setAppWallet] = useState<AppWalletState | null>(null)
+  const [autoSigningPending, setAutoSigningPending] = useState(false)
 
   // Form state
   const [method, setMethod] = useState("POST")
@@ -171,8 +124,9 @@ export function PlaygroundInner() {
   const [signTiming, setSignTiming] = useState("")
   const [verifyTiming, setVerifyTiming] = useState("")
   const [verifyOk, setVerifyOk] = useState(false)
-  const [verifyData, setVerifyData] = useState<any>(null)
+  const [verifyData, setVerifyData] = useState<VerifyPayload | null>(null)
   const [ensName, setEnsName] = useState<string | null>(null)
+  const [userEnsName, setUserEnsName] = useState<string | null>(null)
   const [lastSignedRequest, setLastSignedRequest] = useState<Request | null>(
     null
   )
@@ -180,9 +134,10 @@ export function PlaygroundInner() {
   // UI state
   const [signing, setSigning] = useState(false)
   const [signPulse, setSignPulse] = useState(false)
+  const [verifying, setVerifying] = useState(false)
   const [copiedCurl, setCopiedCurl] = useState(false)
   const [contentDigestPreview, setContentDigestPreview] = useState<string>("")
-  const providerRef = useRef<any>(null)
+  const providerRef = useRef<EIP1193Provider | null>(null)
   const signingRef = useRef(false)
 
   const hasBody = method !== "GET" && body.length > 0
@@ -211,15 +166,27 @@ export function PlaygroundInner() {
     }
   }, [body, includeContentDigest])
 
-  // Reset session key state on disconnect
+  // Clear app wallet on actual disconnect (not initial mount)
+  const wasConnectedRef = useRef(false)
   useEffect(() => {
-    if (!isConnected) {
-      setSessionKey(null)
+    if (isConnected) {
+      wasConnectedRef.current = true
+    } else if (wasConnectedRef.current) {
+      wasConnectedRef.current = false
+      setAppWallet(null)
       providerRef.current = null
-      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
+      localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+      localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
     }
   }, [isConnected])
+
+  useEffect(() => {
+    if (!address) {
+      setUserEnsName(null)
+      return
+    }
+    resolveEns(address).then(setUserEnsName)
+  }, [address])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers to reset provider on connection change
   useEffect(() => {
@@ -227,45 +194,35 @@ export function PlaygroundInner() {
   }, [connector?.id, address, chainId])
 
   useEffect(() => {
-    if (!isConnected || !isSmartWallet) return
+    if (!isConnected) return
 
-    const privateKey = sessionStorage.getItem(
-      SESSION_PRIVATE_KEY_STORAGE_KEY
+    const privateKey = localStorage.getItem(
+      APP_WALLET_PRIVATE_KEY_STORAGE_KEY
     ) as `0x${string}` | null
-    const expiryRaw = sessionStorage.getItem(SESSION_EXPIRY_STORAGE_KEY)
+    const expiryRaw = localStorage.getItem(APP_WALLET_EXPIRY_STORAGE_KEY)
     const expiry = Number(expiryRaw)
 
     if (!privateKey || !Number.isFinite(expiry)) return
 
     if (expiry <= Math.floor(Date.now() / 1000)) {
-      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
-      setSessionKey(null)
+      localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+      localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+      setAppWallet(null)
       return
     }
 
     const keyAccount = privateKeyToAccount(privateKey)
-    setSessionKey({
+    setAppWallet({
       id: `session-${expiry}`,
       publicKey: keyAccount.address,
       expiry
     })
-  }, [isConnected, isSmartWallet])
-
-  useEffect(() => {
-    const clearSessionKey = () => {
-      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
-    }
-
-    window.addEventListener("beforeunload", clearSessionKey)
-    return () => window.removeEventListener("beforeunload", clearSessionKey)
-  }, [])
+  }, [isConnected])
 
   const getProvider = useCallback(async () => {
     if (!connector) return null
     if (!providerRef.current) {
-      providerRef.current = await connector.getProvider()
+      providerRef.current = (await connector.getProvider()) as EIP1193Provider
     }
     return providerRef.current
   }, [connector])
@@ -281,82 +238,55 @@ export function PlaygroundInner() {
     })
   }, [address, getProvider])
 
-  const grantSessionKey = useCallback(async () => {
-    if (!isSmartWallet || !isConnected || !address) return
-    setSessionKeyPending(true)
-    setVerificationResultText(
-      "Requesting smart wallet session key permission..."
-    )
-
-    const privateKey = generatePrivateKey()
-    const keyAccount = privateKeyToAccount(privateKey)
-    const expiry = Math.floor(Date.now() / 1000) + 60 * 60
-
-    const requestParams = [
-      {
-        expiry,
-        feeToken: {
-          limit: "0",
-          symbol: "ETH"
-        },
-        key: {
-          publicKey: keyAccount.address,
-          type: "secp256k1"
-        },
-        permissions: {
-          calls: [
-            {
-              to: address,
-              signature: "0x",
-              valueLimit: "0x0"
-            }
-          ],
-          spend: [
-            {
-              limit: "0x0",
-              period: "hour"
-            }
-          ]
-        }
-      }
-    ]
+  const enableAutoSigning = useCallback(async () => {
+    if (!isConnected || !address) return
+    setAutoSigningPending(true)
 
     try {
       const walletClient = await getWalletClient()
       if (!walletClient) throw new Error("Wallet is not ready")
 
-      const permissions: unknown = await walletClient.request({
-        method: "wallet_grantPermissions",
-        params: requestParams as any
+      const sig = await walletClient.signMessage({
+        account: address as `0x${string}`,
+        message: "Create app wallet to sign requests on the ERC-8128 Playground"
       })
+      const privateKey = keccak256(sig)
+      const keyAccount = privateKeyToAccount(privateKey)
+      const expiry = Math.floor(Date.now() / 1000) + 60 * 60
 
-      const parsed = parseSessionKeyState(permissions)
       const granted = {
-        id: parsed.id,
+        id: `app-wallet-${keyAccount.address.slice(2, 10)}`,
         publicKey: keyAccount.address,
-        expiry: parsed.expiry || expiry
+        expiry
       }
 
-      sessionStorage.setItem(SESSION_PRIVATE_KEY_STORAGE_KEY, privateKey)
-      sessionStorage.setItem(SESSION_EXPIRY_STORAGE_KEY, `${granted.expiry}`)
+      localStorage.setItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY, privateKey)
+      localStorage.setItem(APP_WALLET_EXPIRY_STORAGE_KEY, `${granted.expiry}`)
 
-      setSessionKey(granted)
+      setAppWallet(granted)
       setVerificationResultText(
-        `Session key granted. Key ${granted.id} is active until ${new Date(
+        `Auto-signing enabled. App wallet ${granted.publicKey} signs as a separate identity until ${new Date(
           granted.expiry * 1000
         ).toLocaleTimeString()}.`
       )
     } catch (error) {
-      setSessionKey(null)
-      sessionStorage.removeItem(SESSION_PRIVATE_KEY_STORAGE_KEY)
-      sessionStorage.removeItem(SESSION_EXPIRY_STORAGE_KEY)
+      setAppWallet(null)
+      localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+      localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
       setVerificationResultText(
-        `Session key grant failed: ${(error as Error)?.message || "Unknown error"}`
+        `Enable auto-signing failed: ${(error as Error)?.message || "Unknown error"}`
       )
     } finally {
-      setSessionKeyPending(false)
+      setAutoSigningPending(false)
     }
-  }, [address, getWalletClient, isConnected, isSmartWallet])
+  }, [address, isConnected, getWalletClient])
+
+  const disconnectAppWallet = useCallback(() => {
+    setAppWallet(null)
+    localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+    localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+    setVerificationResultText("App wallet disconnected.")
+  }, [])
 
   // ── Signature base preview ─────────────────────────
 
@@ -389,7 +319,14 @@ export function PlaygroundInner() {
     const expires = now + ttl
     let paramsStr = `;created=${now};expires=${expires}`
     if (selectedComponents.has("nonce")) paramsStr += `;nonce="${nonce}"`
-    paramsStr += `;keyid="erc8128:${chainId || 1}:${address || "0x..."}"`
+    const storedSessionKey =
+      typeof window !== "undefined"
+        ? localStorage.getItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+        : null
+    const previewSigner = storedSessionKey
+      ? privateKeyToAccount(storedSessionKey as `0x${string}`).address
+      : (address ?? "0x...")
+    paramsStr += `;keyid="erc8128:${chainId || 1}:${previewSigner}"`
 
     lines.push(
       `<span style="color:rgba(255,255,255,0.35)">"@signature-params": (${allComponents.map((x) => `"${x}"`).join(" ")})${paramsStr}</span>`
@@ -423,28 +360,32 @@ export function PlaygroundInner() {
       .filter((c) => c !== "nonce")
       .filter((c) => !(c === "content-digest" && !hasBody))
     const includeNonce = selectedComponents.has("nonce")
+    setVerifyOk(false)
+    setVerifyData(null)
+    setVerifyTiming("")
+    setVerificationResultText("Processing request...")
+    setVerifying(true)
+
+    const storedPrivateKey = localStorage.getItem(
+      APP_WALLET_PRIVATE_KEY_STORAGE_KEY
+    ) as `0x${string}` | null
+    const sessionAddress = storedPrivateKey
+      ? privateKeyToAccount(storedPrivateKey).address
+      : null
 
     let walletWaitMs = 0
     const signer = {
-      address: address as `0x${string}`,
+      address: (sessionAddress ?? address) as `0x${string}`,
       chainId: chainId || 1,
       signMessage: async (message: Uint8Array) => {
         const t0 = performance.now()
 
-        const storedPrivateKey = sessionStorage.getItem(
-          SESSION_PRIVATE_KEY_STORAGE_KEY
-        ) as `0x${string}` | null
+        if (storedPrivateKey && appWallet?.publicKey) {
+          const sessionAccount = privateKeyToAccount(storedPrivateKey)
+          const signature = await sessionAccount.signMessage({
+            message: { raw: toHex(message) }
+          })
 
-        if (isSmartWallet && storedPrivateKey && sessionKey?.publicKey) {
-          const key = Key.fromSecp256k1({
-            privateKey: storedPrivateKey
-          })
-          const payload = hashMessage({ raw: toHex(message) })
-          const signature = await Key.sign(key, {
-            address: sessionKey.publicKey as `0x${string}`,
-            payload,
-            wrap: false
-          })
           walletWaitMs = performance.now() - t0
           return signature as `0x${string}`
         }
@@ -491,8 +432,8 @@ export function PlaygroundInner() {
       setSignTiming(`${signMs}ms`)
       setLastSignedRequest(signed)
 
-      // Trigger pulse animation for smart wallet auto-signing (fast = session key)
-      if (isSmartWallet && walletWaitMs < 1000) {
+      // Trigger pulse animation for app-wallet auto-signing (fast path).
+      if (storedPrivateKey && walletWaitMs < 1000) {
         setSignPulse(true)
         setTimeout(() => setSignPulse(false), 800)
       }
@@ -514,7 +455,7 @@ export function PlaygroundInner() {
         body: hasBody ? body : undefined
       })
 
-      let payload: any = null
+      let payload: VerifyPayload | null = null
       try {
         payload = await response.json()
       } catch {
@@ -555,6 +496,7 @@ export function PlaygroundInner() {
     } finally {
       signingRef.current = false
       setSigning(false)
+      setVerifying(false)
     }
   }, [
     address,
@@ -567,10 +509,9 @@ export function PlaygroundInner() {
     nonce,
     hasBody,
     chainId,
-    isSmartWallet,
     includeContentDigest,
     getWalletClient,
-    sessionKey
+    appWallet
   ])
 
   // ── Copy as cURL ───────────────────────────────────
@@ -633,7 +574,7 @@ export function PlaygroundInner() {
   return (
     <section
       className="border-b border-white/15 px-4 py-14 sm:px-6 md:px-10 lg:px-14"
-      id="playground"
+      id={useId()}
     >
       {/* Header */}
       <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
@@ -644,201 +585,205 @@ export function PlaygroundInner() {
           <p className="mt-2 text-xs uppercase tracking-[0.25em] text-white/55">
             SIGN AND VERIFY AN HTTP REQUEST WITH YOUR ETHEREUM WALLET
           </p>
-          <div className="mt-3 max-w-xl space-y-2 font-mono text-sm leading-relaxed text-white/50">
-            <p>1. Connect your wallet (MetaMask, WalletConnect, or Porto)</p>
-            <p>2. Compose an HTTP request with headers and optional body</p>
-            <p>3. Select which components to include in the signature</p>
-            <p>4. Sign the request with your wallet</p>
+          <div className="mt-3 space-y-2 font-mono text-sm leading-relaxed text-white/50">
+            <p>1. Connect a wallet and configure the request parameters</p>
+            <p>2. Sign the request and view the verification result</p>
+            <p>3. Enable auto-signing to use an app wallet without popups</p>
             <p>
-              5. (Optional) For smart wallets like Porto: Grant a session key to
-              enable automatic signing without popups
-            </p>
-            <p>
-              Smart wallet session keys are stored locally and expire when you
-              close this tab.
+              4. Optional: call DELETE without one or more components to view
+              the ERC-8128 error response
             </p>
           </div>
         </div>
 
-        <ConnectKitButton.Custom>
-          {({ isConnected, show, truncatedAddress, ensName: ckEns }) => (
+        <div className="shrink-0">
+          <ConnectKitButton.Custom>
+            {({ isConnected, show, truncatedAddress, ensName: ckEns }) => (
+              <button
+                onClick={show}
+                className="w-full border border-white/15 px-5 py-3 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-white hover:text-black"
+                type="button"
+              >
+                {isConnected
+                  ? `${ckEns ?? truncatedAddress}`
+                  : "CONNECT WALLET"}
+              </button>
+            )}
+          </ConnectKitButton.Custom>
+          {isConnected && appWallet && (
             <button
-              onClick={show}
-              className="shrink-0 border border-white/15 px-5 py-3 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-white hover:text-black"
+              onClick={disconnectAppWallet}
+              className="mt-2 w-full font-mono text-[10px] uppercase tracking-[0.16em] text-white/45 transition-colors hover:text-[#fca5a5] py-1 px-5 cursor-pointer text-center bg-transparent border-none"
               type="button"
             >
-              {isConnected
-                ? `${ckEns ?? truncatedAddress} [WEB3]`
-                : "CONNECT WALLET [WEB3]"}
+              Disconnect App Wallet
             </button>
           )}
-        </ConnectKitButton.Custom>
+        </div>
       </div>
 
       {/* Main grid */}
-      <div className="grid gap-0 border border-white/15 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
+      <div className="lg:grid gap-0 border border-white/15 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:max-h-[756px]">
         {/* Left column — Compose & Components */}
-        <div className="border-b border-white/15 p-4 md:p-6 lg:border-b-0 lg:border-r lg:border-white/15">
-          <div className="mb-5">
-            <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; 01 {"// COMPOSE REQUEST"}
-            </p>
-          </div>
-
-          <div className="mb-5 grid gap-4 md:grid-cols-[140px_1fr]">
-            <label className="block">
-              <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
-                Method
-              </span>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="playground-field h-11 w-full"
-              >
-                <option>GET</option>
-                <option>POST</option>
-                <option>PUT</option>
-                <option>DELETE</option>
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
-                Path
-              </span>
-              <input
-                className="playground-field playground-field-disabled h-11 w-full"
-                type="text"
-                value={path}
-                disabled
-              />
-            </label>
-          </div>
-
-          {method !== "GET" && (
-            <label className="mb-9 block">
-              <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
-                Body (JSON)
-              </span>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="playground-field min-h-44 w-full resize-y"
-                spellCheck={false}
-              />
-            </label>
-          )}
-
-          <div className="mb-4 flex items-center justify-between">
-            <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; 02 {"// SIGNATURE COMPONENTS"}
-            </p>
-            <button
-              onClick={resetAll}
-              className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/45 transition-colors hover:text-white"
-              type="button"
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="relative mb-8 border border-white/15 p-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {ALL_COMPONENTS.map((comp) => (
-                <label
-                  key={comp}
-                  className={`component-chip ${
-                    comp.startsWith("@")
-                      ? "text-[#86efac]"
-                      : comp === "content-digest"
-                        ? "text-[#c4b5fd]"
-                        : "text-[#67e8f9]"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="component-checkbox"
-                    checked={selectedComponents.has(comp)}
-                    onChange={() => toggleComponent(comp)}
-                  />
-                  <span>{comp}</span>
-                </label>
-              ))}
+        <div className="border-b border-white/15 p-4 md:p-6 lg:border-b-0 lg:border-r lg:border-white/15 flex flex-col justify-between">
+          <div>
+            <div className="mb-5">
+              <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
+                &gt; 01 {"// COMPOSE REQUEST"}
+              </p>
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-              <label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
-                <span>TTL</span>
+            <div className="mb-5 grid gap-4 md:grid-cols-[140px_1fr]">
+              <label className="block">
+                <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
+                  Method
+                </span>
+                <select
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value)}
+                  className="playground-field h-11 w-full"
+                >
+                  <option>GET</option>
+                  <option>POST</option>
+                  <option>PUT</option>
+                  <option>DELETE</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
+                  Path
+                </span>
                 <input
-                  type="number"
-                  min={1}
-                  max={3600}
-                  value={ttl}
-                  onChange={(e) => setTtl(parseInt(e.target.value, 10) || 60)}
-                  className="ttl-input"
+                  className="playground-field playground-field-disabled h-11 w-full"
+                  type="text"
+                  value={path}
+                  disabled
                 />
-                <span>sec</span>
               </label>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={signAndVerify}
-              disabled={!isConnected || signing}
-              className={`relative h-12 w-full border font-mono text-sm font-semibold uppercase tracking-[0.12em] transition-all duration-200 ${
-                signing
-                  ? "border-white/30 text-white/30 cursor-wait"
-                  : signPulse
-                    ? "border-[#67e8f9] bg-[#67e8f9]/20 text-[#67e8f9] shadow-[0_0_20px_rgba(103,232,249,0.3)]"
-                    : "border-[#67e8f9] bg-transparent text-[#67e8f9] hover:bg-[#67e8f9] hover:text-black"
-              }`}
-              type="button"
-            >
-              {signing
-                ? "SIGNING..."
-                : sessionKey && isSmartWallet
-                  ? "SIGN REQUEST (AUTO-SIGN)"
-                  : "SIGN REQUEST"}
-              {signPulse && (
-                <span className="absolute inset-0 animate-ping border border-[#67e8f9] opacity-30" />
-              )}
-            </button>
+            {method !== "GET" && (
+              <label className="mb-9 block">
+                <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.18em] text-white/45">
+                  Body (JSON)
+                </span>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  className="playground-field min-h-44 w-full resize-y"
+                  spellCheck={false}
+                />
+              </label>
+            )}
 
-            {isConnected && isSmartWallet && !sessionKey && (
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
+                &gt; 02 {"// SIGNATURE COMPONENTS"}
+              </p>
               <button
-                onClick={grantSessionKey}
-                disabled={sessionKeyPending || signing}
-                className={`h-11 w-full border font-mono text-xs font-semibold uppercase tracking-[0.12em] transition-colors duration-200 ${
-                  sessionKeyPending || signing
-                    ? "border-white/20 text-white/30 cursor-wait"
-                    : "border-white/35 text-white/75 hover:border-[#67e8f9] hover:text-[#67e8f9]"
+                onClick={resetAll}
+                className="font-mono text-[11px] uppercase tracking-[0.15em] text-white/45 transition-colors hover:text-white"
+                type="button"
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="relative mb-8 border border-white/15 p-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {ALL_COMPONENTS.map((comp) => (
+                  <label
+                    key={comp}
+                    className={`component-chip ${
+                      comp.startsWith("@")
+                        ? "text-[#86efac]"
+                        : comp === "content-digest"
+                          ? "text-[#c4b5fd]"
+                          : "text-[#67e8f9]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="component-checkbox"
+                      checked={selectedComponents.has(comp)}
+                      onChange={() => toggleComponent(comp)}
+                    />
+                    <span>{comp}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
+                <label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/45">
+                  <span>TTL</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={3600}
+                    value={ttl}
+                    onChange={(e) => setTtl(parseInt(e.target.value, 10) || 60)}
+                    className="ttl-input"
+                  />
+                  <span>sec</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={
+                  isConnected ? signAndVerify : () => openConnectModal(true)
+                }
+                disabled={signing}
+                className={`group relative h-12 w-full overflow-hidden border font-mono text-sm font-semibold uppercase tracking-[0.12em] transition-all duration-300 ${
+                  signing
+                    ? "border-[#67e8f9]/45 text-[#67e8f9]/55 cursor-wait"
+                    : signPulse
+                      ? "border-[#67e8f9] bg-[#67e8f9]/20 text-[#67e8f9] shadow-[0_0_26px_rgba(103,232,249,0.35)]"
+                      : "border-[#67e8f9] bg-transparent text-[#67e8f9] hover:shadow-[0_0_20px_rgba(103,232,249,0.25)]"
                 }`}
                 type="button"
               >
-                {sessionKeyPending
-                  ? "GRANTING SESSION KEY..."
-                  : "GRANT SESSION KEY"}
+                <span className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-[#67e8f9]/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                {signing
+                  ? "SIGNING..."
+                  : isConnected
+                    ? "SIGN REQUEST"
+                    : "CONNECT WALLET"}
+                {signPulse && (
+                  <span className="absolute inset-0 animate-ping border border-[#67e8f9] opacity-30" />
+                )}
               </button>
-            )}
 
-            <SessionKeyBadge
-              isConnected={isConnected}
-              isSmartWallet={isSmartWallet}
-              sessionKey={sessionKey}
-              sessionKeyPending={sessionKeyPending}
-              onGrantSessionKey={grantSessionKey}
-            />
+              {isConnected && !appWallet && (
+                <button
+                  onClick={enableAutoSigning}
+                  disabled={autoSigningPending || signing}
+                  className={`h-11 w-full border font-mono text-xs font-semibold tracking-[0.08em] transition-colors duration-200 ${
+                    autoSigningPending || signing
+                      ? "border-white/20 text-white/30 cursor-wait"
+                      : "border-white/35 text-white/75 hover:border-[#67e8f9] hover:text-[#67e8f9]"
+                  }`}
+                  type="button"
+                >
+                  {autoSigningPending
+                    ? "ENABLING AUTO-SIGNING..."
+                    : "Enable Auto-signing (App wallet)"}
+                </button>
+              )}
 
-            {isConnected && isSmartWallet && sessionKey && (
-              <p className="text-center font-mono text-[10px] uppercase tracking-[0.16em] text-[#67e8f9]/80">
-                Sign Request uses smart wallet auto-signing
-              </p>
-            )}
+              <SessionKeyBadge
+                isConnected={isConnected}
+                appWallet={appWallet}
+                appWalletPending={autoSigningPending}
+              />
+            </div>
           </div>
         </div>
 
         {/* Right column — Preview & Results */}
-        <div className="p-4 md:p-6">
+        <div className="p-4 md:p-6 lg:flex lg:flex-col lg:min-h-0">
           <div className="mb-3">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
               &gt; 03 {"// SIGNATURE BASE PREVIEW"}
@@ -847,16 +792,16 @@ export function PlaygroundInner() {
 
           <div className="relative mb-6">
             <pre
-              className="overflow-x-auto border border-white/15 bg-white/5 p-4 font-mono text-[13px] leading-7 text-white/70"
+              className="overflow-x-auto bg-white/5 p-4 font-mono text-[13px] leading-7 text-white/45"
               // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML built internally from controlled values
               dangerouslySetInnerHTML={{ __html: signatureBasePreviewHtml }}
             />
-            <span className="absolute right-3 top-3 border border-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
+            <span className="absolute right-0 top-0 bg-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">
               RFC 9421
             </span>
           </div>
 
-          <div className="mb-6 border border-white/15 p-4">
+          <div className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
@@ -879,7 +824,7 @@ export function PlaygroundInner() {
             <ExpandablePre html={signedHeadersHtml} />
           </div>
 
-          <div className="border border-white/15 p-4">
+          <div className="lg:flex lg:flex-1 lg:flex-col lg:min-h-0">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
@@ -914,10 +859,10 @@ export function PlaygroundInner() {
                     className="result-badge"
                     style={{
                       color: verifyData.replayable
-                        ? "rgba(255,255,255,0.4)"
+                        ? "rgba(255,255,255,0.6)"
                         : "#67e8f9",
                       borderColor: verifyData.replayable
-                        ? "rgba(255,255,255,0.2)"
+                        ? "rgba(255,255,255,0.4)"
                         : "#67e8f9"
                     }}
                   >
@@ -928,25 +873,49 @@ export function PlaygroundInner() {
             </div>
 
             {verifyOk && verifyData?.address && (
-              <div className="mb-2 flex items-center justify-between gap-3 border border-[#86efac]/15 bg-[#86efac]/[0.06] p-2 px-3">
+              <div className="mb-2 flex items-center justify-between gap-3 border border-[#86efac]/15 bg-[#86efac]/6 p-2 px-3">
                 <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-[#86efac]/70">
                   Authenticated Account
                 </span>
                 <div className="flex flex-col items-end">
-                  {ensName && (
+                  {!appWallet && ensName && (
                     <span className="font-mono text-[13px] text-[#86efac]">
                       {ensName}
                     </span>
                   )}
-                  <span
-                    className={`font-mono ${ensName ? "text-[10px] text-white/35" : "text-[12px] text-[#86efac]"}`}
-                  >
-                    {`${verifyData.address.slice(0, 6)}...${verifyData.address.slice(-4)}`}
-                  </span>
+                  {appWallet &&
+                  verifyData.address.toLowerCase() ===
+                    appWallet.publicKey.toLowerCase() ? (
+                    <>
+                      <span className="font-mono text-[12px] text-[#86efac]">
+                        {`${verifyData.address.slice(0, 6)}...${verifyData.address.slice(-4)}`}
+                      </span>
+                      <span className="font-mono text-[10px] text-white/35">
+                        {"App wallet for " +
+                          (userEnsName ||
+                            (address
+                              ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                              : "unknown account"))}
+                      </span>
+                    </>
+                  ) : (
+                    <span
+                      className={`font-mono ${ensName ? "text-[10px] text-white/35" : "text-[12px] text-[#86efac]"}`}
+                    >
+                      {`${verifyData.address.slice(0, 6)}...${verifyData.address.slice(-4)}`}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
 
+            {verifying && (
+              <div className="mb-2 border border-[#67e8f9]/30 bg-[#67e8f9]/8 px-3 py-2">
+                <div className="relative h-[3px] w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="absolute inset-y-0 w-1/2 animate-[appwallet-progress_1.1s_ease-in-out_infinite] rounded-full bg-[#67e8f9]" />
+                </div>
+              </div>
+            )}
             <ExpandablePre text={verificationResultText} />
           </div>
         </div>
