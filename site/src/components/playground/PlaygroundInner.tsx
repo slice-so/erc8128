@@ -1,10 +1,11 @@
 import { signRequest } from "@slicekit/erc8128"
 import { ConnectKitButton } from "connectkit"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { createPublicClient, http } from "viem"
+import { createPublicClient, createWalletClient, custom, http } from "viem"
 import { mainnet } from "viem/chains"
 import { useAccount, useChainId } from "wagmi"
 import { ExpandablePre } from "./ExpandablePre"
+import { SessionKeyBadge } from "./SessionKeyBadge"
 
 // ── helpers ──────────────────────────────────────────
 
@@ -68,6 +69,58 @@ const DEFAULT_BODY = `{
 
 const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
+type SessionKeyState = { id: string; publicKey: string; expiry: number }
+
+function findFirstString(value: unknown, keys: string[]): string | null {
+  if (!value || typeof value !== "object") return null
+  const record = value as Record<string, unknown>
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === "string" && v.length > 0) return v
+  }
+  for (const child of Object.values(record)) {
+    const nested = findFirstString(child, keys)
+    if (nested) return nested
+  }
+  return null
+}
+
+function findFirstNumber(value: unknown, keys: string[]): number | null {
+  if (!value || typeof value !== "object") return null
+  const record = value as Record<string, unknown>
+  for (const key of keys) {
+    const v = record[key]
+    if (typeof v === "number" && Number.isFinite(v)) return v
+    if (typeof v === "string") {
+      const parsed = Number(v)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  for (const child of Object.values(record)) {
+    const nested = findFirstNumber(child, keys)
+    if (nested != null) return nested
+  }
+  return null
+}
+
+function parseSessionKeyState(payload: unknown): SessionKeyState {
+  const now = Math.floor(Date.now() / 1000)
+  const id =
+    findFirstString(payload, ["id", "keyId", "identifier"]) ??
+    `porto-session-${now}`
+  const publicKey =
+    findFirstString(payload, ["publicKey", "pubkey", "key", "address"]) ??
+    "wallet-managed"
+  const expiry =
+    findFirstNumber(payload, [
+      "expiry",
+      "expiresAt",
+      "expiration",
+      "validUntil"
+    ]) ?? now + 60 * 60
+  return { id, publicKey, expiry }
+}
+
 // ── component ────────────────────────────────────────
 
 export function PlaygroundInner() {
@@ -78,7 +131,8 @@ export function PlaygroundInner() {
   const isPorto =
     connector?.id === "porto" ||
     connector?.name?.toLowerCase().includes("porto")
-  const [portoAutoSign, setPortoAutoSign] = useState(false)
+  const [sessionKey, setSessionKey] = useState<SessionKeyState | null>(null)
+  const [sessionKeyPending, setSessionKeyPending] = useState(false)
 
   // Form state
   const [method, setMethod] = useState("POST")
@@ -111,6 +165,7 @@ export function PlaygroundInner() {
   const [signing, setSigning] = useState(false)
   const [signPulse, setSignPulse] = useState(false)
   const [copiedCurl, setCopiedCurl] = useState(false)
+  const providerRef = useRef<any>(null)
 
   const hasBody = method !== "GET" && body.length > 0
   const includeContentDigest =
@@ -119,9 +174,92 @@ export function PlaygroundInner() {
   // Reset Porto state on disconnect
   useEffect(() => {
     if (!isConnected) {
-      setPortoAutoSign(false)
+      setSessionKey(null)
+      providerRef.current = null
     }
   }, [isConnected])
+
+  useEffect(() => {
+    providerRef.current = null
+  }, [connector?.id, address, chainId])
+
+  const getProvider = useCallback(async () => {
+    if (!connector) return null
+    if (!providerRef.current) {
+      providerRef.current = await connector.getProvider()
+    }
+    return providerRef.current
+  }, [connector])
+
+  const getWalletClient = useCallback(async () => {
+    if (!address) return null
+    const provider = await getProvider()
+    if (!provider) return null
+    return createWalletClient({
+      account: address as `0x${string}`,
+      chain: mainnet,
+      transport: custom(provider)
+    })
+  }, [address, getProvider])
+
+  const grantSessionKey = useCallback(async () => {
+    if (!isPorto || !isConnected || !address) return
+    setSessionKeyPending(true)
+    setVerificationResultText("Requesting Porto session key permission...")
+
+    const requestParams = [
+      {
+        signer: {
+          type: "key",
+          data: { keyType: "secp256k1" }
+        },
+        permissions: [
+          {
+            type: "native-token-transfer",
+            data: {
+              allowance: "0x0"
+            }
+          }
+        ]
+      }
+    ]
+
+    try {
+      let walletClient = await getWalletClient()
+      if (!walletClient) throw new Error("Wallet is not ready")
+
+      let permissions: unknown
+      try {
+        permissions = await walletClient.request({
+          method: "wallet_grantPermissions",
+          params: requestParams
+        })
+      } catch {
+        providerRef.current = null
+        walletClient = await getWalletClient()
+        if (!walletClient) throw new Error("Wallet is not ready")
+        permissions = await walletClient.request({
+          method: "wallet_grantPermissions",
+          params: requestParams
+        })
+      }
+
+      const granted = parseSessionKeyState(permissions)
+      setSessionKey(granted)
+      setVerificationResultText(
+        `Session key granted. Key ${granted.id} is active until ${new Date(
+          granted.expiry * 1000
+        ).toLocaleTimeString()}.`
+      )
+    } catch (error) {
+      setSessionKey(null)
+      setVerificationResultText(
+        `Session key grant failed: ${(error as Error)?.message || "Unknown error"}`
+      )
+    } finally {
+      setSessionKeyPending(false)
+    }
+  }, [address, getWalletClient, isConnected, isPorto])
 
   // ── Signature base preview ─────────────────────────
 
@@ -187,19 +325,31 @@ export function PlaygroundInner() {
       .filter((c) => !(c === "content-digest" && !hasBody))
     const includeNonce = selectedComponents.has("nonce")
 
-    const provider = await connector.getProvider()
-
     let walletWaitMs = 0
     const signer = {
       address: address as `0x${string}`,
       chainId: chainId || 1,
       signMessage: async (message: Uint8Array) => {
-        const messageHex = toHex(message)
         const t0 = performance.now()
-        const sig = (await provider.request({
-          method: "personal_sign",
-          params: [messageHex, address]
-        })) as `0x${string}`
+        let walletClient = await getWalletClient()
+        if (!walletClient) throw new Error("Wallet provider unavailable")
+
+        const messageHex = toHex(message)
+        let sig: `0x${string}`
+        try {
+          sig = await walletClient.signMessage({
+            account: address as `0x${string}`,
+            message: { raw: messageHex }
+          })
+        } catch {
+          providerRef.current = null
+          walletClient = await getWalletClient()
+          if (!walletClient) throw new Error("Wallet provider unavailable")
+          sig = await walletClient.signMessage({
+            account: address as `0x${string}`,
+            message: { raw: messageHex }
+          })
+        }
         walletWaitMs = performance.now() - t0
         return sig
       }
@@ -235,7 +385,6 @@ export function PlaygroundInner() {
 
       // Trigger pulse animation for Porto auto-signing (fast = session key)
       if (isPorto && walletWaitMs < 1000) {
-        setPortoAutoSign(true)
         setSignPulse(true)
         setTimeout(() => setSignPulse(false), 800)
       }
@@ -307,7 +456,8 @@ export function PlaygroundInner() {
     hasBody,
     chainId,
     isPorto,
-    includeContentDigest
+    includeContentDigest,
+    getWalletClient
   ])
 
   // ── Copy as cURL ───────────────────────────────────
@@ -522,32 +672,45 @@ export function PlaygroundInner() {
               }`}
               type="button"
             >
-              {signing ? "SIGNING..." : "SIGN REQUEST"}
+              {signing
+                ? "SIGNING..."
+                : sessionKey && isPorto
+                  ? "SIGN REQUEST (AUTO-SIGN)"
+                  : "SIGN REQUEST"}
               {signPulse && (
                 <span className="absolute inset-0 animate-ping border border-[#67e8f9] opacity-30" />
               )}
             </button>
 
-            {/* Porto status badge */}
-            {isConnected && isPorto && (
-              <div className="flex items-center justify-center gap-2 py-1">
-                <span
-                  className={`inline-block h-2 w-2 rounded-full ${
-                    portoAutoSign
-                      ? "bg-[#67e8f9] shadow-[0_0_6px_rgba(103,232,249,0.5)]"
-                      : "bg-[#67e8f9]/50"
-                  }`}
-                />
-                <span
-                  className={`font-mono text-[11px] uppercase tracking-[0.18em] ${
-                    portoAutoSign ? "text-[#67e8f9]" : "text-white/45"
-                  }`}
-                >
-                  {portoAutoSign
-                    ? "SESSION KEY: AUTO-SIGNING"
-                    : "PORTO: CONNECTED"}
-                </span>
-              </div>
+            {isConnected && isPorto && !sessionKey && (
+              <button
+                onClick={grantSessionKey}
+                disabled={sessionKeyPending || signing}
+                className={`h-11 w-full border font-mono text-xs font-semibold uppercase tracking-[0.12em] transition-colors duration-200 ${
+                  sessionKeyPending || signing
+                    ? "border-white/20 text-white/30 cursor-wait"
+                    : "border-white/35 text-white/75 hover:border-[#67e8f9] hover:text-[#67e8f9]"
+                }`}
+                type="button"
+              >
+                {sessionKeyPending
+                  ? "GRANTING SESSION KEY..."
+                  : "GRANT SESSION KEY"}
+              </button>
+            )}
+
+            <SessionKeyBadge
+              isConnected={isConnected}
+              isPorto={isPorto}
+              sessionKey={sessionKey}
+              sessionKeyPending={sessionKeyPending}
+              onGrantSessionKey={grantSessionKey}
+            />
+
+            {isConnected && isPorto && sessionKey && (
+              <p className="text-center font-mono text-[10px] uppercase tracking-[0.16em] text-[#67e8f9]/80">
+                Sign Request uses Porto auto-signing
+              </p>
             )}
           </div>
         </div>
