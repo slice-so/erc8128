@@ -598,7 +598,17 @@ export function PlaygroundInner() {
 
         <div className="shrink-0">
           <ConnectKitButton.Custom>
-            {({ isConnected, show, truncatedAddress, ensName: ckEns }) => (
+            {({
+              isConnected,
+              show,
+              truncatedAddress,
+              ensName: ckEns
+            }: {
+              isConnected: boolean
+              show: () => void
+              truncatedAddress: string
+              ensName: string | null
+            }) => (
               <button
                 onClick={show}
                 className="w-full border border-white/15 px-5 py-3 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-white hover:text-black"
