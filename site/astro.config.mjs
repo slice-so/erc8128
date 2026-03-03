@@ -13,6 +13,12 @@ export default defineConfig({
     assets: "_astro"
   },
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    ssr: {
+      // Porto uses p256/WebAuthn which aren't available in Workers SSR context.
+      // These are client-only (React island) so exclude from SSR bundle.
+      noExternal: [],
+      external: ["porto"]
+    }
   }
 })

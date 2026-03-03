@@ -5,7 +5,6 @@ import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
 import { useAccount, useChainId, useConnectorClient } from "wagmi"
 import { ExpandablePre } from "./ExpandablePre"
-import { SessionKeyBadge } from "./SessionKeyBadge"
 
 // ── helpers ──────────────────────────────────────────
 
@@ -76,16 +75,11 @@ export function PlaygroundInner() {
   const chainId = useChainId()
   const { data: connectorClient } = useConnectorClient()
 
-  // Porto session key state
-  const [sessionKey, setSessionKey] = useState<{
-    id: string
-    publicKey: string
-    expiry: number
-  } | null>(null)
-  const [sessionKeyPending, setSessionKeyPending] = useState(false)
+  // Porto detection — Porto auto-approves personal_sign via embedded session key
   const isPorto =
     connector?.id === "porto" ||
     connector?.name?.toLowerCase().includes("porto")
+  const [portoAutoSign, setPortoAutoSign] = useState(false)
 
   // Form state
   const [method, setMethod] = useState("POST")
@@ -123,48 +117,10 @@ export function PlaygroundInner() {
   const includeContentDigest =
     selectedComponents.has("content-digest") && hasBody
 
-  // ── Porto session key ──────────────────────────────
-
-  const grantSessionKey = useCallback(async () => {
-    if (!connectorClient || !isPorto) return
-    setSessionKeyPending(true)
-    try {
-      const result = await (connectorClient as any).request({
-        method: "wallet_grantPermissions",
-        params: [
-          {
-            expiry: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
-            permissions: {
-              calls: [{}], // allow all calls
-              spend: [{ limit: "0x0", period: "day" }]
-            }
-          }
-        ]
-      })
-      setSessionKey({
-        id: result.id,
-        publicKey: result.key?.publicKey ?? "",
-        expiry: result.expiry
-      })
-    } catch (err) {
-      console.warn("Failed to grant session key:", err)
-      // Session keys might not be supported — continue without
-    } finally {
-      setSessionKeyPending(false)
-    }
-  }, [connectorClient, isPorto])
-
-  // Auto-grant session key when connecting via Porto
-  useEffect(() => {
-    if (isConnected && isPorto && !sessionKey && !sessionKeyPending) {
-      grantSessionKey()
-    }
-  }, [isConnected, isPorto, sessionKey, sessionKeyPending, grantSessionKey])
-
-  // Clear session key on disconnect
+  // Reset Porto state on disconnect
   useEffect(() => {
     if (!isConnected) {
-      setSessionKey(null)
+      setPortoAutoSign(false)
     }
   }, [isConnected])
 
@@ -276,8 +232,9 @@ export function PlaygroundInner() {
       setSignTiming(`${signMs}ms`)
       setLastSignedRequest(signed)
 
-      // Trigger pulse animation for session key signing
-      if (sessionKey && walletWaitMs < 500) {
+      // Trigger pulse animation for Porto auto-signing (fast = session key)
+      if (isPorto && walletWaitMs < 1000) {
+        setPortoAutoSign(true)
         setSignPulse(true)
         setTimeout(() => setSignPulse(false), 800)
       }
@@ -342,13 +299,12 @@ export function PlaygroundInner() {
     connectorClient,
     method,
     path,
-    body,
     selectedComponents,
     ttl,
     nonce,
     hasBody,
     chainId,
-    sessionKey,
+    isPorto,
     includeContentDigest
   ])
 
@@ -570,14 +526,25 @@ export function PlaygroundInner() {
               )}
             </button>
 
-            {/* Porto status / Session key badge */}
-            <SessionKeyBadge
-              isPorto={isPorto}
-              isConnected={isConnected}
-              sessionKey={sessionKey}
-              sessionKeyPending={sessionKeyPending}
-              onGrantSessionKey={grantSessionKey}
-            />
+            {/* Porto status badge */}
+            {isConnected && isPorto && (
+              <div className="flex items-center justify-center gap-2 py-1">
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${
+                    portoAutoSign
+                      ? "bg-[#67e8f9] shadow-[0_0_6px_rgba(103,232,249,0.5)]"
+                      : "bg-[#67e8f9]/50"
+                  }`}
+                />
+                <span
+                  className={`font-mono text-[11px] uppercase tracking-[0.18em] ${
+                    portoAutoSign ? "text-[#67e8f9]" : "text-white/45"
+                  }`}
+                >
+                  {portoAutoSign ? "SESSION KEY: AUTO-SIGNING" : "PORTO: CONNECTED"}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
