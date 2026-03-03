@@ -141,12 +141,7 @@ export function PlaygroundInner() {
     if (!connector) return false
     const connectorName = connector.name?.toLowerCase() ?? ""
     const connectorId = connector.id?.toLowerCase() ?? ""
-    const smartWalletNames = [
-      "porto",
-      "ambire",
-      "ambire wallet",
-      "smart wallet"
-    ]
+    const smartWalletNames = ["porto", "smart wallet"]
 
     return smartWalletNames.some(
       (name) => connectorName.includes(name) || connectorId.includes(name)
@@ -186,11 +181,35 @@ export function PlaygroundInner() {
   const [signing, setSigning] = useState(false)
   const [signPulse, setSignPulse] = useState(false)
   const [copiedCurl, setCopiedCurl] = useState(false)
+  const [contentDigestPreview, setContentDigestPreview] = useState<string>("")
   const providerRef = useRef<any>(null)
+  const signingRef = useRef(false)
 
   const hasBody = method !== "GET" && body.length > 0
   const includeContentDigest =
     selectedComponents.has("content-digest") && hasBody
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!includeContentDigest) {
+      setContentDigestPreview("")
+      return
+    }
+
+    sha256Base64(body)
+      .then((digest) => {
+        if (!cancelled) setContentDigestPreview(`sha-256=:${digest}:`)
+      })
+      .catch(() => {
+        if (!cancelled)
+          setContentDigestPreview("sha-256=:[digest unavailable]:")
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [body, includeContentDigest])
 
   // Reset session key state on disconnect
   useEffect(() => {
@@ -276,7 +295,7 @@ export function PlaygroundInner() {
       {
         expiry,
         feeToken: {
-          limit: "0.01",
+          limit: "0",
           symbol: "ETH"
         },
         key: {
@@ -302,24 +321,13 @@ export function PlaygroundInner() {
     ]
 
     try {
-      let walletClient = await getWalletClient()
+      const walletClient = await getWalletClient()
       if (!walletClient) throw new Error("Wallet is not ready")
 
-      let permissions: unknown
-      try {
-        permissions = await walletClient.request({
-          method: "wallet_grantPermissions",
-          params: requestParams
-        })
-      } catch {
-        providerRef.current = null
-        walletClient = await getWalletClient()
-        if (!walletClient) throw new Error("Wallet is not ready")
-        permissions = await walletClient.request({
-          method: "wallet_grantPermissions",
-          params: requestParams
-        })
-      }
+      const permissions: unknown = await walletClient.request({
+        method: "wallet_grantPermissions",
+        params: requestParams
+      })
 
       const parsed = parseSessionKeyState(permissions)
       const granted = {
@@ -364,7 +372,7 @@ export function PlaygroundInner() {
 
     if (includeContentDigest) {
       lines.push(
-        `<span style="color:#c4b5fd">"content-digest": sha-256=:...</span>`
+        `<span style="color:#c4b5fd">"content-digest": ${escapeHtml(contentDigestPreview || "sha-256=:[calculating...]:")}</span>`
       )
     }
     if (selectedComponents.has("nonce")) {
@@ -390,19 +398,21 @@ export function PlaygroundInner() {
   }, [
     method,
     path,
-    body,
     selectedComponents,
     ttl,
     nonce,
     chainId,
     address,
-    includeContentDigest
+    includeContentDigest,
+    contentDigestPreview
   ])
 
   // ── Sign & Verify ──────────────────────────────────
 
   const signAndVerify = useCallback(async () => {
-    if (!address || !connector) return
+    if (!address || !connector || signingRef.current) return
+
+    signingRef.current = true
     setSigning(true)
 
     const normalizedPath = normalizePath(path)
@@ -439,25 +449,15 @@ export function PlaygroundInner() {
           return signature as `0x${string}`
         }
 
-        let walletClient = await getWalletClient()
+        const walletClient = await getWalletClient()
         if (!walletClient) throw new Error("Wallet provider unavailable")
 
         const messageHex = toHex(message)
-        let sig: `0x${string}`
-        try {
-          sig = await walletClient.signMessage({
-            account: address as `0x${string}`,
-            message: { raw: messageHex }
-          })
-        } catch {
-          providerRef.current = null
-          walletClient = await getWalletClient()
-          if (!walletClient) throw new Error("Wallet provider unavailable")
-          sig = await walletClient.signMessage({
-            account: address as `0x${string}`,
-            message: { raw: messageHex }
-          })
-        }
+        const sig = await walletClient.signMessage({
+          account: address as `0x${string}`,
+          message: { raw: messageHex }
+        })
+
         walletWaitMs = performance.now() - t0
         return sig
       }
@@ -548,9 +548,12 @@ export function PlaygroundInner() {
       setVerificationResultText(
         `Signing failed: ${(error as Error)?.message || "Unknown error"}`
       )
+      setSignTiming("")
+      setVerifyTiming("")
       setVerifyOk(false)
       setVerifyData(null)
     } finally {
+      signingRef.current = false
       setSigning(false)
     }
   }, [
@@ -641,12 +644,20 @@ export function PlaygroundInner() {
           <p className="mt-2 text-xs uppercase tracking-[0.25em] text-white/55">
             SIGN AND VERIFY AN HTTP REQUEST WITH YOUR ETHEREUM WALLET
           </p>
-          <p className="mt-3 max-w-xl font-mono text-sm leading-relaxed text-white/50">
-            Test ERC-8128 HTTP signatures in real time. Compose a request,
-            select signature components, and sign with your Ethereum wallet —
-            the server verifies instantly. No backend, no API keys. Smart wallet
-            session keys are stored locally and expire when you close this tab.
-          </p>
+          <div className="mt-3 max-w-xl space-y-2 font-mono text-sm leading-relaxed text-white/50">
+            <p>1. Connect your wallet (MetaMask, WalletConnect, or Porto)</p>
+            <p>2. Compose an HTTP request with headers and optional body</p>
+            <p>3. Select which components to include in the signature</p>
+            <p>4. Sign the request with your wallet</p>
+            <p>
+              5. (Optional) For smart wallets like Porto: Grant a session key to
+              enable automatic signing without popups
+            </p>
+            <p>
+              Smart wallet session keys are stored locally and expire when you
+              close this tab.
+            </p>
+          </div>
         </div>
 
         <ConnectKitButton.Custom>
