@@ -48,7 +48,7 @@ async function sha256Base64(text: string) {
 const ensClient = createPublicClient({
   chain: mainnet,
   transport: http(
-    `https://eth-mainnet.g.alchemy.com/v2/${(import.meta as any).env?.PUBLIC_ALCHEMY_KEY ?? ""}`
+    `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.PUBLIC_ALCHEMY_KEY || ""}`
   )
 })
 const ensCache = new Map<string, string | null>()
@@ -221,6 +221,7 @@ export function PlaygroundInner() {
     }
   }, [isConnected])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers to reset provider on connection change
   useEffect(() => {
     providerRef.current = null
   }, [connector?.id, address, chainId])
@@ -326,7 +327,7 @@ export function PlaygroundInner() {
 
       const permissions: unknown = await walletClient.request({
         method: "wallet_grantPermissions",
-        params: requestParams
+        params: requestParams as any
       })
 
       const parsed = parseSessionKeyState(permissions)
@@ -435,9 +436,8 @@ export function PlaygroundInner() {
         ) as `0x${string}` | null
 
         if (isSmartWallet && storedPrivateKey && sessionKey?.publicKey) {
-          const key = Key.fromPrivateKey({
-            privateKey: storedPrivateKey,
-            type: "secp256k1"
+          const key = Key.fromSecp256k1({
+            privateKey: storedPrivateKey
           })
           const payload = hashMessage({ raw: toHex(message) })
           const signature = await Key.sign(key, {
@@ -681,7 +681,7 @@ export function PlaygroundInner() {
         <div className="border-b border-white/15 p-4 md:p-6 lg:border-b-0 lg:border-r lg:border-white/15">
           <div className="mb-5">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; 01 // COMPOSE REQUEST
+              &gt; 01 {"// COMPOSE REQUEST"}
             </p>
           </div>
 
@@ -730,7 +730,7 @@ export function PlaygroundInner() {
 
           <div className="mb-4 flex items-center justify-between">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; 02 // SIGNATURE COMPONENTS
+              &gt; 02 {"// SIGNATURE COMPONENTS"}
             </p>
             <button
               onClick={resetAll}
@@ -841,13 +841,14 @@ export function PlaygroundInner() {
         <div className="p-4 md:p-6">
           <div className="mb-3">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; 03 // SIGNATURE BASE PREVIEW
+              &gt; 03 {"// SIGNATURE BASE PREVIEW"}
             </p>
           </div>
 
           <div className="relative mb-6">
             <pre
               className="overflow-x-auto border border-white/15 bg-white/5 p-4 font-mono text-[13px] leading-7 text-white/70"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML built internally from controlled values
               dangerouslySetInnerHTML={{ __html: signatureBasePreviewHtml }}
             />
             <span className="absolute right-3 top-3 border border-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">
@@ -859,7 +860,7 @@ export function PlaygroundInner() {
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                  &gt; 04 // SIGNED HEADERS
+                  &gt; 04 {"// SIGNED HEADERS"}
                 </p>
                 {signTiming && (
                   <span className="font-mono text-[10px] text-white/30">
@@ -882,7 +883,7 @@ export function PlaygroundInner() {
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                  &gt; 05 // VERIFICATION RESULT
+                  &gt; 05 {"// VERIFICATION RESULT"}
                 </p>
                 {verifyTiming && (
                   <span className="font-mono text-[10px] text-white/30">
