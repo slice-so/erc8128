@@ -1,9 +1,3 @@
-export {
-  type Client,
-  type ClientOptions,
-  createSignerClient,
-  type FetchOptions
-} from "./client"
 export { formatKeyId, parseKeyId } from "./lib/keyId"
 export { matchRoutePolicy } from "./lib/matchRoutePolicy"
 export { type ResolvedPosture, resolvePosture } from "./lib/resolvePosture"
@@ -26,6 +20,12 @@ export {
   type VerifyResult
 } from "./lib/types"
 export { signedFetch, signRequest } from "./sign"
+export {
+  createSignerClient,
+  type FetchOptions,
+  type SignerClient,
+  type SignerClientOptions
+} from "./signerClient"
 export {
   createVerifierClient,
   type VerifierClient,

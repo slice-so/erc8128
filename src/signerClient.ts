@@ -16,7 +16,7 @@ import { signedFetch, signRequest } from "./sign"
  * every signature is non-replayable + request-bound — the safest posture — and
  * server configs are not consulted.
  */
-export type ClientOptions = Omit<
+export type SignerClientOptions = Omit<
   SignOptions,
   "replay" | "binding" | "components"
 > & {
@@ -52,7 +52,7 @@ export type ClientOptions = Omit<
 /** Per-call options for `signedFetch` / `fetch`. */
 export type FetchOptions = SignOptions & { fetch?: typeof fetch }
 
-export type Client = {
+export type SignerClient = {
   signRequest: {
     (input: RequestInfo, opts?: SignOptions): Promise<Request>
     (
@@ -149,8 +149,8 @@ function extractRequestInfo(
 
 export function createSignerClient(
   signer: EthHttpSigner,
-  defaults?: ClientOptions
-): Client {
+  defaults?: SignerClientOptions
+): SignerClient {
   const {
     serverConfigs: initialServerConfigs,
     preferReplayable = false,
@@ -208,7 +208,7 @@ export function createSignerClient(
     }
   }
 
-  const signRequestBound: Client["signRequest"] = async (
+  const signRequestBound: SignerClient["signRequest"] = async (
     input: RequestInfo,
     initOrOpts?: RequestInit | SignOptions,
     opts?: SignOptions
@@ -218,7 +218,7 @@ export function createSignerClient(
     return signRequest(input, init, signer, merged)
   }
 
-  const signedFetchBound: Client["signedFetch"] = async (
+  const signedFetchBound: SignerClient["signedFetch"] = async (
     input: RequestInfo,
     initOrOpts?: RequestInit | FetchOptions,
     opts?: FetchOptions
@@ -228,7 +228,7 @@ export function createSignerClient(
     return signedFetch(input, init, signer, merged)
   }
 
-  const fetchBound: Client["fetch"] = async (
+  const fetchBound: SignerClient["fetch"] = async (
     input: RequestInfo,
     initOrOpts?: RequestInit | FetchOptions,
     opts?: FetchOptions
