@@ -6,7 +6,7 @@ import {
 } from "./policies/isRequestBound"
 import type { NonceStore, VerifyResult } from "./types"
 
-const DEFAULT_MAX_VALIDITY_SEC = 300
+export const DEFAULT_MAX_VALIDITY_SEC = 300
 
 export type VerifyCandidate<Key = unknown> = {
   candidate: SelectedSignature

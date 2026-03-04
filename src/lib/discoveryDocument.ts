@@ -1,4 +1,5 @@
 import type { RoutePolicy } from "./types"
+import { DEFAULT_MAX_VALIDITY_SEC } from "./verifyUtils"
 
 export type DiscoveryDocumentConfig = {
   baseURL: string
@@ -36,7 +37,7 @@ export function formatDiscoveryDocument(
     ...(replayableEnabled
       ? { invalidation_endpoint: `${config.baseURL}/erc8128/invalidate` }
       : {}),
-    max_validity_sec: config.maxValiditySec,
+    max_validity_sec: config.maxValiditySec ?? DEFAULT_MAX_VALIDITY_SEC,
     ...(routePolicies && Object.keys(routePolicies).length > 0
       ? { route_policies: routePolicies }
       : {})
