@@ -71,8 +71,9 @@ async function resolveEns(address: string): Promise<string | null> {
 // ── default state ────────────────────────────────────
 
 const DEFAULT_BODY = `{
-  "action": "mint",
-  "tokenId": 42
+  "storeId": 1,
+  "productId": 42,
+  "quantity": 2
 }`
 
 const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
@@ -598,17 +599,7 @@ export function PlaygroundInner() {
 
         <div className="shrink-0">
           <ConnectKitButton.Custom>
-            {({
-              isConnected,
-              show,
-              truncatedAddress,
-              ensName: ckEns
-            }: {
-              isConnected: boolean
-              show: () => void
-              truncatedAddress: string
-              ensName: string | null
-            }) => (
+            {({ isConnected, show, truncatedAddress, ensName: ckEns }) => (
               <button
                 onClick={show}
                 className="w-full border border-white/15 px-5 py-3 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-white hover:text-black"
@@ -818,7 +809,7 @@ export function PlaygroundInner() {
                   &gt; 04 {"// SIGNED HEADERS"}
                 </p>
                 {signTiming && (
-                  <span className="font-mono text-[10px] text-white/30">
+                  <span className="font-mono text-[10px] text-yellow-300/90">
                     {signTiming}
                   </span>
                 )}
@@ -841,7 +832,7 @@ export function PlaygroundInner() {
                   &gt; 05 {"// VERIFICATION RESULT"}
                 </p>
                 {verifyTiming && (
-                  <span className="font-mono text-[10px] text-white/30">
+                  <span className="font-mono text-[10px] text-yellow-300/90">
                     {verifyTiming}
                   </span>
                 )}

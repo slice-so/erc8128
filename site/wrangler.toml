@@ -8,3 +8,11 @@ directory = "./dist"
 [[routes]]
 pattern = "erc8128.org"
 custom_domain = true
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false

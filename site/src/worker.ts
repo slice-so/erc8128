@@ -1,10 +1,16 @@
+import { env } from "cloudflare:workers"
 import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
+
+declare global {
+  namespace Cloudflare {
+    interface Env {
+      SECRET_ALCHEMY_KEY?: string
+    }
+  }
+}
+
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
-
-interface Env {
-  SECRET_ALCHEMY_KEY?: string
-}
 
 type HeaderMap = Record<string, string[]>
 
@@ -28,13 +34,11 @@ const nonceStore: NonceStore = {
 let verifier: ReturnType<typeof createVerifierClient> | undefined
 let verifierMode: "default" | "delete" | null = null
 
-const getRpcUrl = (env: Env) =>
-  `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
+const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
 
-const getVerifier = (env: Env, isDelete: boolean) => {
+const getVerifier = (isDelete: boolean) => {
   const mode: "default" | "delete" = isDelete ? "delete" : "default"
   if (!verifier || verifierMode !== mode) {
-    const rpcUrl = getRpcUrl(env)
     const publicClient = createPublicClient({
       chain: mainnet,
       transport: http(rpcUrl)
@@ -182,7 +186,7 @@ const corsHeaders = new Response(null, {
 })
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
 
     if (url.pathname !== "/verify") {
@@ -215,15 +219,16 @@ export default {
     const responseHeaders = new Headers()
 
     try {
-      const v = getVerifier(env, isDelete)
+      const v = getVerifier(isDelete)
 
       const t0 = performance.now()
       const verification = await v.verifyRequest({
-        request: request.clone(),
+        request: request.clone() as Request,
         setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
       })
+
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
       const status = verificationStatus(verification)
       const acceptSignature = responseHeaders.get("accept-signature")
