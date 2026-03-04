@@ -1,6 +1,4 @@
-import type { ServerConfig } from "./types"
-
-type RoutePolicy = NonNullable<ServerConfig["route_policies"]>[string]
+import type { RoutePolicy } from "./types"
 
 /**
  * Match a request's method + pathname against the server's route_policies.
@@ -10,7 +8,8 @@ type RoutePolicy = NonNullable<ServerConfig["route_policies"]>[string]
  * 2. Wildcard method + exact path: `"* /path"`
  * 3. Glob match: `"METHOD /prefix/*"` or `"* /prefix/*"` — longest prefix wins,
  *    exact method takes priority over wildcard method at equal prefix length.
- * 4. `undefined` (no match — caller falls back to server-level defaults)
+ * 4. Default key: `"default"` — catch-all fallback
+ * 5. `undefined` (no match)
  */
 export function matchRoutePolicy(
   method: string,
@@ -58,5 +57,6 @@ export function matchRoutePolicy(
     }
   }
 
-  return best?.policy
+  // 4. Default fallback
+  return best?.policy ?? policies.default
 }

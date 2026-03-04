@@ -3,25 +3,22 @@ import { resolvePosture } from "./resolvePosture"
 import type { ServerConfig } from "./types"
 
 const baseConfig: ServerConfig = {
-  replay_protection: { replayable: true },
-  max_validity_sec: 300
+  max_validity_sec: 300,
+  route_policies: {
+    default: { replayable: true }
+  }
 }
 
 describe("resolvePosture", () => {
   // ─── Without serverConfig ───────────────────────────────────
 
   describe("without serverConfig", () => {
-    test("preferReplayable=false → non-replayable + request-bound", () => {
-      expect(resolvePosture("GET", "/any", false, undefined, null)).toEqual({
-        binding: "request-bound",
-        replay: "non-replayable",
-        components: undefined
-      })
-    })
-
-    test("preferReplayable=false ignores minComponents", () => {
+    test("passes through mergedOptions as-is", () => {
       expect(
-        resolvePosture("GET", "/any", false, ["@authority"], null)
+        resolvePosture("GET", "/any", null, {
+          replay: "non-replayable",
+          binding: "request-bound"
+        })
       ).toEqual({
         binding: "request-bound",
         replay: "non-replayable",
@@ -29,23 +26,25 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("preferReplayable=true without minComponents → replayable + request-bound", () => {
-      expect(resolvePosture("GET", "/any", true, undefined, null)).toEqual({
-        binding: "request-bound",
+    test("passes through replayable + request-bound", () => {
+      expect(
+        resolvePosture("GET", "/any", null, {
+          replay: "replayable"
+        })
+      ).toEqual({
+        binding: undefined,
         replay: "replayable",
         components: undefined
       })
     })
 
-    test("preferReplayable=true with minComponents → replayable + class-bound", () => {
+    test("passes through class-bound with components", () => {
       expect(
-        resolvePosture(
-          "GET",
-          "/any",
-          true,
-          ["@authority", "authorization"],
-          null
-        )
+        resolvePosture("GET", "/any", null, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority", "authorization"]
+        })
       ).toEqual({
         binding: "class-bound",
         replay: "replayable",
@@ -56,10 +55,12 @@ describe("resolvePosture", () => {
 
   // ─── With serverConfig ──────────────────────────────────────
 
-  describe("with serverConfig (server allows replay globally)", () => {
-    test("client prefers replayable + server allows → replayable", () => {
+  describe("with serverConfig (server allows replay via default)", () => {
+    test("replayable request stays replayable", () => {
       expect(
-        resolvePosture("GET", "/any", true, undefined, baseConfig)
+        resolvePosture("GET", "/any", baseConfig, {
+          replay: "replayable"
+        })
       ).toEqual({
         binding: "request-bound",
         replay: "replayable",
@@ -67,9 +68,11 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("client does not prefer replayable → non-replayable regardless of server", () => {
+    test("non-replayable request stays non-replayable", () => {
       expect(
-        resolvePosture("GET", "/any", false, undefined, baseConfig)
+        resolvePosture("GET", "/any", baseConfig, {
+          replay: "non-replayable"
+        })
       ).toEqual({
         binding: "request-bound",
         replay: "non-replayable",
@@ -77,9 +80,9 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("replayable + minComponents → class-bound with merged components", () => {
+    test("class-bound + replayable merges with route classBoundPolicies", () => {
       const config: ServerConfig = {
-        ...baseConfig,
+        max_validity_sec: 300,
         route_policies: {
           "POST /api/session": {
             replayable: true,
@@ -88,13 +91,11 @@ describe("resolvePosture", () => {
         }
       }
       expect(
-        resolvePosture(
-          "POST",
-          "/api/session",
-          true,
-          ["@authority", "authorization"],
-          config
-        )
+        resolvePosture("POST", "/api/session", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority", "authorization"]
+        })
       ).toEqual({
         binding: "class-bound",
         replay: "replayable",
@@ -104,32 +105,62 @@ describe("resolvePosture", () => {
   })
 
   describe("route-level overrides", () => {
-    test("route disables replay even when server allows it globally", () => {
+    test("route disables replay even when client wants it", () => {
       const config: ServerConfig = {
-        ...baseConfig,
+        max_validity_sec: 300,
+        route_policies: {
+          "POST /api/sensitive": {
+            replayable: false,
+            classBoundPolicies: ["@authority"]
+          }
+        }
+      }
+      // Class-bound is preserved (independent of replay), but replay is denied
+      expect(
+        resolvePosture("POST", "/api/sensitive", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority"]
+        })
+      ).toEqual({
+        binding: "class-bound",
+        replay: "non-replayable",
+        components: ["@authority"]
+      })
+    })
+
+    test("no classBoundPolicies on route → falls back to request-bound", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
         route_policies: {
           "POST /api/sensitive": { replayable: false }
         }
       }
       expect(
-        resolvePosture("POST", "/api/sensitive", true, ["@authority"], config)
+        resolvePosture("POST", "/api/sensitive", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority"]
+        })
       ).toEqual({
         binding: "request-bound",
         replay: "non-replayable",
-        components: undefined
+        components: ["@authority"]
       })
     })
 
-    test("route enables replay even when server disables it globally", () => {
+    test("route enables replay even when default disables it", () => {
       const config: ServerConfig = {
-        replay_protection: { replayable: false },
         max_validity_sec: 300,
         route_policies: {
+          default: { replayable: false },
           "GET /api/cache-friendly": { replayable: true }
         }
       }
       expect(
-        resolvePosture("GET", "/api/cache-friendly", true, undefined, config)
+        resolvePosture("GET", "/api/cache-friendly", config, {
+          replay: "replayable"
+        })
       ).toEqual({
         binding: "request-bound",
         replay: "replayable",
@@ -139,7 +170,7 @@ describe("resolvePosture", () => {
 
     test("wildcard route policy is used when no exact match", () => {
       const config: ServerConfig = {
-        ...baseConfig,
+        max_validity_sec: 300,
         route_policies: {
           "* /api/auth": {
             replayable: true,
@@ -148,7 +179,11 @@ describe("resolvePosture", () => {
         }
       }
       expect(
-        resolvePosture("PUT", "/api/auth", true, ["authorization"], config)
+        resolvePosture("PUT", "/api/auth", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["authorization"]
+        })
       ).toEqual({
         binding: "class-bound",
         replay: "replayable",
@@ -156,19 +191,65 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("unmatched route falls back to server global policy", () => {
+    test("unmatched route falls back to default policy", () => {
       const config: ServerConfig = {
-        replay_protection: { replayable: false },
         max_validity_sec: 300,
         route_policies: {
+          default: { replayable: false },
           "POST /api/session": { replayable: true }
         }
       }
-      // GET /other doesn't match any route → falls back to global (replayable: false)
-      expect(resolvePosture("GET", "/other", true, undefined, config)).toEqual({
+      // GET /other doesn't match any route → falls back to default (replayable: false)
+      expect(
+        resolvePosture("GET", "/other", config, {
+          replay: "replayable"
+        })
+      ).toEqual({
         binding: "request-bound",
         replay: "non-replayable",
         components: undefined
+      })
+    })
+
+    test("route with additionalRequestBoundComponents merges them", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "POST /api/orders": {
+            replayable: false,
+            additionalRequestBoundComponents: ["x-idempotency-key"]
+          }
+        }
+      }
+      expect(
+        resolvePosture("POST", "/api/orders", config, {
+          replay: "non-replayable"
+        })
+      ).toEqual({
+        binding: "request-bound",
+        replay: "non-replayable",
+        components: ["x-idempotency-key"]
+      })
+    })
+
+    test("additionalRequestBoundComponents deduplicates with existing components", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "POST /api/orders": {
+            additionalRequestBoundComponents: ["x-idempotency-key", "x-custom"]
+          }
+        }
+      }
+      expect(
+        resolvePosture("POST", "/api/orders", config, {
+          replay: "non-replayable",
+          components: ["x-idempotency-key", "authorization"]
+        })
+      ).toEqual({
+        binding: "request-bound",
+        replay: "non-replayable",
+        components: ["x-idempotency-key", "authorization", "x-custom"]
       })
     })
   })
@@ -176,23 +257,21 @@ describe("resolvePosture", () => {
   // ─── Component merging ──────────────────────────────────────
 
   describe("component merging", () => {
-    test("no route classBoundPolicies → uses minComponents as-is", () => {
+    test("no route classBoundPolicies → falls back to request-bound with components as extras", () => {
       const config: ServerConfig = {
-        ...baseConfig,
+        max_validity_sec: 300,
         route_policies: {
           "GET /api/plain": { replayable: true }
         }
       }
       expect(
-        resolvePosture(
-          "GET",
-          "/api/plain",
-          true,
-          ["@authority", "custom"],
-          config
-        )
+        resolvePosture("GET", "/api/plain", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority", "custom"]
+        })
       ).toEqual({
-        binding: "class-bound",
+        binding: "request-bound",
         replay: "replayable",
         components: ["@authority", "custom"]
       })
@@ -200,7 +279,7 @@ describe("resolvePosture", () => {
 
     test("deduplicates overlapping components", () => {
       const config: ServerConfig = {
-        ...baseConfig,
+        max_validity_sec: 300,
         route_policies: {
           "GET /dup": {
             replayable: true,
@@ -209,13 +288,11 @@ describe("resolvePosture", () => {
         }
       }
       expect(
-        resolvePosture(
-          "GET",
-          "/dup",
-          true,
-          ["@authority", "shared", "extra"],
-          config
-        )
+        resolvePosture("GET", "/dup", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority", "shared", "extra"]
+        })
       ).toEqual({
         binding: "class-bound",
         replay: "replayable",
@@ -223,9 +300,9 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("handles nested classBoundPolicies (string[][])", () => {
+    test("handles nested classBoundPolicies (string[][]) with single policy", () => {
       const config: ServerConfig = {
-        ...baseConfig,
+        max_validity_sec: 300,
         route_policies: {
           "GET /nested": {
             replayable: true,
@@ -234,11 +311,43 @@ describe("resolvePosture", () => {
         }
       }
       expect(
-        resolvePosture("GET", "/nested", true, ["authorization"], config)
+        resolvePosture("GET", "/nested", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["authorization"]
+        })
       ).toEqual({
         binding: "class-bound",
         replay: "replayable",
         components: ["@authority", "x-tenant", "authorization"]
+      })
+    })
+
+    test("picks policy requiring fewest extra components", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "GET /multi": {
+            replayable: true,
+            classBoundPolicies: [
+              ["@authority", "x-tenant", "x-region"],
+              ["@authority", "authorization"]
+            ]
+          }
+        }
+      }
+      // Client has ["@authority", "authorization"] → second policy needs 0 extras,
+      // first needs 2 extras → picks second
+      expect(
+        resolvePosture("GET", "/multi", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["@authority", "authorization"]
+        })
+      ).toEqual({
+        binding: "class-bound",
+        replay: "replayable",
+        components: ["@authority", "authorization"]
       })
     })
   })

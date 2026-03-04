@@ -1,8 +1,13 @@
 import { matchRoutePolicy } from "./matchRoutePolicy"
-import type { BindingMode, ReplayMode, ServerConfig } from "./types"
+import type {
+  BindingMode,
+  ReplayMode,
+  ServerConfig,
+  SignOptions
+} from "./types"
 
 export type ResolvedPosture = {
-  binding: BindingMode
+  binding: BindingMode | undefined
   replay: ReplayMode
   components: string[] | undefined
 }
@@ -13,45 +18,20 @@ export type ResolvedPosture = {
  *
  * @param method        HTTP method (e.g. "GET", "POST")
  * @param pathname      URL pathname (e.g. "/api/auth/session")
- * @param preferReplayable  Client preference for replayable signatures (default false)
- * @param minComponents     Minimum class-bound components the client is willing to sign
- * @param serverConfig      Server configuration from `/.well-known/erc8128`
- *
- * When `serverConfig` is `null`/`undefined`, preferences are used as-is:
- * - `preferReplayable: true` → replayable; with `minComponents` → class-bound
- * - `preferReplayable: false` → non-replayable + request-bound
- *
- * When `serverConfig` is set, the posture is route-aware:
- * - Replayable only if the server's route policy allows it
- * - Class-bound components are the union of `minComponents` + route's `classBoundPolicies`
+ * @param serverConfig  Server configuration from `/.well-known/erc8128`
+ * @param mergedOptions Merged options from the signer client, priority to the per request options
  */
 export function resolvePosture(
   method: string,
   pathname: string,
-  preferReplayable: boolean,
-  minComponents: string[] | undefined,
-  serverConfig: ServerConfig | null | undefined
+  serverConfig: ServerConfig | null | undefined,
+  mergedOptions: SignOptions & { replay: ReplayMode }
 ): ResolvedPosture {
   if (!serverConfig) {
-    // Without server config, derive posture from client preferences directly
-    if (!preferReplayable) {
-      return {
-        binding: "request-bound",
-        replay: "non-replayable",
-        components: undefined
-      }
-    }
-    if (minComponents) {
-      return {
-        binding: "class-bound",
-        replay: "replayable",
-        components: minComponents
-      }
-    }
     return {
-      binding: "request-bound",
-      replay: "replayable",
-      components: undefined
+      binding: mergedOptions.binding,
+      replay: mergedOptions.replay,
+      components: mergedOptions.components
     }
   }
 
@@ -61,34 +41,45 @@ export function resolvePosture(
     pathname,
     serverConfig.route_policies
   )
-  const serverAllowsReplay =
-    routePolicy?.replayable ?? serverConfig.replay_protection.replayable
-  const replayable = preferReplayable && serverAllowsReplay
 
-  // Class-bound when replayable AND client declared minimum components
-  const useClassBound = replayable && minComponents !== undefined
+  // Route can restrict replay even if client wants it
+  const replayable =
+    mergedOptions.replay === "replayable" && routePolicy?.replayable !== false
 
+  const useClassBound =
+    mergedOptions.binding === "class-bound" &&
+    routePolicy?.classBoundPolicies &&
+    routePolicy.classBoundPolicies.length > 0
+
+  // Class-bound is independent of replayability — it means only selected components are signed
   if (useClassBound) {
     const merged = mergeComponents(
-      minComponents ?? [],
+      mergedOptions.components ?? [],
       routePolicy?.classBoundPolicies
     )
-    return { binding: "class-bound", replay: "replayable", components: merged }
-  }
 
-  if (replayable) {
     return {
-      binding: "request-bound",
-      replay: "replayable",
-      components: undefined
+      binding: "class-bound",
+      replay: replayable ? "replayable" : "non-replayable",
+      components: merged
     }
   }
 
-  // Non-replayable: safest posture (nonce-based)
+  // For request-bound, merge additionalRequestBoundComponents from route
+  const additionalComponents = routePolicy?.additionalRequestBoundComponents
+  const components = additionalComponents
+    ? [
+        ...new Set([
+          ...(mergedOptions.components ?? []),
+          ...additionalComponents
+        ])
+      ]
+    : mergedOptions.components
+
   return {
     binding: "request-bound",
-    replay: "non-replayable",
-    components: undefined
+    replay: replayable ? "replayable" : "non-replayable",
+    components: components?.length ? components : undefined
   }
 }
 
@@ -97,7 +88,8 @@ export function resolvePosture(
  *
  * classBoundPolicies can be:
  * - `string[]`: a single policy — merge with client components
- * - `string[][]`: multiple policies — merge client components into the first one
+ * - `string[][]`: multiple policies — pick the one requiring the fewest
+ *   extra components beyond what the client already provides, then merge
  * - `undefined`: use client components as-is
  */
 function mergeComponents(
@@ -108,13 +100,26 @@ function mergeComponents(
     return clientComponents
   }
 
-  // Normalize to a single flat policy list
-  const routeComponents: string[] = Array.isArray(classBoundPolicies[0])
-    ? (classBoundPolicies[0] as string[])
-    : (classBoundPolicies as string[])
+  // Normalize to list of policies
+  const policies: string[][] = Array.isArray(classBoundPolicies[0])
+    ? (classBoundPolicies as string[][])
+    : [classBoundPolicies as string[]]
 
-  // Union: route components + any client components not already present
-  const set = new Set(routeComponents)
+  // Pick the policy requiring the fewest extra components beyond clientComponents
+  const clientSet = new Set(clientComponents)
+  let bestPolicy = policies[0]
+  let bestExtra = Infinity
+
+  for (const policy of policies) {
+    const extra = policy.filter((c) => !clientSet.has(c)).length
+    if (extra < bestExtra) {
+      bestExtra = extra
+      bestPolicy = policy
+    }
+  }
+
+  // Union: best policy + client components
+  const set = new Set(bestPolicy)
   for (const c of clientComponents) set.add(c)
   return [...set]
 }

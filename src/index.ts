@@ -9,6 +9,7 @@ export {
   type EthHttpSigner,
   type NonceStore,
   type ReplayMode,
+  type RoutePolicy,
   type ServerConfig,
   type SetHeadersFn,
   type SignatureParams,

@@ -16,10 +16,7 @@ import { signedFetch, signRequest } from "./sign"
  * every signature is non-replayable + request-bound — the safest posture — and
  * server configs are not consulted.
  */
-export type SignerClientOptions = Omit<
-  SignOptions,
-  "replay" | "binding" | "components"
-> & {
+export type SignerClientOptions = Omit<SignOptions, "replay"> & {
   fetch?: typeof fetch
   /**
    * Per-origin server configurations from `/.well-known/erc8128`.
@@ -40,13 +37,6 @@ export type SignerClientOptions = Omit<
    * @default false
    */
   preferReplayable?: boolean
-  /**
-   * Minimum class-bound components the client is willing to sign.
-   * When set **and** the request is replayable, the signing posture becomes
-   * class-bound with components = union of `minComponents` + route's `classBoundPolicies`.
-   * @default undefined
-   */
-  minComponents?: string[]
 }
 
 /** Per-call options for `signedFetch` / `fetch`. */
@@ -154,7 +144,6 @@ export function createSignerClient(
   const {
     serverConfigs: initialServerConfigs,
     preferReplayable = false,
-    minComponents,
     ...baseSignOpts
   } = defaults ?? {}
 
@@ -170,38 +159,27 @@ export function createSignerClient(
    * bypass posture resolution entirely.
    */
   function resolveOpts(
-    callOpts: SignOptions | undefined,
+    callOpts: SignOptions | undefined, // Per-call options
     input: RequestInfo,
     init?: RequestInit
   ): SignOptions & { fetch?: typeof fetch } {
-    const merged = { ...baseSignOpts, ...callOpts }
-
-    // Per-call explicit overrides bypass posture resolution
-    if (
-      callOpts?.binding !== undefined ||
-      callOpts?.replay !== undefined ||
-      callOpts?.components !== undefined
-    ) {
-      return merged
-    }
-
-    // Optimization: non-replayable + no min components → always request-bound +
-    // non-replayable (safest posture, never rejected). signRequest defaults to
-    // these values so we can pass through without resolving.
-    if (!preferReplayable && !minComponents) {
-      return merged
+    const mergedOptions = {
+      ...baseSignOpts,
+      ...callOpts,
+      replay:
+        callOpts?.replay ?? (preferReplayable ? "replayable" : "non-replayable")
     }
 
     const { origin, method, pathname } = extractRequestInfo(input, init)
     const posture = resolvePosture(
       method,
       pathname,
-      preferReplayable,
-      minComponents,
-      serverConfigs.get(origin)
+      serverConfigs.get(origin),
+      mergedOptions
     )
+
     return {
-      ...merged,
+      ...mergedOptions,
       binding: posture.binding,
       replay: posture.replay,
       components: posture.components

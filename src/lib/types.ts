@@ -63,19 +63,21 @@ export interface NonceStore {
   consume(key: string, ttlSeconds: number): Promise<boolean>
 }
 
-export type VerifyPolicy = {
-  /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
-  label?: string
-  strictLabel?: boolean // default false
+export type RoutePolicy = {
+  /** Allow replayable (nonce-less) signatures (default false). */
+  replayable?: boolean
 
   /** Extra components required in addition to default request-bound set. */
   additionalRequestBoundComponents?: string[]
 
   /** Class-bound components policies (one list or a list of lists). @authority is always required. */
   classBoundPolicies?: string[] | string[][]
+}
 
-  /** Allow replayable (nonce-less) signatures (default false). */
-  replayable?: boolean
+export type VerifyPolicy = RoutePolicy & {
+  /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
+  label?: string
+  strictLabel?: boolean // default false
 
   /**
    * Optional replayable invalidation policy.
@@ -114,15 +116,8 @@ export type VerifyPolicy = {
 }
 
 export type ServerConfig = {
-  replay_protection: { replayable: boolean }
   max_validity_sec: number
-  route_policies?: Record<
-    string,
-    {
-      replayable?: boolean
-      classBoundPolicies?: string[] | string[][]
-    }
-  >
+  route_policies?: Record<string, RoutePolicy>
 }
 
 export type SignatureParams = {

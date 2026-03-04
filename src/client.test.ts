@@ -86,9 +86,9 @@ describe("ERC-8128 client", () => {
 const ORIGIN = "https://example.com"
 
 const exampleConfig: ServerConfig = {
-  replay_protection: { replayable: true },
   max_validity_sec: 300,
   route_policies: {
+    default: { replayable: true },
     "POST /api/auth/session": {
       replayable: true,
       classBoundPolicies: ["@authority", "x-session-id"]
@@ -161,12 +161,13 @@ describe("ERC-8128 client posture", () => {
     expect(hasNonce).toBe(true) // route disables replay → nonce required
   })
 
-  test("preferReplayable + minComponents → class-bound with merged components", async () => {
+  test("preferReplayable + class-bound with components → merged with route classBoundPolicies", async () => {
     const client = createSignerClient(makeSigner(), {
       created: 1_700_000_000,
       expires: 1_700_000_060,
       preferReplayable: true,
-      minComponents: ["@authority", "authorization"],
+      binding: "class-bound",
+      components: ["@authority", "authorization"],
       serverConfigs: { [ORIGIN]: exampleConfig }
     })
 
@@ -182,7 +183,7 @@ describe("ERC-8128 client posture", () => {
     const { hasNonce, components } = parseSignatureInput(req)
 
     expect(hasNonce).toBe(false) // replayable
-    // Class-bound: should have union of minComponents + route's classBoundPolicies
+    // Class-bound: should have union of components + route's classBoundPolicies
     expect(components).toContain("@authority")
     expect(components).toContain("x-session-id")
     expect(components).toContain("authorization")
@@ -191,16 +192,17 @@ describe("ERC-8128 client posture", () => {
     expect(components).not.toContain("@path")
   })
 
-  test("per-call explicit overrides bypass posture", async () => {
+  test("per-call explicit overrides bypass defaults", async () => {
     const client = createSignerClient(makeSigner(), {
       created: 1_700_000_000,
       expires: 1_700_000_060,
       preferReplayable: true,
-      minComponents: ["@authority"],
+      binding: "class-bound",
+      components: ["@authority"],
       serverConfigs: { [ORIGIN]: exampleConfig }
     })
 
-    // Explicit replay: "non-replayable" overrides posture
+    // Per-call: override replay + binding to request-bound non-replayable
     const req = await client.signRequest(
       `${ORIGIN}/api/auth/session`,
       {
@@ -208,6 +210,7 @@ describe("ERC-8128 client posture", () => {
       },
       {
         replay: "non-replayable",
+        binding: "request-bound",
         nonce: "explicit-nonce"
       }
     )
@@ -216,7 +219,7 @@ describe("ERC-8128 client posture", () => {
   })
 
   test("optimization: no posture fields → request-bound + non-replayable even with serverConfigs", async () => {
-    // Neither preferReplayable nor minComponents set → posture resolution is skipped
+    // Neither preferReplayable nor class-bound set → posture resolution uses defaults
     const client = createSignerClient(makeSigner(), {
       created: 1_700_000_000,
       expires: 1_700_000_060,
@@ -249,8 +252,8 @@ describe("ERC-8128 client setServerConfig", () => {
 
     // Set config that disables replay globally
     client.setServerConfig(ORIGIN, {
-      replay_protection: { replayable: false },
-      max_validity_sec: 300
+      max_validity_sec: 300,
+      route_policies: { default: { replayable: false } }
     })
 
     const req2 = await client.signRequest(`${ORIGIN}/any`)
@@ -264,8 +267,8 @@ describe("ERC-8128 client setServerConfig", () => {
       preferReplayable: true,
       serverConfigs: {
         [ORIGIN]: {
-          replay_protection: { replayable: false },
-          max_validity_sec: 300
+          max_validity_sec: 300,
+          route_policies: { default: { replayable: false } }
         }
       }
     })
@@ -288,16 +291,18 @@ describe("ERC-8128 client multi-origin", () => {
   const ORIGIN_B = "https://api-b.example.com"
 
   const configA: ServerConfig = {
-    replay_protection: { replayable: true },
     max_validity_sec: 300,
     route_policies: {
+      default: { replayable: true },
       "GET /session": { replayable: true }
     }
   }
 
   const configB: ServerConfig = {
-    replay_protection: { replayable: false },
-    max_validity_sec: 120
+    max_validity_sec: 120,
+    route_policies: {
+      default: { replayable: false }
+    }
   }
 
   test("different origins use different server configs", async () => {
@@ -377,7 +382,6 @@ describe("ERC-8128 client multi-origin", () => {
       preferReplayable: true,
       serverConfigs: {
         [ORIGIN_A]: {
-          replay_protection: { replayable: true },
           max_validity_sec: 300,
           route_policies: { "GET /data": { replayable: true } }
         }
@@ -390,7 +394,6 @@ describe("ERC-8128 client multi-origin", () => {
 
     // Replace with config that disables replay on GET /data
     client.setServerConfig(ORIGIN_A, {
-      replay_protection: { replayable: true },
       max_validity_sec: 300,
       route_policies: { "GET /data": { replayable: false } }
     })
