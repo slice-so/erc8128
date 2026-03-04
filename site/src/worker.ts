@@ -1,12 +1,16 @@
+import { env } from "cloudflare:workers"
 import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
-import { createPublicClient, http } from "viem"
 
-interface Env {
-  ASSETS: { fetch: typeof fetch }
-  ERC8128_DEMO_RPC_URL?: string
+declare global {
+  namespace Cloudflare {
+    interface Env {
+      SECRET_ALCHEMY_KEY?: string
+    }
+  }
 }
 
-const DEFAULT_RPC_URL = "https://eth.llamarpc.com"
+import { createPublicClient, http } from "viem"
+import { mainnet } from "viem/chains"
 
 type HeaderMap = Record<string, string[]>
 
@@ -28,21 +32,29 @@ const nonceStore: NonceStore = {
 }
 
 let verifier: ReturnType<typeof createVerifierClient> | undefined
+let verifierMode: "default" | "delete" | null = null
 
-const getVerifier = (env: Env) => {
-  if (!verifier) {
+const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
+
+const getVerifier = (isDelete: boolean) => {
+  const mode: "default" | "delete" = isDelete ? "delete" : "default"
+  if (!verifier || verifierMode !== mode) {
     const publicClient = createPublicClient({
-      transport: http(env.ERC8128_DEMO_RPC_URL ?? DEFAULT_RPC_URL)
+      chain: mainnet,
+      transport: http(rpcUrl)
     })
-
     verifier = createVerifierClient({
       verifyMessage: publicClient.verifyMessage,
       nonceStore,
       defaults: {
         strictLabel: false,
-        maxValiditySec: 300
+        maxValiditySec: 300,
+        replayable: !isDelete,
+        replayableNotBefore: () => null,
+        classBoundPolicies: isDelete ? [] : [["@authority"]]
       }
     })
+    verifierMode = mode
   }
   return verifier
 }
@@ -174,36 +186,78 @@ const corsHeaders = new Response(null, {
 })
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
 
     if (url.pathname !== "/verify") {
-      return env.ASSETS.fetch(request)
+      return new Response("Not Found", { status: 404 })
     }
 
     if (request.method === "OPTIONS") {
       return corsHeaders.clone()
     }
 
-    const verbose = isVerboseRequest(request)
-    const v = getVerifier(env)
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      try {
+        const bodyText = await request.clone().text()
+        if (bodyText) JSON.parse(bodyText)
+      } catch {
+        return json(
+          {
+            ok: false,
+            error: "invalid_json",
+            detail: "Request body is not valid JSON"
+          },
+          400
+        )
+      }
+    }
 
+    const verbose = isVerboseRequest(request)
+
+    const isDelete = request.method.toUpperCase() === "DELETE"
     const responseHeaders = new Headers()
 
     try {
+      const v = getVerifier(isDelete)
+
+      const t0 = performance.now()
       const verification = await v.verifyRequest({
-        request: request.clone(),
+        request: request.clone() as Request,
         setHeaders: (name, value) => {
           responseHeaders.set(name, value)
         }
       })
+
+      const verifyMs = Math.round((performance.now() - t0) * 10) / 10
       const status = verificationStatus(verification)
       const acceptSignature = responseHeaders.get("accept-signature")
 
+      if (verification.ok) {
+        const successBody = {
+          ...verification,
+          verifyMs
+        }
+        if (!verbose) {
+          const res = json(successBody, 200)
+          for (const [k, v] of responseHeaders) res.headers.set(k, v)
+          return res
+        }
+        const res = json(
+          {
+            ...createVerbosePayload(request, verification),
+            verifyMs
+          },
+          200
+        )
+        for (const [k, v] of responseHeaders) res.headers.set(k, v)
+        return res
+      }
+
       const body =
-        status === 400 && acceptSignature
-          ? { ...verification, acceptSignature }
-          : verification
+        status !== 200 && acceptSignature
+          ? { ...verification, "accept-signature": acceptSignature, verifyMs }
+          : { ...verification, verifyMs }
 
       if (!verbose) {
         const res = json(body, status)
@@ -212,15 +266,25 @@ export default {
       }
 
       const verboseBody =
-        status === 400 && acceptSignature
-          ? { ...createVerbosePayload(request, verification), acceptSignature }
-          : createVerbosePayload(request, verification)
+        status !== 200 && acceptSignature
+          ? {
+              ...createVerbosePayload(request, verification),
+              "accept-signature": acceptSignature,
+              verifyMs
+            }
+          : { ...createVerbosePayload(request, verification), verifyMs }
 
       const res = json(verboseBody, status)
       for (const [k, v] of responseHeaders) res.headers.set(k, v)
       return res
     } catch (error) {
-      return json(createErrorPayload(request, error, verbose), 500)
+      const res = json(createErrorPayload(request, error, verbose), 500)
+      const acceptSignature = responseHeaders.get("accept-signature")
+
+      if (acceptSignature) {
+        res.headers.set("accept-signature", acceptSignature)
+      }
+      return res
     }
   }
 }
