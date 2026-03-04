@@ -2,15 +2,16 @@ import type { RoutePolicy } from "./types"
 import { DEFAULT_MAX_VALIDITY_SEC } from "./verifyUtils"
 
 export type DiscoveryDocumentConfig = {
-  baseURL: string
+  verificationEndpoint?: string
+  invalidationEndpoint?: string
   maxValiditySec?: number
   routePolicy?: Record<string, RoutePolicy | false>
 }
 
 export type DiscoveryDocument = {
-  verification_endpoint: string
+  max_validity_sec: number
+  verification_endpoint?: string
   invalidation_endpoint?: string
-  max_validity_sec?: number
   route_policies?: Record<string, RoutePolicy>
 }
 
@@ -33,9 +34,11 @@ export function formatDiscoveryDocument(
     : undefined
 
   return {
-    verification_endpoint: `${config.baseURL}/erc8128/verify`,
+    ...(config.verificationEndpoint
+      ? { verification_endpoint: config.verificationEndpoint }
+      : {}),
     ...(replayableEnabled
-      ? { invalidation_endpoint: `${config.baseURL}/erc8128/invalidate` }
+      ? { invalidation_endpoint: config.invalidationEndpoint }
       : {}),
     max_validity_sec: config.maxValiditySec ?? DEFAULT_MAX_VALIDITY_SEC,
     ...(routePolicies && Object.keys(routePolicies).length > 0
