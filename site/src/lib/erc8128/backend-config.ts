@@ -8,7 +8,8 @@
  *
  * Route policies:
  *   DELETE /api/auth/verify → non-replayable (nonce required)
- *   * /api/auth/verify      → replayable, class-bound (@authority only)
+ * Default policy for all other routes/methods:
+ *   replayable + class-bound (@authority only)
  */
 
 import { memoryAdapter } from "@slicekit/better-auth/adapters/memory"
@@ -169,13 +170,11 @@ export function getAuthInstance(
           classBoundPolicies: [["@authority"]]
         },
         routePolicy: {
-          // DELETE requires non-replayable (nonce-bound) signatures
-          "DELETE /api/auth/verify": { replayable: false },
-          // All other methods: replayable, class-bound with @authority
-          "* /api/auth/verify": {
-            replayable: true,
-            classBoundPolicies: [["@authority"]]
-          }
+          // DELETE requires non-replayable (nonce-bound) signatures.
+          // All other methods fall back to defaultPolicy
+          // (replayable + class-bound @authority), which also enables
+          // the middleware replayable-signature cache path.
+          "DELETE /api/auth/verify": { replayable: false }
         },
         storeInDatabase: mode === "postgres"
       }),
