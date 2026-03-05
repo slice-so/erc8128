@@ -3,6 +3,7 @@ import { createVerifierClient } from "@slicekit/erc8128"
 import { getBackendResources } from "./lib/erc8128/backend-config"
 import {
   parseStorageMode,
+  parseStorageModeFromEnv,
   type StorageMode
 } from "./lib/erc8128/storage-header"
 
@@ -51,7 +52,14 @@ const getVerifier = (mode: StorageMode, isDelete: boolean) => {
       strictLabel: false,
       maxValiditySec: 300,
       replayable: !isDelete,
-      replayableNotBefore: () => null,
+      replayableNotBefore: resources.invalidationOps
+        ? async (keyid: string) => {
+            const records =
+              (await resources.invalidationOps?.findByKeyId(keyid)) ?? []
+            const notBeforeRecord = records.find((r) => !r.signature)
+            return notBeforeRecord?.notBefore ?? null
+          }
+        : () => null,
       classBoundPolicies: isDelete ? [] : [["@authority"]]
     }
   })
@@ -189,6 +197,136 @@ const corsHeaders = new Response(null, {
   }
 })
 
+// ── Verification with cache + invalidation ───────────
+
+/**
+ * Verify a request with full cache + invalidation support, matching
+ * the better-auth erc8128 plugin's verification path:
+ *
+ * 1. For replayable signatures with cache: check cache first
+ * 2. If cached: validate against invalidation records
+ * 3. If not cached: run full verification
+ * 4. On success for replayable: store in cache
+ */
+async function verifyWithCacheAndInvalidation(
+  request: Request,
+  storageMode: StorageMode,
+  isDelete: boolean
+): Promise<{
+  verification: Awaited<
+    ReturnType<ReturnType<typeof createVerifierClient>["verifyRequest"]>
+  >
+  responseHeaders: Headers
+  cacheHit: boolean
+}> {
+  const resources = getBackendResources(storageMode)
+  const { verificationCache, invalidationOps } = resources
+  const responseHeaders = new Headers()
+  const signature = request.headers.get("signature")
+  const isReplayable = !isDelete
+
+  // Phase 1: Try cache (only for replayable signatures with cache + invalidation)
+  if (signature && isReplayable && verificationCache && invalidationOps) {
+    verificationCache.sweep()
+    const cached = await verificationCache.get(signature)
+    if (cached && cached.expires > Math.floor(Date.now() / 1000)) {
+      // Validate against invalidation records
+      const [keyIdRecords, invalidatedRecord] = await Promise.all([
+        invalidationOps.findByKeyId(cached.keyId),
+        invalidationOps.findBySignature(signature)
+      ])
+      const notBeforeRecord = keyIdRecords.find((r) => !r.signature)
+
+      if (
+        invalidatedRecord &&
+        (!invalidatedRecord.keyId ||
+          invalidatedRecord.keyId === cached.keyId.toLowerCase())
+      ) {
+        // Signature explicitly invalidated — evict cache entry
+        await verificationCache.delete(signature)
+      } else if (
+        !notBeforeRecord ||
+        cached.created > notBeforeRecord.notBefore
+      ) {
+        // Cache hit is valid — return synthetic success result
+        return {
+          verification: {
+            ok: true as const,
+            address: cached.address as `0x${string}`,
+            chainId: cached.chainId,
+            label: "eth",
+            components: ["@method", "@target-uri", "@authority"],
+            params: {
+              created: cached.created,
+              expires: cached.expires,
+              keyid: cached.keyId.toLowerCase()
+            },
+            replayable: true,
+            binding: "class-bound" as const
+          },
+          responseHeaders,
+          cacheHit: true
+        }
+      }
+    }
+  }
+
+  // Phase 2: Full verification
+  const verifier = getVerifier(storageMode, isDelete)
+
+  // Check per-signature invalidation before/alongside verify
+  let invalidatedRecord: { keyId?: string; notBefore: number } | null = null
+  if (signature && invalidationOps) {
+    invalidatedRecord = await invalidationOps.findBySignature(signature)
+  }
+
+  const verification = await verifier.verifyRequest({
+    request: request.clone() as Request,
+    setHeaders: (name, value) => {
+      responseHeaders.set(name, value)
+    }
+  })
+
+  // Check if signature was explicitly invalidated
+  if (verification.ok && invalidatedRecord && signature) {
+    const sigKeyId = verification.params.keyid.toLowerCase()
+    if (!invalidatedRecord.keyId || invalidatedRecord.keyId === sigKeyId) {
+      if (verificationCache) await verificationCache.delete(signature)
+      return {
+        verification: {
+          ok: false,
+          reason: "signature_invalidated",
+          detail: "Signature has been explicitly invalidated"
+        } as Awaited<
+          ReturnType<ReturnType<typeof createVerifierClient>["verifyRequest"]>
+        >,
+        responseHeaders,
+        cacheHit: false
+      }
+    }
+  }
+
+  // Phase 3: Cache successful replayable verifications
+  if (verification.ok && isReplayable && signature && verificationCache) {
+    const ttlSec = verification.params.expires - Math.floor(Date.now() / 1000)
+    if (ttlSec > 0) {
+      await verificationCache.set(
+        signature,
+        {
+          address: verification.address,
+          chainId: verification.chainId,
+          keyId: verification.params.keyid.toLowerCase(),
+          expires: verification.params.expires,
+          created: verification.params.created
+        },
+        ttlSec
+      )
+    }
+  }
+
+  return { verification, responseHeaders, cacheHit: false }
+}
+
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -218,37 +356,30 @@ export default {
     }
 
     const verbose = isVerboseRequest(request)
-    const storageMode = parseStorageMode(
-      request.headers,
-      (env.ERC8128_STORAGE_DEFAULT as StorageMode) ?? "none"
-    )
+    const envDefault = parseStorageModeFromEnv(env.ERC8128_STORAGE_DEFAULT)
+    const storageMode = parseStorageMode(request.headers, envDefault)
     const { cacheStrategy } = getBackendResources(storageMode)
 
     const isDelete = request.method.toUpperCase() === "DELETE"
-    const responseHeaders = new Headers()
 
     try {
-      const v = getVerifier(storageMode, isDelete)
-
       const t0 = performance.now()
-      const verification = await v.verifyRequest({
-        request: request.clone() as Request,
-        setHeaders: (name, value) => {
-          responseHeaders.set(name, value)
-        }
-      })
-
+      const { verification, responseHeaders, cacheHit } =
+        await verifyWithCacheAndInvalidation(request, storageMode, isDelete)
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
+
       const status = verificationStatus(verification)
       const acceptSignature = responseHeaders.get("accept-signature")
 
+      const metadata = {
+        verifyMs,
+        storageMode,
+        cacheStrategy,
+        ...(cacheHit ? { cacheHit: true } : {})
+      }
+
       if (verification.ok) {
-        const successBody = {
-          ...verification,
-          verifyMs,
-          storageMode,
-          cacheStrategy
-        }
+        const successBody = { ...verification, ...metadata }
         if (!verbose) {
           const res = json(successBody, 200)
           for (const [k, v] of responseHeaders) res.headers.set(k, v)
@@ -257,9 +388,7 @@ export default {
         const res = json(
           {
             ...createVerbosePayload(request, verification),
-            verifyMs,
-            storageMode,
-            cacheStrategy
+            ...metadata
           },
           200
         )
@@ -272,11 +401,9 @@ export default {
           ? {
               ...verification,
               "accept-signature": acceptSignature,
-              verifyMs,
-              storageMode,
-              cacheStrategy
+              ...metadata
             }
-          : { ...verification, verifyMs, storageMode, cacheStrategy }
+          : { ...verification, ...metadata }
 
       if (!verbose) {
         const res = json(body, status)
@@ -289,15 +416,11 @@ export default {
           ? {
               ...createVerbosePayload(request, verification),
               "accept-signature": acceptSignature,
-              verifyMs,
-              storageMode,
-              cacheStrategy
+              ...metadata
             }
           : {
               ...createVerbosePayload(request, verification),
-              verifyMs,
-              storageMode,
-              cacheStrategy
+              ...metadata
             }
 
       const res = json(verboseBody, status)
@@ -308,11 +431,6 @@ export default {
         createErrorPayload(request, error, verbose, storageMode, cacheStrategy),
         500
       )
-      const acceptSignature = responseHeaders.get("accept-signature")
-
-      if (acceptSignature) {
-        res.headers.set("accept-signature", acceptSignature)
-      }
       return res
     }
   }

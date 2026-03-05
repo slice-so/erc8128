@@ -1,9 +1,12 @@
 /**
  * In-memory DB adapter stub simulating Postgres-backed better-auth adapter.
- * Implements the subset of the adapter interface needed by:
- * - createAdapterNonceStore (findVerificationValue, createVerificationValue)
- * - createDBInvalidationOps (findOne, findMany, create, update on erc8128Invalidation)
- * - createVerificationCacheOps database strategy (findVerificationValue, createVerificationValue, deleteVerificationByIdentifier)
+ *
+ * Used by the `postgres` storage mode for:
+ * - Nonce store (findVerificationValue, createVerificationValue)
+ * - Verification cache (findVerificationValue, createVerificationValue, deleteVerificationByIdentifier)
+ * - Invalidation ops (findOne, findMany, create, update on erc8128Invalidation)
+ *
+ * Later this is replaced by a real Better Auth adapter backed by Postgres.
  */
 
 interface VerificationRecord {

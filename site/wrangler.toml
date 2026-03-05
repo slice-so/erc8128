@@ -9,6 +9,16 @@ directory = "./dist"
 pattern = "erc8128.org"
 custom_domain = true
 
+[vars]
+ERC8128_STORAGE_DEFAULT = "none"
+# ERC8128_ENABLE_REDIS = "false"
+# ERC8128_ENABLE_POSTGRES = "false"
+
+# Secrets (set via `wrangler secret put`):
+# SECRET_ALCHEMY_KEY
+# REDIS_URL
+# DATABASE_URL
+
 [observability]
 [observability.logs]
 enabled = true
