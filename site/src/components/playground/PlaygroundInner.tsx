@@ -445,9 +445,11 @@ export function PlaygroundInner() {
       const fetchHeaders: Record<string, string> = {
         "x-erc8128-storage": storageMode
       }
-      if (includeContentDigest && hasBody) {
-        fetchHeaders["content-type"] = "application/json"
-      }
+      // Don't set content-type manually — better-fetch's $fetch auto-sets
+      // content-type: application/json and JSON.stringifies the body ONLY
+      // when content-type isn't already present. Setting it manually causes
+      // $fetch to skip JSON.stringify, passing the raw object to fetch()
+      // which converts it to "[object Object]".
 
       const response = await authClient.$fetch(fetchUrl, {
         method: method as "GET" | "POST" | "PUT" | "DELETE",
@@ -544,7 +546,6 @@ export function PlaygroundInner() {
     nonce,
     hasBody,
     chainId,
-    includeContentDigest,
     getWalletClient,
     appWallet,
     storageMode
