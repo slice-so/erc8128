@@ -1,3 +1,8 @@
+export {
+  type DiscoveryDocument,
+  type DiscoveryDocumentConfig,
+  formatDiscoveryDocument
+} from "./lib/discoveryDocument"
 export { formatKeyId, parseKeyId } from "./lib/keyId"
 export { matchRoutePolicy } from "./lib/matchRoutePolicy"
 export { type ResolvedPosture, resolvePosture } from "./lib/resolvePosture"

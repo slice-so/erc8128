@@ -110,6 +110,35 @@ type VerifyResult =
   | { ok: false; reason: VerifyFailReason }
 ```
 
+### `formatDiscoveryDocument(config)`
+
+Formats the `/.well-known/erc8128` discovery document for your server.
+
+```typescript
+import { formatDiscoveryDocument } from '@slicekit/erc8128'
+
+const doc = formatDiscoveryDocument({
+  baseURL: 'https://api.example.com',
+  maxValiditySec: 300,
+  defaultPolicy: { replayable: false },
+  routePolicy: {
+    '/api/public/*': { replayable: true },
+    '/api/orders/*': {
+      additionalRequestBoundComponents: ['content-type'],
+    },
+    default: { replayable: false },
+  },
+})
+// {
+//   verification_endpoint: "https://api.example.com/erc8128/verify",
+//   invalidation_endpoint: "https://api.example.com/erc8128/invalidate",
+//   max_validity_sec: 300,
+//   route_policies: { ... }
+// }
+```
+
+`invalidation_endpoint` is only included when at least one policy enables `replayable`. Route policies keyed `"default"` or set to `false` are filtered out.
+
 ### `signRequest(input, init?, signer, options?)`
 
 Signs a fetch `Request` and returns a new `Request` with signature headers.
