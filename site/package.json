@@ -4,6 +4,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "prebuild": "cd .. && bun run build.ts",
+    "predev": "cd .. && bun run build.ts",
     "dev": "astro build && wrangler dev",
     "build": "astro build",
     "preview": "wrangler dev",
