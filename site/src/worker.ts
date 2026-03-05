@@ -1,10 +1,16 @@
 import { env } from "cloudflare:workers"
-import { createVerifierClient, type NonceStore } from "@slicekit/erc8128"
+import { createVerifierClient } from "@slicekit/erc8128"
+import { getBackendResources } from "./lib/erc8128/backend-config"
+import {
+  parseStorageMode,
+  type StorageMode
+} from "./lib/erc8128/storage-header"
 
 declare global {
   namespace Cloudflare {
     interface Env {
       SECRET_ALCHEMY_KEY?: string
+      ERC8128_STORAGE_DEFAULT?: string
     }
   }
 }
@@ -14,54 +20,50 @@ import { mainnet } from "viem/chains"
 
 type HeaderMap = Record<string, string[]>
 
-const nonceExpirations = new Map<string, number>()
-const nonceStore: NonceStore = {
-  async consume(key: string, ttlSeconds: number) {
-    const now = Date.now()
-
-    for (const [storedKey, expiresAt] of nonceExpirations.entries()) {
-      if (expiresAt <= now) nonceExpirations.delete(storedKey)
-    }
-
-    const existingExpiry = nonceExpirations.get(key)
-    if (typeof existingExpiry === "number" && existingExpiry > now) return false
-
-    nonceExpirations.set(key, now + Math.max(ttlSeconds, 0) * 1000)
-    return true
-  }
-}
-
-let verifier: ReturnType<typeof createVerifierClient> | undefined
-let verifierMode: "default" | "delete" | null = null
-
 const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
 
-const getVerifier = (isDelete: boolean) => {
-  const mode: "default" | "delete" = isDelete ? "delete" : "default"
-  if (!verifier || verifierMode !== mode) {
-    const publicClient = createPublicClient({
-      chain: mainnet,
-      transport: http(rpcUrl)
-    })
-    verifier = createVerifierClient({
-      verifyMessage: publicClient.verifyMessage,
-      nonceStore,
-      defaults: {
-        strictLabel: false,
-        maxValiditySec: 300,
-        replayable: !isDelete,
-        replayableNotBefore: () => null,
-        classBoundPolicies: isDelete ? [] : [["@authority"]]
-      }
-    })
-    verifierMode = mode
-  }
+// ── Memoized verifier instances per (mode, replayMode) ──
+
+type VerifierKey = `${StorageMode}:${"default" | "delete"}`
+const verifierCache = new Map<
+  VerifierKey,
+  ReturnType<typeof createVerifierClient>
+>()
+
+const getVerifier = (mode: StorageMode, isDelete: boolean) => {
+  const replayMode = isDelete ? "delete" : "default"
+  const key: VerifierKey = `${mode}:${replayMode}`
+
+  let verifier = verifierCache.get(key)
+  if (verifier) return verifier
+
+  const publicClient = createPublicClient({
+    chain: mainnet,
+    transport: http(rpcUrl)
+  })
+
+  const resources = getBackendResources(mode)
+
+  verifier = createVerifierClient({
+    verifyMessage: publicClient.verifyMessage,
+    ...(resources.nonceStore ? { nonceStore: resources.nonceStore } : {}),
+    defaults: {
+      strictLabel: false,
+      maxValiditySec: 300,
+      replayable: !isDelete,
+      replayableNotBefore: () => null,
+      classBoundPolicies: isDelete ? [] : [["@authority"]]
+    }
+  })
+
+  verifierCache.set(key, verifier)
   return verifier
 }
 
+// ── Helpers ──────────────────────────────────────────
+
 const collectHeaders = (headers: Headers): HeaderMap => {
   const result: HeaderMap = {}
-
   for (const [key, value] of headers.entries()) {
     const normalizedKey = key.toLowerCase()
     if (!result[normalizedKey]) {
@@ -69,7 +71,6 @@ const collectHeaders = (headers: Headers): HeaderMap => {
     }
     result[normalizedKey].push(value)
   }
-
   return result
 }
 
@@ -97,7 +98,6 @@ const createVerbosePayload = (
   >
 ) => {
   const url = new URL(request.url)
-
   return {
     ok: verification.ok,
     verified: verification.ok,
@@ -123,7 +123,6 @@ const verificationStatus = (
   >
 ): number => {
   if (verification.ok) return 200
-
   if (
     verification.reason === "missing_headers" ||
     verification.reason === "bad_signature_input" ||
@@ -131,14 +130,15 @@ const verificationStatus = (
   ) {
     return 400
   }
-
   return 401
 }
 
 const createErrorPayload = (
   request: Request,
   error: unknown,
-  verbose: boolean
+  verbose: boolean,
+  storageMode: StorageMode,
+  cacheStrategy: string
 ) => {
   const url = new URL(request.url)
   const detail =
@@ -153,7 +153,9 @@ const createErrorPayload = (
       ok: false,
       verified: false,
       error: "verification_error",
-      detail
+      detail,
+      storageMode,
+      cacheStrategy
     }
   }
 
@@ -162,6 +164,8 @@ const createErrorPayload = (
     verified: false,
     error: "verification_error",
     detail,
+    storageMode,
+    cacheStrategy,
     request: {
       method: request.method,
       path: url.pathname,
@@ -214,12 +218,17 @@ export default {
     }
 
     const verbose = isVerboseRequest(request)
+    const storageMode = parseStorageMode(
+      request.headers,
+      (env.ERC8128_STORAGE_DEFAULT as StorageMode) ?? "none"
+    )
+    const { cacheStrategy } = getBackendResources(storageMode)
 
     const isDelete = request.method.toUpperCase() === "DELETE"
     const responseHeaders = new Headers()
 
     try {
-      const v = getVerifier(isDelete)
+      const v = getVerifier(storageMode, isDelete)
 
       const t0 = performance.now()
       const verification = await v.verifyRequest({
@@ -236,7 +245,9 @@ export default {
       if (verification.ok) {
         const successBody = {
           ...verification,
-          verifyMs
+          verifyMs,
+          storageMode,
+          cacheStrategy
         }
         if (!verbose) {
           const res = json(successBody, 200)
@@ -246,7 +257,9 @@ export default {
         const res = json(
           {
             ...createVerbosePayload(request, verification),
-            verifyMs
+            verifyMs,
+            storageMode,
+            cacheStrategy
           },
           200
         )
@@ -256,8 +269,14 @@ export default {
 
       const body =
         status !== 200 && acceptSignature
-          ? { ...verification, "accept-signature": acceptSignature, verifyMs }
-          : { ...verification, verifyMs }
+          ? {
+              ...verification,
+              "accept-signature": acceptSignature,
+              verifyMs,
+              storageMode,
+              cacheStrategy
+            }
+          : { ...verification, verifyMs, storageMode, cacheStrategy }
 
       if (!verbose) {
         const res = json(body, status)
@@ -270,15 +289,25 @@ export default {
           ? {
               ...createVerbosePayload(request, verification),
               "accept-signature": acceptSignature,
-              verifyMs
+              verifyMs,
+              storageMode,
+              cacheStrategy
             }
-          : { ...createVerbosePayload(request, verification), verifyMs }
+          : {
+              ...createVerbosePayload(request, verification),
+              verifyMs,
+              storageMode,
+              cacheStrategy
+            }
 
       const res = json(verboseBody, status)
       for (const [k, v] of responseHeaders) res.headers.set(k, v)
       return res
     } catch (error) {
-      const res = json(createErrorPayload(request, error, verbose), 500)
+      const res = json(
+        createErrorPayload(request, error, verbose, storageMode, cacheStrategy),
+        500
+      )
       const acceptSignature = responseHeaders.get("accept-signature")
 
       if (acceptSignature) {

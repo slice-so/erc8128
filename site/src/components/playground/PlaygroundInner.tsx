@@ -80,6 +80,14 @@ const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
 type AppWalletState = { id: string; publicKey: string; expiry: number }
 
+type StorageMode = "none" | "redis" | "postgres"
+
+const STORAGE_LABELS: Record<StorageMode, string> = {
+  none: "None (baseline)",
+  redis: "In-Memory (Redis)",
+  postgres: "Database (Postgres)"
+}
+
 type VerifyPayload = {
   ok?: boolean
   status?: number
@@ -90,6 +98,8 @@ type VerifyPayload = {
   binding?: string
   replayable?: boolean
   verifyMs?: number
+  storageMode?: StorageMode
+  cacheStrategy?: string
 }
 
 const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
@@ -115,6 +125,7 @@ export function PlaygroundInner() {
   const [nonce, setNonce] = useState(() =>
     crypto.randomUUID().replaceAll("-", "").slice(0, 16)
   )
+  const [storageMode, setStorageMode] = useState<StorageMode>("none")
 
   // Result state
   const [signedHeadersHtml, setSignedHeadersHtml] = useState(
@@ -449,10 +460,13 @@ export function PlaygroundInner() {
       })
       setSignedHeadersHtml(headerLines.join("\n"))
 
-      // Send to server
+      // Send to server — inject hidden storage header (NOT signed)
+      const fetchHeaders = new Headers(signed.headers)
+      fetchHeaders.set("x-erc8128-storage", storageMode)
+
       const response = await fetch(fetchUrl, {
         method: signed.method,
-        headers: signed.headers,
+        headers: fetchHeaders,
         body: hasBody ? body : undefined
       })
 
@@ -482,6 +496,8 @@ export function PlaygroundInner() {
 
       const displayPayload = { ...payload }
       delete displayPayload.verifyMs
+      delete displayPayload.storageMode
+      delete displayPayload.cacheStrategy
       setVerificationResultText(JSON.stringify(displayPayload, null, 2))
 
       // Regenerate nonce
@@ -512,7 +528,8 @@ export function PlaygroundInner() {
     chainId,
     includeContentDigest,
     getWalletClient,
-    appWallet
+    appWallet,
+    storageMode
   ])
 
   // ── Copy as cURL ───────────────────────────────────
@@ -549,6 +566,7 @@ export function PlaygroundInner() {
     setSelectedComponents(new Set(ALL_COMPONENTS))
     setTtl(60)
     setNonce(crypto.randomUUID().replaceAll("-", "").slice(0, 16))
+    setStorageMode("none")
     setSignedHeadersHtml("Sign the request to generate headers.")
     setVerificationResultText("Not sent yet.")
     setSignTiming("")
@@ -729,6 +747,42 @@ export function PlaygroundInner() {
                 </label>
               </div>
             </div>
+
+            <div className="mb-4 mt-6">
+              <p className="mb-3 font-mono text-xs uppercase tracking-[0.12em] text-white/55">
+                &gt; 02b {"// SERVER STORAGE BACKEND"}
+              </p>
+              <div className="border border-white/15 p-3">
+                <div className="grid grid-cols-1 gap-2">
+                  {(["none", "redis", "postgres"] as const).map((mode) => (
+                    <label
+                      key={mode}
+                      className={`component-chip ${
+                        storageMode === mode
+                          ? mode === "none"
+                            ? "text-white/80"
+                            : mode === "redis"
+                              ? "text-[#fbbf24]"
+                              : "text-[#60a5fa]"
+                          : "text-white/35"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="storage-mode"
+                        className="component-checkbox"
+                        checked={storageMode === mode}
+                        onChange={() => setStorageMode(mode)}
+                      />
+                      <span>{STORAGE_LABELS[mode]}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/25">
+                  Hidden transport header — not part of signed components
+                </p>
+              </div>
+            </div>
           </div>
           <div>
             <div className="flex flex-col gap-3">
@@ -834,6 +888,21 @@ export function PlaygroundInner() {
                 {verifyTiming && (
                   <span className="font-mono text-[10px] text-yellow-300/90">
                     {verifyTiming}
+                    {verifyData?.storageMode && (
+                      <span
+                        className="ml-1"
+                        style={{
+                          color:
+                            verifyData.storageMode === "none"
+                              ? "rgba(255,255,255,0.5)"
+                              : verifyData.storageMode === "redis"
+                                ? "#fbbf24"
+                                : "#60a5fa"
+                        }}
+                      >
+                        · {verifyData.storageMode}
+                      </span>
+                    )}
                   </span>
                 )}
               </div>
