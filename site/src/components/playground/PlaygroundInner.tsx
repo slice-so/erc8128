@@ -1,4 +1,5 @@
-import { signRequest } from "@slicekit/erc8128"
+import { createAuthClient } from "@slicekit/better-auth/client"
+import { erc8128Client } from "@slicekit/better-auth/client/plugins"
 import { ConnectKitButton, useModal } from "connectkit"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import {
@@ -366,7 +367,6 @@ export function PlaygroundInner() {
     setSigning(true)
 
     const normalizedPath = normalizePath(path)
-    const signUrl = `https://erc8128.org${normalizedPath}`
     const fetchUrl = `${window.location.origin}${normalizedPath}`
     const components = Array.from(selectedComponents)
       .filter((c) => c !== "nonce")
@@ -386,7 +386,9 @@ export function PlaygroundInner() {
       : null
 
     let walletWaitMs = 0
-    const signer = {
+
+    // Build the signer for the erc8128 client plugin
+    const signerObj = {
       address: (sessionAddress ?? address) as `0x${string}`,
       chainId: chainId || 1,
       signMessage: async (message: Uint8Array) => {
@@ -402,11 +404,11 @@ export function PlaygroundInner() {
           return signature as `0x${string}`
         }
 
-        const walletClient = await getWalletClient()
-        if (!walletClient) throw new Error("Wallet provider unavailable")
+        const wClient = await getWalletClient()
+        if (!wClient) throw new Error("Wallet provider unavailable")
 
         const messageHex = toHex(message)
-        const sig = await walletClient.signMessage({
+        const sig = await wClient.signMessage({
           account: address as `0x${string}`,
           message: { raw: messageHex }
         })
@@ -417,32 +419,45 @@ export function PlaygroundInner() {
     }
 
     try {
-      const requestHeaders: Record<string, string> = {}
-      if (includeContentDigest && hasBody) {
-        requestHeaders["content-type"] = "application/json"
-      }
+      // Create the better-auth client with erc8128 signing plugin.
+      // The plugin's fetch interceptor automatically signs outgoing requests.
+      const authClient = createAuthClient({
+        baseURL: window.location.origin,
+        plugins: [
+          erc8128Client({
+            signer: signerObj,
+            binding: "class-bound",
+            preferReplayable: !includeNonce,
+            nonce: includeNonce ? nonce : undefined,
+            ttlSeconds: ttl,
+            components,
+            // Disable localStorage caching for playground — every click should
+            // produce a fresh signature so users can see the full flow.
+            storage: false
+          })
+        ]
+      })
 
       const signStart = performance.now()
-      const signed = await signRequest(
-        signUrl,
-        {
-          method,
-          headers: requestHeaders,
-          body: hasBody ? body : undefined
-        },
-        signer,
-        {
-          binding: "class-bound",
-          replay: includeNonce ? "non-replayable" : "replayable",
-          nonce: includeNonce ? nonce : undefined,
-          ttlSeconds: ttl,
-          components
-        }
-      )
+
+      // Use the auth client's $fetch — the erc8128Client fetch plugin
+      // intercepts this call and adds Signature + Signature-Input headers.
+      const fetchHeaders: Record<string, string> = {
+        "x-erc8128-storage": storageMode
+      }
+      if (includeContentDigest && hasBody) {
+        fetchHeaders["content-type"] = "application/json"
+      }
+
+      const response = await authClient.$fetch(fetchUrl, {
+        method: method as "GET" | "POST" | "PUT" | "DELETE",
+        headers: fetchHeaders,
+        body: hasBody ? JSON.parse(body) : undefined
+      })
+
       const signMs =
         Math.round((performance.now() - signStart - walletWaitMs) * 10) / 10
       setSignTiming(`${signMs}ms`)
-      setLastSignedRequest(signed)
 
       // Trigger pulse animation for app-wallet auto-signing (fast path).
       if (storedPrivateKey && walletWaitMs < 1000) {
@@ -450,36 +465,39 @@ export function PlaygroundInner() {
         setTimeout(() => setSignPulse(false), 800)
       }
 
-      // Display signed headers
-      const headerLines: string[] = []
-      signed.headers.forEach((value, key) => {
-        if (key.toLowerCase() === "content-type") return
-        headerLines.push(
-          `<span style="color:#67e8f9">${escapeHtml(key)}:</span> ${escapeHtml(value)}`
-        )
-      })
-      setSignedHeadersHtml(headerLines.join("\n"))
+      // Extract response — the auth client wraps in { data, error }
+      const payload: VerifyPayload | null =
+        (response.data as VerifyPayload) ??
+        (response.error
+          ? {
+              ok: false,
+              ...(typeof response.error === "object" ? response.error : {}),
+              detail:
+                typeof response.error === "object" &&
+                response.error !== null &&
+                "message" in response.error
+                  ? (response.error as { message?: string }).message
+                  : String(response.error)
+            }
+          : null)
 
-      // Send to server — inject hidden storage header (NOT signed)
-      const fetchHeaders = new Headers(signed.headers)
-      fetchHeaders.set("x-erc8128-storage", storageMode)
+      // Note: we can't easily extract signed headers from the auth client's
+      // fetch interceptor, but we show them as "signed via better-auth client"
+      setSignedHeadersHtml(
+        '<span style="color:#67e8f9">Signed via</span> <span style="color:#86efac">@slicekit/better-auth/client erc8128Client plugin</span>\n' +
+          `<span style="color:#67e8f9">signer:</span> ${escapeHtml(signerObj.address)}\n` +
+          `<span style="color:#67e8f9">chainId:</span> ${signerObj.chainId}\n` +
+          `<span style="color:#67e8f9">binding:</span> class-bound\n` +
+          `<span style="color:#67e8f9">replay:</span> ${includeNonce ? "non-replayable" : "replayable"}`
+      )
 
-      const response = await fetch(fetchUrl, {
-        method: signed.method,
-        headers: fetchHeaders,
-        body: hasBody ? body : undefined
-      })
-
-      let payload: VerifyPayload | null = null
-      try {
-        payload = await response.json()
-      } catch {
-        payload = {
-          ok: response.ok,
-          status: response.status,
-          message: await response.text()
-        }
-      }
+      // Build a synthetic signed request for the cURL copy feature
+      setLastSignedRequest(
+        new Request(fetchUrl, {
+          method,
+          headers: fetchHeaders
+        })
+      )
 
       if (payload?.verifyMs != null) {
         setVerifyTiming(`${Math.round(payload.verifyMs)}ms`)
