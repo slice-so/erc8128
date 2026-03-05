@@ -527,3 +527,275 @@ describe("ERC-8128 client multi-origin", () => {
     ).toBe(true)
   })
 })
+
+// ─── No serverConfig (pure client options) ────────────────────────────────────
+
+describe("ERC-8128 client - no serverConfig", () => {
+  test("no options → request-bound + non-replayable", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060
+    })
+
+    const req = await client.signRequest(`${ORIGIN}/any`)
+    const { hasNonce, components } = parseSignatureInput(req)
+    expect(hasNonce).toBe(true)
+    expect(components).toContain("@method")
+    expect(components).toContain("@path")
+  })
+
+  test("per-call replay: replayable overrides preferReplayable: false when no serverConfig", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060
+      // preferReplayable defaults to false
+    })
+
+    const req = await client.signRequest(`${ORIGIN}/any`, {
+      replay: "replayable"
+    })
+    expect(parseSignatureInput(req).hasNonce).toBe(false)
+  })
+
+  test("per-call replay: non-replayable overrides preferReplayable: true when no serverConfig", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true
+    })
+
+    const req = await client.signRequest(`${ORIGIN}/any`, {
+      replay: "non-replayable"
+    })
+    expect(parseSignatureInput(req).hasNonce).toBe(true)
+  })
+
+  test("class-bound + components in defaults, no serverConfig → class-bound preserved", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      binding: "class-bound",
+      components: ["@authority", "x-tenant"]
+    })
+
+    const req = await client.signRequest(
+      new Request(`${ORIGIN}/any`, { headers: { "x-tenant": "acme" } })
+    )
+    const { hasNonce, components } = parseSignatureInput(req)
+    expect(hasNonce).toBe(true)
+    expect(components).toContain("@authority")
+    expect(components).toContain("x-tenant")
+    // class-bound: no @method or @path
+    expect(components).not.toContain("@method")
+    expect(components).not.toContain("@path")
+  })
+})
+
+// ─── serverConfig with no matching route ──────────────────────────────────────
+
+describe("ERC-8128 client - serverConfig with no matching route", () => {
+  test("serverConfig with no route_policies → client preference wins", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      serverConfigs: {
+        [ORIGIN]: { max_validity_sec: 300 } // no route_policies
+      }
+    })
+
+    const req = await client.signRequest(`${ORIGIN}/any`)
+    expect(parseSignatureInput(req).hasNonce).toBe(false)
+  })
+
+  test("serverConfig with route_policies but no match and no default → client preference wins", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: {
+            "POST /specific": { replayable: false }
+          }
+        }
+      }
+    })
+
+    // GET /other doesn't match "POST /specific" and there is no default
+    const req = await client.signRequest(`${ORIGIN}/other`)
+    expect(parseSignatureInput(req).hasNonce).toBe(false)
+  })
+
+  test("serverConfig non-replayable default does not affect unregistered origins", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: { default: { replayable: false } }
+        }
+      }
+    })
+
+    // A different origin not in serverConfigs → preference-only → replayable
+    const req = await client.signRequest("https://other.example.com/any")
+    expect(parseSignatureInput(req).hasNonce).toBe(false)
+  })
+})
+
+// ─── Route-level effects wired through the client ─────────────────────────────
+
+describe("ERC-8128 client - route-level effects", () => {
+  test("route additionalRequestBoundComponents are included in Signature-Input", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: {
+            "GET /api/orders": {
+              additionalRequestBoundComponents: ["x-request-id"]
+            }
+          }
+        }
+      }
+    })
+
+    const req = await client.signRequest(
+      new Request(`${ORIGIN}/api/orders`, {
+        headers: { "x-request-id": "abc-123" }
+      })
+    )
+    const { components } = parseSignatureInput(req)
+    expect(components).toContain("x-request-id")
+    expect(components).toContain("@method")
+  })
+
+  test("per-call replay: replayable is restricted to non-replayable by route replayable: false", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: { "POST /api/sensitive": { replayable: false } }
+        }
+      }
+    })
+
+    // Client explicitly requests replayable, but route restricts it
+    const req = await client.signRequest(`${ORIGIN}/api/sensitive`, {
+      method: "POST",
+      replay: "replayable"
+    })
+    expect(parseSignatureInput(req).hasNonce).toBe(true)
+  })
+
+  test("class-bound at client + serverConfig route without classBoundPolicies → falls to request-bound", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      binding: "class-bound",
+      components: ["@authority", "authorization"],
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: {
+            "GET /api/plain": { replayable: true } // no classBoundPolicies
+          }
+        }
+      }
+    })
+
+    const req = await client.signRequest(
+      new Request(`${ORIGIN}/api/plain`, {
+        headers: { authorization: "Bearer tok" }
+      })
+    )
+    const { hasNonce, components } = parseSignatureInput(req)
+    // Route allows replay → replayable
+    expect(hasNonce).toBe(false)
+    // Falls back to request-bound → @method is present
+    expect(components).toContain("@method")
+    expect(components).toContain("@path")
+  })
+
+  test("class-bound at client + serverConfig route with classBoundPolicies → stays class-bound", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      binding: "class-bound",
+      components: ["@authority", "authorization"],
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: {
+            "GET /api/resource": {
+              replayable: true,
+              classBoundPolicies: ["@authority", "x-tenant"]
+            }
+          }
+        }
+      }
+    })
+
+    const req = await client.signRequest(
+      new Request(`${ORIGIN}/api/resource`, {
+        headers: { authorization: "Bearer tok", "x-tenant": "acme" }
+      })
+    )
+    const { hasNonce, components } = parseSignatureInput(req)
+    expect(hasNonce).toBe(false)
+    // class-bound: no @method or @path
+    expect(components).not.toContain("@method")
+    expect(components).not.toContain("@path")
+    // union of client + route components
+    expect(components).toContain("@authority")
+    expect(components).toContain("x-tenant")
+    expect(components).toContain("authorization")
+  })
+
+  test("route with multiple classBoundPolicies (string[][]) picks the best fit for client components", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      binding: "class-bound",
+      // Client already has authorization; second policy ["@authority", "authorization"] needs 0 extras
+      components: ["@authority", "authorization"],
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: {
+            "GET /api/multi": {
+              replayable: true,
+              classBoundPolicies: [
+                ["@authority", "x-tenant", "x-region"],
+                ["@authority", "authorization"]
+              ]
+            }
+          }
+        }
+      }
+    })
+
+    const req = await client.signRequest(
+      new Request(`${ORIGIN}/api/multi`, {
+        headers: { authorization: "Bearer tok" }
+      })
+    )
+    const { components } = parseSignatureInput(req)
+    // Second policy picked (0 extras needed) → only @authority + authorization
+    expect(components).toContain("@authority")
+    expect(components).toContain("authorization")
+    expect(components).not.toContain("x-tenant")
+    expect(components).not.toContain("x-region")
+  })
+})
