@@ -42,16 +42,11 @@ function createMemoryDb() {
   }
 }
 
-const instances = new Map<StorageMode, AuthInstance>()
-
 export function getAuthInstance(
   mode: StorageMode,
   verifyMessage: (args: VerifyMessageParameters) => Promise<boolean>,
   baseURL: string
 ): AuthInstance {
-  const cached = instances.get(mode)
-  if (cached) return cached
-
   const secondaryStorage =
     mode === "redis" ? createMemorySecondaryStorage() : undefined
 
@@ -66,12 +61,9 @@ export function getAuthInstance(
         anonymous: true,
         maxValiditySec: 300,
         clockSkewSec: 30,
-        defaultPolicy: {
-          replayable: true,
-          classBoundPolicies: [["@authority"]]
-        },
         routePolicy: {
-          "DELETE /api/auth/verify": { replayable: false }
+          "DELETE /verify": { replayable: false, classBoundPolicies: [] },
+          default: { replayable: true, classBoundPolicies: [["@authority"]] }
         }
       }),
       createPlaygroundPlugin()
@@ -83,6 +75,5 @@ export function getAuthInstance(
     cacheStrategy: CACHE_STRATEGY[mode]
   }
 
-  instances.set(mode, instance)
   return instance
 }

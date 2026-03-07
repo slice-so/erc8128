@@ -102,8 +102,65 @@ type VerifyPayload = {
   cacheStrategy?: string
 }
 
+type SentRequestSnapshot = {
+  url: string
+  method: string
+  headers: [string, string][]
+  body?: string
+}
+
 const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
 const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
+
+function getPlaygroundOrigin() {
+  if (typeof window === "undefined") return "https://erc8128.org"
+  return window.location.origin
+}
+
+function readStoredAppWalletPrivateKey(): `0x${string}` | null {
+  if (typeof window === "undefined") return null
+
+  const privateKey = localStorage.getItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY) as
+    | `0x${string}`
+    | null
+  const expiryRaw = localStorage.getItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+  const expiry = Number(expiryRaw)
+
+  if (!privateKey || !Number.isFinite(expiry)) {
+    return null
+  }
+
+  if (expiry <= Math.floor(Date.now() / 1000)) {
+    localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+    localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+    return null
+  }
+
+  return privateKey
+}
+
+async function parseResponsePayload(
+  response: Response
+): Promise<VerifyPayload> {
+  const text = await response.text()
+  if (!text) {
+    return {
+      ok: response.ok,
+      status: response.status,
+      message: ""
+    }
+  }
+
+  try {
+    return JSON.parse(text) as VerifyPayload
+  } catch {
+    return {
+      ok: response.ok,
+      status: response.status,
+      message: text
+    }
+  }
+}
 
 // ── component ────────────────────────────────────────
 
@@ -139,9 +196,8 @@ export function PlaygroundInner() {
   const [verifyData, setVerifyData] = useState<VerifyPayload | null>(null)
   const [ensName, setEnsName] = useState<string | null>(null)
   const [userEnsName, setUserEnsName] = useState<string | null>(null)
-  const [lastSignedRequest, setLastSignedRequest] = useState<Request | null>(
-    null
-  )
+  const [lastSentRequest, setLastSentRequest] =
+    useState<SentRequestSnapshot | null>(null)
 
   // UI state
   const [signing, setSigning] = useState(false)
@@ -304,7 +360,7 @@ export function PlaygroundInner() {
 
   const signatureBasePreviewHtml = useMemo(() => {
     const lines: string[] = []
-    const authority = "erc8128.org"
+    const authority = new URL(getPlaygroundOrigin()).host
     lines.push(`<span style="color:#86efac">"@authority": ${authority}</span>`)
     if (selectedComponents.has("@method"))
       lines.push(`<span style="color:#86efac">"@method": ${method}</span>`)
@@ -331,10 +387,7 @@ export function PlaygroundInner() {
     const expires = now + ttl
     let paramsStr = `;created=${now};expires=${expires}`
     if (selectedComponents.has("nonce")) paramsStr += `;nonce="${nonce}"`
-    const storedSessionKey =
-      typeof window !== "undefined"
-        ? localStorage.getItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-        : null
+    const storedSessionKey = readStoredAppWalletPrivateKey()
     const previewSigner = storedSessionKey
       ? privateKeyToAccount(storedSessionKey as `0x${string}`).address
       : (address ?? "0x...")
@@ -366,8 +419,9 @@ export function PlaygroundInner() {
     setSigning(true)
 
     const normalizedPath = normalizePath(path)
-    const signUrl = `https://erc8128.org${normalizedPath}`
-    const fetchUrl = `${window.location.origin}${normalizedPath}`
+    const origin = getPlaygroundOrigin()
+    const signUrl = new URL(normalizedPath, origin).toString()
+    const fetchUrl = signUrl
     const components = Array.from(selectedComponents)
       .filter((c) => c !== "nonce")
       .filter((c) => !(c === "content-digest" && !hasBody))
@@ -378,12 +432,14 @@ export function PlaygroundInner() {
     setVerificationResultText("Processing request...")
     setVerifying(true)
 
-    const storedPrivateKey = localStorage.getItem(
-      APP_WALLET_PRIVATE_KEY_STORAGE_KEY
-    ) as `0x${string}` | null
+    const storedPrivateKey = readStoredAppWalletPrivateKey()
     const sessionAddress = storedPrivateKey
       ? privateKeyToAccount(storedPrivateKey).address
       : null
+
+    if (appWallet && !storedPrivateKey) {
+      setAppWallet(null)
+    }
 
     let walletWaitMs = 0
 
@@ -419,7 +475,7 @@ export function PlaygroundInner() {
 
     try {
       const requestHeaders: Record<string, string> = {}
-      if (includeContentDigest && hasBody) {
+      if (hasBody) {
         requestHeaders["content-type"] = "application/json"
       }
 
@@ -443,7 +499,6 @@ export function PlaygroundInner() {
       const signMs =
         Math.round((performance.now() - signStart - walletWaitMs) * 10) / 10
       setSignTiming(`${signMs}ms`)
-      setLastSignedRequest(signed)
 
       // Trigger pulse animation for app-wallet auto-signing (fast path).
       if (storedPrivateKey && walletWaitMs < 1000) {
@@ -464,6 +519,12 @@ export function PlaygroundInner() {
       // Send to server — inject hidden storage header (NOT signed)
       const fetchHeaders = new Headers(signed.headers)
       fetchHeaders.set("x-erc8128-storage", storageMode)
+      setLastSentRequest({
+        url: fetchUrl,
+        method: signed.method,
+        headers: Array.from(fetchHeaders.entries()),
+        ...(hasBody ? { body } : {})
+      })
 
       const response = await fetch(fetchUrl, {
         method: signed.method,
@@ -471,16 +532,7 @@ export function PlaygroundInner() {
         body: hasBody ? body : undefined
       })
 
-      let payload: VerifyPayload | null = null
-      try {
-        payload = await response.json()
-      } catch {
-        payload = {
-          ok: response.ok,
-          status: response.status,
-          message: await response.text()
-        }
-      }
+      const payload = await parseResponsePayload(response)
 
       if (payload?.verifyMs != null) {
         setVerifyTiming(`${Math.round(payload.verifyMs)}ms`)
@@ -511,6 +563,7 @@ export function PlaygroundInner() {
       setVerifyTiming("")
       setVerifyOk(false)
       setVerifyData(null)
+      setLastSentRequest(null)
     } finally {
       signingRef.current = false
       setSigning(false)
@@ -527,7 +580,6 @@ export function PlaygroundInner() {
     nonce,
     hasBody,
     chainId,
-    includeContentDigest,
     getWalletClient,
     appWallet,
     storageMode
@@ -536,19 +588,19 @@ export function PlaygroundInner() {
   // ── Copy as cURL ───────────────────────────────────
 
   const copyCurl = useCallback(async () => {
-    if (!lastSignedRequest) {
+    if (!lastSentRequest) {
       setVerificationResultText("Sign a request first, then copy as cURL.")
       return
     }
     const headers: string[] = []
-    lastSignedRequest.headers.forEach((value, key) => {
+    for (const [key, value] of lastSentRequest.headers) {
       headers.push(`-H '${key}: ${value.replaceAll("'", "'\\''")}'`)
-    })
+    }
     const curl = [
-      `curl -X ${method} '${window.location.origin}${normalizePath(path)}'`,
+      `curl -X ${lastSentRequest.method} '${lastSentRequest.url}'`,
       ...headers,
-      method !== "GET" && method !== "DELETE"
-        ? `--data '${body.replaceAll("'", "'\\''")}'`
+      lastSentRequest.body !== undefined
+        ? `--data '${lastSentRequest.body.replaceAll("'", "'\\''")}'`
         : ""
     ]
       .filter(Boolean)
@@ -557,7 +609,7 @@ export function PlaygroundInner() {
     await navigator.clipboard.writeText(curl)
     setCopiedCurl(true)
     setTimeout(() => setCopiedCurl(false), 1200)
-  }, [lastSignedRequest, method, path, body])
+  }, [lastSentRequest])
 
   // ── Reset ──────────────────────────────────────────
 
@@ -575,7 +627,7 @@ export function PlaygroundInner() {
     setVerifyOk(false)
     setVerifyData(null)
     setEnsName(null)
-    setLastSignedRequest(null)
+    setLastSentRequest(null)
   }, [])
 
   // ── Toggle component checkbox ──────────────────────
@@ -869,7 +921,7 @@ export function PlaygroundInner() {
                   </span>
                 )}
               </div>
-              {lastSignedRequest && (
+              {lastSentRequest && (
                 <button
                   onClick={copyCurl}
                   className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/50 transition-colors hover:text-white"

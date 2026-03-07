@@ -8,6 +8,8 @@ import {
   type AuthInstance,
   getAuthInstance
 } from "./lib/erc8128/backend-config"
+import { verifyDeletePlaygroundRequest } from "./lib/erc8128/playground-delete-verify"
+import { prepareVerifyRequest } from "./lib/erc8128/playground-forwarding"
 import {
   parseStorageMode,
   parseStorageModeFromEnv,
@@ -145,21 +147,61 @@ export default app
     const verbose =
       c.req.query("verbose") === "1" || c.req.query("verbose") === "true"
 
-    // Validate JSON body if present
-    if (request.headers.get("content-type")?.includes("application/json")) {
-      try {
-        const bodyText = await request.clone().text()
-        if (bodyText) JSON.parse(bodyText)
-      } catch {
-        return c.json(
-          {
-            ok: false,
-            error: "invalid_json",
-            detail: "Request body is not valid JSON"
-          },
-          400
-        )
+    if (request.method === "DELETE") {
+      const t0 = performance.now()
+      const responseHeaders = new Headers()
+      const result = await verifyDeletePlaygroundRequest({
+        request,
+        storageMode,
+        verifyMessage: publicClient.verifyMessage,
+        setHeaders: (name, value) => {
+          responseHeaders.set(name, value)
+        }
+      })
+      const verifyMs = Math.round((performance.now() - t0) * 10) / 10
+      const metadata = {
+        verifyMs,
+        storageMode,
+        cacheStrategy: authInstance.cacheStrategy
       }
+      const acceptSignature = responseHeaders.get("accept-signature")
+
+      if (result.ok) {
+        const payload = verbose
+          ? { ...verbosePayload(request, result), ...metadata }
+          : { ...result, ...metadata }
+
+        const res = c.json(payload, 200)
+        if (acceptSignature) {
+          res.headers.set("accept-signature", acceptSignature)
+        }
+        return res
+      }
+
+      const reason = mapErrorReason(result.reason)
+      const verification = {
+        ok: false as const,
+        reason,
+        ...(result.detail ? { detail: result.detail } : {})
+      }
+      const status = reasonToStatus(reason)
+      const payload = verbose
+        ? {
+            ...verbosePayload(request, verification),
+            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
+            ...metadata
+          }
+        : {
+            ...verification,
+            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
+            ...metadata
+          }
+
+      const res = c.json(payload, status as ContentfulStatusCode)
+      if (acceptSignature) {
+        res.headers.set("accept-signature", acceptSignature)
+      }
+      return res
     }
 
     // Rewrite URL so better-auth routes to the playground endpoint
@@ -169,14 +211,19 @@ export default app
       rewrittenUrl.searchParams.set(k, v)
     }
 
-    const rewrittenRequest = new Request(rewrittenUrl.toString(), {
-      method: request.method,
-      headers: request.headers,
-      body:
-        request.method !== "GET" && request.method !== "HEAD"
-          ? request.body
-          : undefined
-    })
+    const preparedRequest = await prepareVerifyRequest(request, rewrittenUrl)
+    if (!preparedRequest.ok) {
+      return c.json(
+        {
+          ok: false,
+          error: preparedRequest.error,
+          detail: preparedRequest.detail
+        },
+        400
+      )
+    }
+
+    const rewrittenRequest = preparedRequest.request
 
     const t0 = performance.now()
 
@@ -184,12 +231,17 @@ export default app
       const authResponse = await authInstance.handler(rewrittenRequest)
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
 
-      let body: Record<string, unknown> | null = null
-      try {
-        body = await authResponse.json()
-      } catch {
-        body = null
-      }
+      const authResponseText = await authResponse.clone().text()
+      const body =
+        authResponseText.length > 0
+          ? (() => {
+              try {
+                return JSON.parse(authResponseText) as Record<string, unknown>
+              } catch {
+                return null
+              }
+            })()
+          : null
 
       const metadata = {
         verifyMs,
@@ -213,7 +265,7 @@ export default app
 
       // Verification failure
       const reason = mapErrorReason((body?.reason as string) || "unknown")
-      const detail = (body?.detail as string) || ""
+      const detail = (body?.detail as string) || (body?.message as string) || ""
       const status = reasonToStatus(reason)
 
       const verification = {
@@ -278,6 +330,8 @@ export default app
 
   // Pass all /api/auth/* requests to better-auth so plugin-registered
   // endpoints (discovery document, verify, invalidate) work natively.
-  .on(["GET", "POST", "PUT", "DELETE", "OPTIONS"], "/api/auth/*", (c) =>
-    c.var.authInstance.handler(c.req.raw)
+  .on(
+    ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "/api/auth/*",
+    (c) => c.var.authInstance.handler(c.req.raw)
   )
