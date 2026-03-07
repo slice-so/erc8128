@@ -1,26 +1,21 @@
 /**
- * Backend-specific better-auth instance wiring per storage mode.
+ * Better-auth instance factory — one singleton per storage mode.
  *
- * The /verify endpoint is handled by a custom "playground" plugin endpoint.
- * The erc8128 plugin's middleware hook intercepts requests to this endpoint
- * and performs verification with cache, nonce consumption, and invalidation
- * checks — all configured via routePolicy.
+ * The erc8128 middleware intercepts /api/auth/verify (registered by the
+ * playground plugin) and verifies signatures before the handler runs.
  *
  * Route policies:
  *   DELETE /api/auth/verify → non-replayable (nonce required)
- * Default policy for all other routes/methods:
- *   replayable + class-bound (@authority only)
+ *   default → replayable + class-bound (@authority only)
  */
 
 import { memoryAdapter } from "@slicekit/better-auth/adapters/memory"
-import { createAuthEndpoint } from "@slicekit/better-auth/api"
 import { erc8128 } from "@slicekit/better-auth/plugins/erc8128"
 import { betterAuth } from "better-auth"
 import type { VerifyMessageParameters } from "viem"
+import { createPlaygroundPlugin } from "./playground-plugin"
 import { createMemorySecondaryStorage } from "./secondary-storage-memory"
 import type { StorageMode } from "./storage-header"
-
-// ── Types ────────────────────────────────────────────
 
 export type CacheStrategy = "none" | "secondary-storage" | "database"
 
@@ -29,7 +24,11 @@ export interface AuthInstance {
   cacheStrategy: CacheStrategy
 }
 
-// ── Memory DB schema for better-auth ─────────────────
+const CACHE_STRATEGY: Record<StorageMode, CacheStrategy> = {
+  none: "none",
+  redis: "secondary-storage",
+  postgres: "database"
+}
 
 function createMemoryDb() {
   return {
@@ -43,119 +42,21 @@ function createMemoryDb() {
   }
 }
 
-// ── Signature-input parsing ──────────────────────────
+const instances = new Map<StorageMode, AuthInstance>()
 
-/**
- * Parse the Signature-Input header to extract verification metadata.
- * This is used by the playground endpoint to build its response after
- * the erc8128 middleware has already verified the signature.
- */
-function parseSignatureInput(sigInput: string) {
-  const keyidMatch = sigInput.match(/keyid="([^"]+)"/)
-  const keyid = keyidMatch?.[1] || ""
-  const keyParts = keyid.match(/^eip155:(\d+):(0x[a-fA-F0-9]+)$/i)
-  const address = keyParts?.[2] || ""
-  const chainId = keyParts ? parseInt(keyParts[1], 10) : 1
-
-  // Parse signed components from the parameter list: sig1=("@method" "@authority" ...)
-  const componentsMatch = sigInput.match(/\(([^)]*)\)/)
-  const components = componentsMatch
-    ? (componentsMatch[1].match(/"([^"]+)"/g) || []).map((s) =>
-        s.replace(/"/g, "")
-      )
-    : []
-
-  const created = parseInt(sigInput.match(/;created=(\d+)/)?.[1] || "0", 10)
-  const expires = parseInt(sigInput.match(/;expires=(\d+)/)?.[1] || "0", 10)
-
-  return { address, chainId, keyid, components, created, expires }
-}
-
-// ── Playground verify endpoint ───────────────────────
-
-/**
- * Create a minimal better-auth plugin that registers a /verify endpoint.
- *
- * The erc8128 plugin's middleware hook intercepts this endpoint (it's NOT
- * in the erc8128 plugin's own pluginPaths, so the middleware runs).
- * After verification succeeds, the middleware falls through and this
- * handler runs, returning the parsed verification metadata.
- *
- * If verification fails, the middleware short-circuits with a 401 response
- * before this handler ever executes.
- */
-function createPlaygroundPlugin() {
-  return {
-    id: "playground",
-    endpoints: {
-      playgroundVerify: createAuthEndpoint(
-        "/verify",
-        {
-          method: ["GET", "POST", "PUT", "PATCH", "DELETE"] as any,
-          requireRequest: true
-        },
-        async (ctx: any) => {
-          const req = ctx.request as Request
-          const sigInput = req.headers.get("signature-input") || ""
-          const meta = parseSignatureInput(sigInput)
-
-          const isDelete = req.method.toUpperCase() === "DELETE"
-          const hasMethod = meta.components.includes("@method")
-          const hasPath =
-            meta.components.includes("@path") ||
-            meta.components.includes("@target-uri")
-
-          return ctx.json({
-            ok: true,
-            address: meta.address,
-            chainId: meta.chainId,
-            label: "eth",
-            components: meta.components,
-            binding: hasMethod && hasPath ? "request-bound" : "class-bound",
-            replayable: !isDelete,
-            params: {
-              created: meta.created,
-              expires: meta.expires,
-              keyid: meta.keyid.toLowerCase()
-            }
-          })
-        }
-      )
-    }
-  }
-}
-
-// ── Singleton auth instances per storage mode ────────
-
-const instances = new Map<string, AuthInstance>()
-
-/**
- * Get (or create) a better-auth instance for the given storage mode.
- *
- * Each mode configures the erc8128 plugin differently:
- * - `none`: No secondaryStorage, database adapter only (baseline)
- * - `redis`: secondaryStorage backed by in-memory Redis shim
- * - `postgres`: Database adapter only (in-memory adapter stub)
- *
- * The erc8128 plugin's middleware hook runs on /api/auth/verify,
- * performing verification with cache, nonce, and invalidation support.
- * Route policies configure per-method verification behavior.
- */
 export function getAuthInstance(
   mode: StorageMode,
   verifyMessage: (args: VerifyMessageParameters) => Promise<boolean>,
   baseURL: string
 ): AuthInstance {
-  const key = `${mode}`
-  const cached = instances.get(key)
+  const cached = instances.get(mode)
   if (cached) return cached
 
-  const db = createMemoryDb()
   const secondaryStorage =
     mode === "redis" ? createMemorySecondaryStorage() : undefined
 
   const auth = betterAuth({
-    database: memoryAdapter(db),
+    database: memoryAdapter(createMemoryDb()),
     basePath: "/api/auth",
     baseURL,
     ...(secondaryStorage ? { secondaryStorage } : {}),
@@ -170,31 +71,18 @@ export function getAuthInstance(
           classBoundPolicies: [["@authority"]]
         },
         routePolicy: {
-          // DELETE requires non-replayable (nonce-bound) signatures.
-          // All other methods fall back to defaultPolicy
-          // (replayable + class-bound @authority), which also enables
-          // the middleware replayable-signature cache path.
           "DELETE /api/auth/verify": { replayable: false }
-        },
-        storeInDatabase: mode === "postgres"
+        }
       }),
-      // Playground endpoint — erc8128 middleware intercepts this
       createPlaygroundPlugin()
     ]
   })
 
-  const cacheStrategy: CacheStrategy =
-    mode === "none"
-      ? "none"
-      : mode === "redis"
-        ? "secondary-storage"
-        : "database"
-
   const instance: AuthInstance = {
     handler: (request: Request) => auth.handler(request),
-    cacheStrategy
+    cacheStrategy: CACHE_STRATEGY[mode]
   }
 
-  instances.set(key, instance)
+  instances.set(mode, instance)
   return instance
 }

@@ -1,10 +1,17 @@
 import { env } from "cloudflare:workers"
+import { Hono } from "hono"
+import { cors } from "hono/cors"
+import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
-import { getAuthInstance } from "./lib/erc8128/backend-config"
+import {
+  type AuthInstance,
+  getAuthInstance
+} from "./lib/erc8128/backend-config"
 import {
   parseStorageMode,
-  parseStorageModeFromEnv
+  parseStorageModeFromEnv,
+  type StorageMode
 } from "./lib/erc8128/storage-header"
 
 declare global {
@@ -16,80 +23,58 @@ declare global {
   }
 }
 
+// ── Shared infra ─────────────────────────────────────
+
 const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
 const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(rpcUrl)
 })
 
+type Env = {
+  Variables: {
+    storageMode: StorageMode
+    authInstance: AuthInstance
+  }
+}
+
 // ── Helpers ──────────────────────────────────────────
 
-type HeaderMap = Record<string, string[]>
-
-const collectHeaders = (headers: Headers): HeaderMap => {
-  const result: HeaderMap = {}
-
-  for (const [key, value] of headers.entries()) {
-    const normalizedKey = key.toLowerCase()
-    if (!result[normalizedKey]) {
-      result[normalizedKey] = []
-    }
-    result[normalizedKey].push(value)
-  }
-
-  return result
-}
-
-const json = (data: unknown, status = 200): Response =>
-  new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "access-control-allow-origin": "*",
-      "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "*"
-    }
-  })
-
-const isVerboseRequest = (request: Request): boolean => {
-  const verbose = new URL(request.url).searchParams.get("verbose")
-  return verbose === "1" || verbose === "true"
-}
-
-/**
- * Map middleware error reason codes to verifier reason codes.
- * The erc8128 middleware pre-checks for missing signature headers and
- * returns "missing_signature"; the original verifier returned "missing_headers".
- */
 const mapErrorReason = (reason: string): string => {
   if (reason === "missing_signature") return "missing_headers"
   if (reason === "missing_request_context") return "missing_headers"
   return reason
 }
 
-/**
- * Determine HTTP status from the verification failure reason,
- * matching the original verificationStatus() behavior.
- */
-const verificationStatus = (reason: string): number => {
+const reasonToStatus = (reason: string): number => {
   if (
     reason === "missing_headers" ||
     reason === "bad_signature_input" ||
     reason === "bad_keyid"
-  ) {
+  )
     return 400
-  }
-
   return 401
 }
 
-const createVerbosePayload = (
+type HeaderMap = Record<string, string[]>
+
+const collectHeaders = (headers: Headers): HeaderMap => {
+  const result: HeaderMap = {}
+  for (const [key, value] of headers.entries()) {
+    const k = key.toLowerCase()
+    if (!result[k]) {
+      result[k] = []
+    }
+    result[k].push(value)
+  }
+  return result
+}
+
+const verbosePayload = (
   request: Request,
   verification: Record<string, unknown>
 ) => {
   const url = new URL(request.url)
-
   return {
     ok: verification.ok,
     verified: verification.ok,
@@ -109,104 +94,64 @@ const createVerbosePayload = (
   }
 }
 
-const createErrorPayload = (
-  request: Request,
-  error: unknown,
-  verbose: boolean
-) => {
-  const url = new URL(request.url)
-  const detail =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : "unknown_error"
+// ── App ──────────────────────────────────────────────
 
-  if (!verbose) {
-    return {
-      ok: false,
-      verified: false,
-      error: "verification_error",
-      detail
-    }
-  }
+const app = new Hono<Env>()
 
-  return {
-    ok: false,
-    verified: false,
-    error: "verification_error",
-    detail,
-    request: {
-      method: request.method,
-      path: url.pathname,
-      query: url.search,
-      authority: request.headers.get("host")
-    },
-    signatureHeaders: {
-      signatureInput: request.headers.get("signature-input"),
-      signature: request.headers.get("signature")
-    }
-  }
-}
+export default app
+  .use(
+    cors({
+      origin: "*",
+      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowHeaders: ["*"],
+      maxAge: 86400
+    })
+  )
+  .use(async (c, next) => {
+    await next()
+    c.res.headers.set("cache-control", "no-store")
+  })
+  .use(async (c, next) => {
+    const envDefault = parseStorageModeFromEnv(env.ERC8128_STORAGE_DEFAULT)
+    const storageMode = parseStorageMode(c.req.raw.headers, envDefault)
+    const authInstance = getAuthInstance(
+      storageMode,
+      publicClient.verifyMessage,
+      new URL(c.req.url).origin
+    )
+    c.set("storageMode", storageMode)
+    c.set("authInstance", authInstance)
+    await next()
+  })
 
-const corsHeaders = new Response(null, {
-  status: 204,
-  headers: {
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "access-control-allow-headers": "*",
-    "access-control-max-age": "86400"
-  }
-})
+  // Preserve the public discovery URL while delegating document generation
+  // to the erc8128 better-auth plugin.
+  .get("/.well-known/erc8128", (c) => {
+    const rewrittenUrl = new URL("/api/auth/.well-known/erc8128", c.req.url)
+    return c.var.authInstance.handler(
+      new Request(rewrittenUrl.toString(), {
+        method: "GET",
+        headers: c.req.raw.headers
+      })
+    )
+  })
 
-// ── Main handler ─────────────────────────────────────
+  // Signature verification — rewrites to /api/auth/verify so the erc8128
+  // middleware intercepts. Route policy is enforced at the plugin level
+  // (DELETE = non-replayable, everything else = replayable class-bound).
+  .all("/verify", async (c) => {
+    const request = c.req.raw
+    const { storageMode, authInstance } = c.var
+    const verbose =
+      c.req.query("verbose") === "1" || c.req.query("verbose") === "true"
 
-export default {
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url)
-
-    if (url.pathname !== "/verify" && url.pathname !== "/.well-known/erc8128") {
-      return new Response("Not Found", { status: 404 })
-    }
-
-    if (request.method === "OPTIONS") {
-      return corsHeaders.clone()
-    }
-
-    // ── /.well-known/erc8128 → plugin discovery document ──
-    if (url.pathname === "/.well-known/erc8128") {
-      const envDefault = parseStorageModeFromEnv(env.ERC8128_STORAGE_DEFAULT)
-      const storageMode = parseStorageMode(request.headers, envDefault)
-      const authInstance = getAuthInstance(
-        storageMode,
-        publicClient.verifyMessage,
-        url.origin
-      )
-      const rewrittenRequest = new Request(
-        `${url.origin}/api/auth/.well-known/erc8128`,
-        { method: "GET", headers: request.headers }
-      )
-      return authInstance.handler(rewrittenRequest)
-    }
-
-    // ── /verify → process through better-auth erc8128 middleware ──
-    // The request is rewritten to /api/auth/verify so it matches the
-    // custom playground endpoint registered in better-auth. The erc8128
-    // plugin's middleware hook intercepts the request BEFORE the endpoint
-    // runs, performing signature verification with cache, nonce consumption,
-    // and invalidation checks (all configured via routePolicy).
-    //
-    // If verification fails, the middleware returns a 401 directly.
-    // If verification succeeds, the playground endpoint handler runs
-    // and returns the parsed verification metadata.
-
-    // Validate JSON body if present (preserves original behavior)
+    // Validate JSON body if present
     if (request.headers.get("content-type")?.includes("application/json")) {
       try {
         const bodyText = await request.clone().text()
         if (bodyText) JSON.parse(bodyText)
       } catch {
-        return json(
+        return c.json(
           {
             ok: false,
             error: "invalid_json",
@@ -217,23 +162,10 @@ export default {
       }
     }
 
-    const envDefault = parseStorageModeFromEnv(env.ERC8128_STORAGE_DEFAULT)
-    const storageMode = parseStorageMode(request.headers, envDefault)
-    const verbose = isVerboseRequest(request)
-
-    const baseURL = url.origin
-    const authInstance = getAuthInstance(
-      storageMode,
-      publicClient.verifyMessage,
-      baseURL
-    )
-
-    // Rewrite URL to the playground verification endpoint path.
-    // This is NOT /api/auth/erc8128/verify (the plugin's own endpoint) —
-    // it's a custom /api/auth/verify endpoint that the erc8128 middleware
-    // hook will intercept (since it's not in the plugin's skiplist).
-    const rewrittenUrl = new URL("/api/auth/verify", url.origin)
-    for (const [k, v] of url.searchParams) {
+    // Rewrite URL so better-auth routes to the playground endpoint
+    const origin = new URL(request.url).origin
+    const rewrittenUrl = new URL("/api/auth/verify", origin)
+    for (const [k, v] of new URL(request.url).searchParams) {
       rewrittenUrl.searchParams.set(k, v)
     }
 
@@ -252,7 +184,6 @@ export default {
       const authResponse = await authInstance.handler(rewrittenRequest)
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
 
-      // Parse the response body from better-auth
       let body: Record<string, unknown> | null = null
       try {
         body = await authResponse.json()
@@ -266,82 +197,87 @@ export default {
         cacheStrategy: authInstance.cacheStrategy
       }
 
-      // Copy accept-signature from auth response if present
       const acceptSignature = authResponse.headers.get("accept-signature")
 
-      // ── Success: middleware passed, playground endpoint returned metadata ──
+      // Success
       if (authResponse.ok && body?.ok === true) {
-        // body contains: ok, address, chainId, label, components, binding, replayable, params
-        const verification = { ...body }
+        const payload = verbose
+          ? { ...verbosePayload(request, body), ...metadata }
+          : { ...body, ...metadata }
 
-        if (!verbose) {
-          const successBody = { ...verification, ...metadata }
-          const res = json(successBody, 200)
-          if (acceptSignature)
-            res.headers.set("accept-signature", acceptSignature)
-          return res
-        }
-
-        const res = json(
-          {
-            ...createVerbosePayload(request, verification),
-            ...metadata
-          },
-          200
-        )
+        const res = c.json(payload, 200)
         if (acceptSignature)
           res.headers.set("accept-signature", acceptSignature)
         return res
       }
 
-      // ── Error: middleware returned verification failure ──
-      const rawReason = (body?.reason as string) || "unknown"
-      const reason = mapErrorReason(rawReason)
+      // Verification failure
+      const reason = mapErrorReason((body?.reason as string) || "unknown")
       const detail = (body?.detail as string) || ""
-      const status = verificationStatus(reason)
+      const status = reasonToStatus(reason)
 
-      // Build a verification-like object matching the original format
       const verification = {
         ok: false as const,
         reason,
         ...(detail ? { detail } : {})
       }
 
-      if (!verbose) {
-        const errorBody =
-          status !== 200 && acceptSignature
-            ? {
-                ...verification,
-                "accept-signature": acceptSignature,
-                ...metadata
-              }
-            : { ...verification, ...metadata }
+      const payload = verbose
+        ? {
+            ...verbosePayload(request, verification),
+            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
+            ...metadata
+          }
+        : {
+            ...verification,
+            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
+            ...metadata
+          }
 
-        const res = json(errorBody, status)
-        if (acceptSignature)
-          res.headers.set("accept-signature", acceptSignature)
-        return res
-      }
-
-      const verboseBody =
-        status !== 200 && acceptSignature
-          ? {
-              ...createVerbosePayload(request, verification),
-              "accept-signature": acceptSignature,
-              ...metadata
-            }
-          : { ...createVerbosePayload(request, verification), ...metadata }
-
-      const res = json(verboseBody, status)
+      const res = c.json(payload, status as ContentfulStatusCode)
       if (acceptSignature) res.headers.set("accept-signature", acceptSignature)
       return res
     } catch (error) {
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-      const res = json(
-        { ...createErrorPayload(request, error, verbose), verifyMs },
-        500
-      )
-      return res
+      const detail =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "unknown_error"
+
+      const payload = verbose
+        ? {
+            ok: false,
+            verified: false,
+            error: "verification_error",
+            detail,
+            request: {
+              method: request.method,
+              path: new URL(request.url).pathname,
+              query: new URL(request.url).search,
+              authority: request.headers.get("host")
+            },
+            signatureHeaders: {
+              signatureInput: request.headers.get("signature-input"),
+              signature: request.headers.get("signature")
+            },
+            verifyMs
+          }
+        : {
+            ok: false,
+            verified: false,
+            error: "verification_error",
+            detail,
+            verifyMs
+          }
+
+      return c.json(payload, 500)
     }
-  }
-}
+  })
+
+  // Pass all /api/auth/* requests to better-auth so plugin-registered
+  // endpoints (discovery document, verify, invalidate) work natively.
+  .on(["GET", "POST", "PUT", "DELETE", "OPTIONS"], "/api/auth/*", (c) =>
+    c.var.authInstance.handler(c.req.raw)
+  )

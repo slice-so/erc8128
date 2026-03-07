@@ -1,6 +1,7 @@
 name = "erc8128-site"
 main = "src/worker.ts"
 compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
 
 [assets]
 directory = "./dist"
