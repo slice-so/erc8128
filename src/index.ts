@@ -1,8 +1,28 @@
 export {
+  type AcceptSignatureRequestShape,
+  type AcceptSignatureSignOptions,
+  acceptSignatureMemberToSignOptions,
+  buildAcceptSignatureHeader,
+  normalizeAcceptSignatureSignOptions,
+  type ParsedAcceptSignatureMember,
+  parseAcceptSignatureHeader,
+  type SelectAcceptSignatureRetryOptionsArgs,
+  selectAcceptSignatureRetryOptions
+} from "./lib/acceptSignature"
+export {
   type DiscoveryDocument,
   type DiscoveryDocumentConfig,
   formatDiscoveryDocument
 } from "./lib/discoveryDocument"
+export {
+  type ParsedSignatureInputMember,
+  parseSignatureHeader,
+  parseSignatureInputHeader
+} from "./lib/engine/createSignatureInput"
+export {
+  type SelectedSignature,
+  selectSignatureFromHeaders
+} from "./lib/engine/signatureHeaders"
 export { formatKeyId, parseKeyId } from "./lib/keyId"
 export { matchRoutePolicy } from "./lib/matchRoutePolicy"
 export { type ResolvedPosture, resolvePosture } from "./lib/resolvePosture"

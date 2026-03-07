@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createSignerClient } from "."
+import { createSignerClient, parseSignatureInputHeader } from "."
 import type { Address, Hex, ServerConfig } from "./lib/types"
 
 function makeSigner() {
@@ -101,17 +101,12 @@ const exampleConfig: ServerConfig = {
 function parseSignatureInput(req: Request) {
   const raw = req.headers.get("Signature-Input")
   if (!raw) throw new Error("missing Signature-Input")
-  const hasNonce = raw.includes("nonce=")
-  // Components are the inner list items before the `;params`
-  // e.g. eth=("@authority" "@method" "@path");created=...
-  const innerMatch = raw.match(/=\(([^)]*)\)/)
-  const components = innerMatch
-    ? innerMatch[1]
-        .split(" ")
-        .map((s) => s.replace(/"/g, ""))
-        .filter(Boolean)
-    : []
-  return { raw, hasNonce, components }
+  const parsed = parseSignatureInputHeader(raw)
+  return {
+    raw,
+    hasNonce: typeof parsed[0]?.params.nonce === "string",
+    components: parsed[0]?.components ?? []
+  }
 }
 
 describe("ERC-8128 client posture", () => {
