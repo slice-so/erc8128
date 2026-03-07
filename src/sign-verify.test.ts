@@ -45,6 +45,16 @@ function makeNonceStore() {
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 function verifyWithPolicy(
   request: Request,
   policy: VerifyPolicy = {},
@@ -360,6 +370,82 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       { verifyMessage }
     )
     expect(resInvalidated).toEqual({
+      ok: false,
+      reason: "replayable_invalidated"
+    })
+  })
+
+  test("replayable verification starts invalidation and signature checks before awaiting either", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyStarted = deferred<void>()
+    const invalidationStarted = deferred<void>()
+    const releaseVerify = deferred<boolean>()
+    const releaseInvalidation = deferred<boolean>()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-parallel",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resultPromise = verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableInvalidated: async () => {
+          invalidationStarted.resolve()
+          return releaseInvalidation.promise
+        }
+      },
+      {
+        verifyMessage: async () => {
+          verifyStarted.resolve()
+          return releaseVerify.promise
+        }
+      }
+    )
+
+    // If this resolves, neither branch is blocked on the other to start.
+    await Promise.all([verifyStarted.promise, invalidationStarted.promise])
+
+    releaseVerify.resolve(true)
+    releaseInvalidation.resolve(false)
+
+    const result = await resultPromise
+    expect(result.ok).toBe(true)
+  })
+
+  test("replayable invalidation still wins over signature verification errors", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+
+    const signed = await signRequest(
+      "https://example.com/replayable-parallel-precedence",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const result = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableInvalidated: async () => true
+      },
+      {
+        verifyMessage: async () => {
+          throw new Error("verification backend failed")
+        }
+      }
+    )
+
+    expect(result).toEqual({
       ok: false,
       reason: "replayable_invalidated"
     })
