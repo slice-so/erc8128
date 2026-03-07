@@ -1,8 +1,6 @@
 export {
   type AcceptSignatureRequestShape,
   type AcceptSignatureSignOptions,
-  acceptSignatureMemberToSignOptions,
-  buildAcceptSignatureHeader,
   normalizeAcceptSignatureSignOptions,
   type ParsedAcceptSignatureMember,
   parseAcceptSignatureHeader,
