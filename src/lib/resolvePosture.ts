@@ -35,7 +35,8 @@ export function resolvePosture(
     }
   }
 
-  // Route-aware resolution
+  // Route-aware resolution. The matcher already handles path keys,
+  // method-specific entries, glob paths, and default fallback.
   const routePolicy = matchRoutePolicy(
     method,
     pathname,

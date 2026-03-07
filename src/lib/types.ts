@@ -64,6 +64,9 @@ export interface NonceStore {
 }
 
 export type RoutePolicy = {
+  /** Restrict this policy to specific HTTP methods. If omitted, it applies to all methods. */
+  methods?: string[]
+
   /** Allow replayable (nonce-less) signatures (default false). */
   replayable?: boolean
 
@@ -74,7 +77,11 @@ export type RoutePolicy = {
   classBoundPolicies?: string[] | string[][]
 }
 
-export type VerifyPolicy = RoutePolicy & {
+export type RoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]> & {
+  default?: RoutePolicy
+}
+
+export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
   label?: string
   strictLabel?: boolean // default false
@@ -117,7 +124,7 @@ export type VerifyPolicy = RoutePolicy & {
 
 export type ServerConfig = {
   max_validity_sec: number
-  route_policies?: Record<string, RoutePolicy>
+  route_policies?: RoutePolicyConfig
 }
 
 export type SignatureParams = {

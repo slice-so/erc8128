@@ -84,10 +84,13 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "POST /api/session": {
-            replayable: true,
-            classBoundPolicies: ["@authority", "x-session-id"]
-          }
+          "/api/session": [
+            {
+              methods: ["POST"],
+              replayable: true,
+              classBoundPolicies: ["@authority", "x-session-id"]
+            }
+          ]
         }
       }
       expect(
@@ -109,10 +112,13 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "POST /api/sensitive": {
-            replayable: false,
-            classBoundPolicies: ["@authority"]
-          }
+          "/api/sensitive": [
+            {
+              methods: ["POST"],
+              replayable: false,
+              classBoundPolicies: ["@authority"]
+            }
+          ]
         }
       }
       // Class-bound is preserved (independent of replay), but replay is denied
@@ -133,7 +139,7 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "POST /api/sensitive": { replayable: false }
+          "/api/sensitive": [{ methods: ["POST"], replayable: false }]
         }
       }
       expect(
@@ -154,7 +160,7 @@ describe("resolvePosture", () => {
         max_validity_sec: 300,
         route_policies: {
           default: { replayable: false },
-          "GET /api/cache-friendly": { replayable: true }
+          "/api/cache-friendly": { methods: ["GET"], replayable: true }
         }
       }
       expect(
@@ -168,11 +174,12 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("wildcard route policy is used when no exact match", () => {
+    test("path policy with method restriction is used for matching methods", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "* /api/auth": {
+          "/api/auth": {
+            methods: ["PUT"],
             replayable: true,
             classBoundPolicies: ["@authority"]
           }
@@ -196,7 +203,7 @@ describe("resolvePosture", () => {
         max_validity_sec: 300,
         route_policies: {
           default: { replayable: false },
-          "POST /api/session": { replayable: true }
+          "/api/session": { methods: ["POST"], replayable: true }
         }
       }
       // GET /other doesn't match any route → falls back to default (replayable: false)
@@ -215,10 +222,13 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "POST /api/orders": {
-            replayable: false,
-            additionalRequestBoundComponents: ["x-idempotency-key"]
-          }
+          "/api/orders": [
+            {
+              methods: ["POST"],
+              replayable: false,
+              additionalRequestBoundComponents: ["x-idempotency-key"]
+            }
+          ]
         }
       }
       expect(
@@ -236,9 +246,15 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "POST /api/orders": {
-            additionalRequestBoundComponents: ["x-idempotency-key", "x-custom"]
-          }
+          "/api/orders": [
+            {
+              methods: ["POST"],
+              additionalRequestBoundComponents: [
+                "x-idempotency-key",
+                "x-custom"
+              ]
+            }
+          ]
         }
       }
       expect(
@@ -261,7 +277,7 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "GET /api/plain": { replayable: true }
+          "/api/plain": { methods: ["GET"], replayable: true }
         }
       }
       expect(
@@ -281,7 +297,8 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "GET /dup": {
+          "/dup": {
+            methods: ["GET"],
             replayable: true,
             classBoundPolicies: ["@authority", "shared"]
           }
@@ -304,7 +321,8 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "GET /nested": {
+          "/nested": {
+            methods: ["GET"],
             replayable: true,
             classBoundPolicies: [["@authority", "x-tenant"]]
           }
@@ -327,7 +345,8 @@ describe("resolvePosture", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
-          "GET /multi": {
+          "/multi": {
+            methods: ["GET"],
             replayable: true,
             classBoundPolicies: [
               ["@authority", "x-tenant", "x-region"],
@@ -348,6 +367,79 @@ describe("resolvePosture", () => {
         binding: "class-bound",
         replay: "replayable",
         components: ["@authority", "authorization"]
+      })
+    })
+
+    test("methodless fallback on a path applies when no method-specific policy matches", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "/multi-method": [
+            { methods: ["POST"], replayable: false },
+            { replayable: true }
+          ]
+        }
+      }
+
+      expect(
+        resolvePosture("GET", "/multi-method", config, {
+          replay: "replayable"
+        })
+      ).toEqual({
+        binding: "request-bound",
+        replay: "replayable",
+        components: undefined
+      })
+    })
+
+    test("default classBoundPolicies do not leak into an explicitly routed path", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "/verify": [
+            { methods: ["DELETE"], replayable: false },
+            { methods: ["POST", "PUT"], classBoundPolicies: [["@authority"]] }
+          ],
+          default: {
+            replayable: true,
+            classBoundPolicies: [["@authority", "@path"]]
+          }
+        }
+      }
+
+      expect(
+        resolvePosture("GET", "/verify", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["authorization"]
+        })
+      ).toEqual({
+        binding: "request-bound",
+        replay: "replayable",
+        components: ["authorization"]
+      })
+    })
+
+    test("default additionalRequestBoundComponents do not leak into an explicitly routed path", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "/verify": [{ methods: ["DELETE"], replayable: false }],
+          default: {
+            replayable: true,
+            additionalRequestBoundComponents: ["x-request-id"]
+          }
+        }
+      }
+
+      expect(
+        resolvePosture("GET", "/verify", config, {
+          replay: "replayable"
+        })
+      ).toEqual({
+        binding: "request-bound",
+        replay: "replayable",
+        components: undefined
       })
     })
   })

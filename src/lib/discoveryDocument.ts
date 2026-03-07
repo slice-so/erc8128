@@ -1,18 +1,20 @@
-import type { RoutePolicy } from "./types"
+import type { RoutePolicy, RoutePolicyConfig } from "./types"
 import { DEFAULT_MAX_VALIDITY_SEC } from "./verifyUtils"
 
 export type DiscoveryDocumentConfig = {
   verificationEndpoint?: string
   invalidationEndpoint?: string
   maxValiditySec?: number
-  routePolicy?: Record<string, RoutePolicy | false>
+  routePolicy?: Record<string, RoutePolicy | RoutePolicy[] | false> & {
+    default?: RoutePolicy
+  }
 }
 
 export type DiscoveryDocument = {
   max_validity_sec: number
   verification_endpoint?: string
   invalidation_endpoint?: string
-  route_policies?: Record<string, RoutePolicy>
+  route_policies?: RoutePolicyConfig
 }
 
 export function formatDiscoveryDocument(
@@ -21,16 +23,16 @@ export function formatDiscoveryDocument(
   const replayableEnabled =
     config.routePolicy != null &&
     Object.values(config.routePolicy).some(
-      (p) => typeof p === "object" && p !== null && p.replayable === true
+      (candidate) => candidate !== false && hasReplayableRoutePolicy(candidate)
     )
 
   const routePolicies = config.routePolicy
     ? (Object.fromEntries(
         Object.entries(config.routePolicy).filter(
-          (entry): entry is [string, RoutePolicy] =>
-            entry[0] !== "default" && entry[1] !== false
+          (entry): entry is [string, RoutePolicy | RoutePolicy[]] =>
+            entry[1] !== false
         )
-      ) as Record<string, RoutePolicy>)
+      ) as RoutePolicyConfig)
     : undefined
 
   return {
@@ -45,4 +47,11 @@ export function formatDiscoveryDocument(
       ? { route_policies: routePolicies }
       : {})
   }
+}
+
+function hasReplayableRoutePolicy(
+  candidate: RoutePolicy | RoutePolicy[]
+): boolean {
+  const policies = Array.isArray(candidate) ? candidate : [candidate]
+  return policies.some((policy) => policy.replayable === true)
 }

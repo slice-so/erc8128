@@ -89,11 +89,12 @@ const exampleConfig: ServerConfig = {
   max_validity_sec: 300,
   route_policies: {
     default: { replayable: true },
-    "POST /api/auth/session": {
+    "/api/auth/session": {
+      methods: ["POST"],
       replayable: true,
       classBoundPolicies: ["@authority", "x-session-id"]
     },
-    "POST /api/sensitive": { replayable: false }
+    "/api/sensitive": { methods: ["POST"], replayable: false }
   }
 }
 
@@ -289,7 +290,7 @@ describe("ERC-8128 client multi-origin", () => {
     max_validity_sec: 300,
     route_policies: {
       default: { replayable: true },
-      "GET /session": { replayable: true }
+      "/session": { methods: ["GET"], replayable: true }
     }
   }
 
@@ -378,7 +379,7 @@ describe("ERC-8128 client multi-origin", () => {
       serverConfigs: {
         [ORIGIN_A]: {
           max_validity_sec: 300,
-          route_policies: { "GET /data": { replayable: true } }
+          route_policies: { "/data": { methods: ["GET"], replayable: true } }
         }
       }
     })
@@ -390,7 +391,7 @@ describe("ERC-8128 client multi-origin", () => {
     // Replace with config that disables replay on GET /data
     client.setServerConfig(ORIGIN_A, {
       max_validity_sec: 300,
-      route_policies: { "GET /data": { replayable: false } }
+      route_policies: { "/data": { methods: ["GET"], replayable: false } }
     })
 
     const req2 = await client.signRequest(`${ORIGIN_A}/data`)
@@ -612,13 +613,13 @@ describe("ERC-8128 client - serverConfig with no matching route", () => {
         [ORIGIN]: {
           max_validity_sec: 300,
           route_policies: {
-            "POST /specific": { replayable: false }
+            "/specific": { methods: ["POST"], replayable: false }
           }
         }
       }
     })
 
-    // GET /other doesn't match "POST /specific" and there is no default
+    // GET /other doesn't match the POST-only "/specific" policy and there is no default
     const req = await client.signRequest(`${ORIGIN}/other`)
     expect(parseSignatureInput(req).hasNonce).toBe(false)
   })
@@ -653,7 +654,8 @@ describe("ERC-8128 client - route-level effects", () => {
         [ORIGIN]: {
           max_validity_sec: 300,
           route_policies: {
-            "GET /api/orders": {
+            "/api/orders": {
+              methods: ["GET"],
               additionalRequestBoundComponents: ["x-request-id"]
             }
           }
@@ -678,7 +680,9 @@ describe("ERC-8128 client - route-level effects", () => {
       serverConfigs: {
         [ORIGIN]: {
           max_validity_sec: 300,
-          route_policies: { "POST /api/sensitive": { replayable: false } }
+          route_policies: {
+            "/api/sensitive": { methods: ["POST"], replayable: false }
+          }
         }
       }
     })
@@ -702,7 +706,7 @@ describe("ERC-8128 client - route-level effects", () => {
         [ORIGIN]: {
           max_validity_sec: 300,
           route_policies: {
-            "GET /api/plain": { replayable: true } // no classBoundPolicies
+            "/api/plain": { methods: ["GET"], replayable: true } // no classBoundPolicies
           }
         }
       }
@@ -732,7 +736,8 @@ describe("ERC-8128 client - route-level effects", () => {
         [ORIGIN]: {
           max_validity_sec: 300,
           route_policies: {
-            "GET /api/resource": {
+            "/api/resource": {
+              methods: ["GET"],
               replayable: true,
               classBoundPolicies: ["@authority", "x-tenant"]
             }
@@ -769,7 +774,8 @@ describe("ERC-8128 client - route-level effects", () => {
         [ORIGIN]: {
           max_validity_sec: 300,
           route_policies: {
-            "GET /api/multi": {
+            "/api/multi": {
+              methods: ["GET"],
               replayable: true,
               classBoundPolicies: [
                 ["@authority", "x-tenant", "x-region"],

@@ -35,6 +35,7 @@ export {
   type NonceStore,
   type ReplayMode,
   type RoutePolicy,
+  type RoutePolicyConfig,
   type ServerConfig,
   type SetHeadersFn,
   type SignatureParams,

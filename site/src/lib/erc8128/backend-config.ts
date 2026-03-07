@@ -62,7 +62,10 @@ export function getAuthInstance(
         maxValiditySec: 300,
         clockSkewSec: 30,
         routePolicy: {
-          "DELETE /verify": { replayable: false, classBoundPolicies: [] },
+          "/verify": {
+            methods: ["DELETE"],
+            replayable: false
+          },
           default: { replayable: true, classBoundPolicies: [["@authority"]] }
         }
       }),

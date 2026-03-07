@@ -32,7 +32,7 @@ describe("formatDiscoveryDocument", () => {
     const doc = formatDiscoveryDocument({
       invalidationEndpoint: "https://api.example.com/erc8128/invalidate",
       routePolicy: {
-        "/api/public": { replayable: true },
+        "/api/public": [{ methods: ["GET"], replayable: true }],
         "/api/private": { replayable: false }
       }
     })
@@ -58,7 +58,7 @@ describe("formatDiscoveryDocument", () => {
     expect(doc.invalidation_endpoint).toBeUndefined()
   })
 
-  test("filters out 'default' key from route_policies", () => {
+  test("preserves the default key in route_policies", () => {
     const doc = formatDiscoveryDocument({
       routePolicy: {
         default: { replayable: true },
@@ -66,6 +66,7 @@ describe("formatDiscoveryDocument", () => {
       }
     })
     expect(doc.route_policies).toEqual({
+      default: { replayable: true },
       "/api/public": { replayable: true }
     })
   })
@@ -85,7 +86,7 @@ describe("formatDiscoveryDocument", () => {
   test("omits route_policies when all entries are filtered out", () => {
     const doc = formatDiscoveryDocument({
       routePolicy: {
-        default: { replayable: false }
+        "/api/disabled": false
       }
     })
     expect(doc.route_policies).toBeUndefined()
@@ -100,6 +101,7 @@ describe("formatDiscoveryDocument", () => {
     const doc = formatDiscoveryDocument({
       routePolicy: {
         "/api/orders": {
+          methods: ["POST"],
           replayable: false,
           additionalRequestBoundComponents: ["content-type"]
         }
@@ -107,9 +109,34 @@ describe("formatDiscoveryDocument", () => {
     })
     expect(doc.route_policies).toEqual({
       "/api/orders": {
+        methods: ["POST"],
         replayable: false,
         additionalRequestBoundComponents: ["content-type"]
       }
+    })
+  })
+
+  test("preserves route policy arrays", () => {
+    const doc = formatDiscoveryDocument({
+      routePolicy: {
+        "/verify": [
+          { methods: ["DELETE"], replayable: false },
+          {
+            methods: ["POST", "PUT"],
+            classBoundPolicies: [["@authority", "@path"]]
+          }
+        ]
+      }
+    })
+
+    expect(doc.route_policies).toEqual({
+      "/verify": [
+        { methods: ["DELETE"], replayable: false },
+        {
+          methods: ["POST", "PUT"],
+          classBoundPolicies: [["@authority", "@path"]]
+        }
+      ]
     })
   })
 })

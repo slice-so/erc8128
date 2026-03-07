@@ -123,9 +123,16 @@ const doc = formatDiscoveryDocument({
   defaultPolicy: { replayable: false },
   routePolicy: {
     '/api/public/*': { replayable: true },
-    '/api/orders/*': {
-      additionalRequestBoundComponents: ['content-type'],
-    },
+    '/api/orders/*': [
+      {
+        methods: ['POST', 'PUT'],
+        additionalRequestBoundComponents: ['content-type'],
+      },
+      {
+        methods: ['GET'],
+        classBoundPolicies: [['@authority', '@path']],
+      },
+    ],
     default: { replayable: false },
   },
 })
@@ -137,7 +144,7 @@ const doc = formatDiscoveryDocument({
 // }
 ```
 
-`invalidation_endpoint` is only included when at least one policy enables `replayable`. Route policies keyed `"default"` or set to `false` are filtered out.
+`invalidation_endpoint` is only included when at least one policy enables `replayable`. Route policy entries set to `false` are filtered out.
 
 ### `signRequest(input, init?, signer, options?)`
 

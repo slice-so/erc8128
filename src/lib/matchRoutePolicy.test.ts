@@ -1,19 +1,24 @@
 import { describe, expect, test } from "bun:test"
 import { matchRoutePolicy } from "./matchRoutePolicy"
+import type { RoutePolicyConfig } from "./types"
 
 describe("matchRoutePolicy", () => {
-  const policies = {
-    "POST /api/auth/session": {
-      replayable: true,
-      classBoundPolicies: ["@authority"]
-    },
-    "GET /api/auth/session": { replayable: true },
-    "* /api/public": { replayable: false },
-    "DELETE /api/admin": { replayable: false }
+  const policies: RoutePolicyConfig = {
+    "/api/auth/session": [
+      {
+        methods: ["POST"],
+        replayable: true,
+        classBoundPolicies: ["@authority"]
+      },
+      { methods: ["GET"], replayable: true }
+    ],
+    "/api/public": { replayable: false },
+    "/api/admin": { methods: ["DELETE"], replayable: false }
   }
 
-  test("exact match: METHOD + pathname", () => {
+  test("exact path match selects the method-specific policy", () => {
     expect(matchRoutePolicy("POST", "/api/auth/session", policies)).toEqual({
+      methods: ["POST"],
       replayable: true,
       classBoundPolicies: ["@authority"]
     })
@@ -21,32 +26,39 @@ describe("matchRoutePolicy", () => {
 
   test("exact match is case-insensitive for method", () => {
     expect(matchRoutePolicy("post", "/api/auth/session", policies)).toEqual({
+      methods: ["POST"],
       replayable: true,
       classBoundPolicies: ["@authority"]
     })
   })
 
-  test("different method on same path returns that method's policy", () => {
+  test("different method on the same path returns that method's policy", () => {
     expect(matchRoutePolicy("GET", "/api/auth/session", policies)).toEqual({
+      methods: ["GET"],
       replayable: true
     })
   })
 
-  test("wildcard match when no exact method match", () => {
+  test("methodless path policy applies to any method", () => {
     expect(matchRoutePolicy("GET", "/api/public", policies)).toEqual({
       replayable: false
     })
   })
 
-  test("exact match takes priority over wildcard", () => {
-    // Add a wildcard for a path that also has an exact match
+  test("method-specific entry beats a methodless fallback on the same path", () => {
     const withBoth = {
       ...policies,
-      "* /api/auth/session": { replayable: false }
+      "/api/profile": [
+        { replayable: false },
+        { methods: ["POST"], replayable: true }
+      ]
     }
-    expect(matchRoutePolicy("POST", "/api/auth/session", withBoth)).toEqual({
-      replayable: true,
-      classBoundPolicies: ["@authority"]
+    expect(matchRoutePolicy("POST", "/api/profile", withBoth)).toEqual({
+      methods: ["POST"],
+      replayable: true
+    })
+    expect(matchRoutePolicy("GET", "/api/profile", withBoth)).toEqual({
+      replayable: false
     })
   })
 
@@ -65,19 +77,21 @@ describe("matchRoutePolicy", () => {
   // ─── Glob path patterns ─────────────────────────────────────
 
   describe("glob path patterns", () => {
-    const globPolicies = {
-      "GET /api/admin/*": { replayable: false },
-      "POST /api/admin/users": { replayable: true },
-      "GET /api/admin/users/*": {
+    const globPolicies: RoutePolicyConfig = {
+      "/api/admin/*": { methods: ["GET"], replayable: false },
+      "/api/admin/users": { methods: ["POST"], replayable: true },
+      "/api/admin/users/*": {
+        methods: ["GET"],
         replayable: true,
         classBoundPolicies: ["@authority"]
       },
-      "* /api/public/*": { replayable: true }
+      "/api/public/*": { replayable: true }
     }
 
     test("glob matches sub-path", () => {
       expect(matchRoutePolicy("GET", "/api/admin/roles", globPolicies)).toEqual(
         {
+          methods: ["GET"],
           replayable: false
         }
       )
@@ -87,6 +101,7 @@ describe("matchRoutePolicy", () => {
       expect(
         matchRoutePolicy("GET", "/api/admin/roles/123/edit", globPolicies)
       ).toEqual({
+        methods: ["GET"],
         replayable: false
       })
     })
@@ -95,6 +110,7 @@ describe("matchRoutePolicy", () => {
       expect(
         matchRoutePolicy("POST", "/api/admin/users", globPolicies)
       ).toEqual({
+        methods: ["POST"],
         replayable: true
       })
     })
@@ -103,14 +119,13 @@ describe("matchRoutePolicy", () => {
       expect(
         matchRoutePolicy("GET", "/api/admin/users/123", globPolicies)
       ).toEqual({
+        methods: ["GET"],
         replayable: true,
         classBoundPolicies: ["@authority"]
       })
     })
 
-    test("exact method glob wins over wildcard method glob", () => {
-      // "GET /api/admin/*" (exact method) beats "* /api/public/*" for GET
-      // but for /api/public/* only wildcard exists, so it should match
+    test("methodless glob works for any method", () => {
       expect(
         matchRoutePolicy("DELETE", "/api/public/data", globPolicies)
       ).toEqual({
@@ -118,33 +133,55 @@ describe("matchRoutePolicy", () => {
       })
     })
 
-    test("wildcard method glob works for any method", () => {
-      expect(
-        matchRoutePolicy("PUT", "/api/public/resource", globPolicies)
-      ).toEqual({
-        replayable: true
-      })
-    })
-
     test("glob does not match the prefix itself (no trailing slash)", () => {
-      // "/api/admin" does not start with "/api/admin/"
       expect(
         matchRoutePolicy("GET", "/api/admin", globPolicies)
       ).toBeUndefined()
     })
 
-    test("exact method glob preferred over wildcard method glob at same prefix", () => {
+    test("longer glob prefix wins over shorter", () => {
       const mixed = {
-        "GET /api/data/*": { replayable: true },
-        "* /api/data/*": { replayable: false }
+        "/api/data/*": { replayable: false },
+        "/api/data/items/*": { replayable: true }
       }
       expect(matchRoutePolicy("GET", "/api/data/item", mixed)).toEqual({
-        replayable: true
-      })
-      // Non-GET falls to wildcard
-      expect(matchRoutePolicy("POST", "/api/data/item", mixed)).toEqual({
         replayable: false
       })
+      expect(matchRoutePolicy("POST", "/api/data/items/1", mixed)).toEqual({
+        replayable: true
+      })
+    })
+
+    test("default policy is used when no exact or glob match is found", () => {
+      const withDefault: RoutePolicyConfig = {
+        ...globPolicies,
+        default: { replayable: false }
+      }
+
+      expect(matchRoutePolicy("PATCH", "/unmatched", withDefault)).toEqual({
+        replayable: false
+      })
+    })
+
+    test("default is not used when an exact path exists but its methods do not match", () => {
+      const withDefault: RoutePolicyConfig = {
+        "/verify": [
+          { methods: ["DELETE"], replayable: false },
+          { methods: ["POST", "PUT"], classBoundPolicies: [["@authority"]] }
+        ],
+        default: { replayable: true, classBoundPolicies: [["@authority"]] }
+      }
+
+      expect(matchRoutePolicy("GET", "/verify", withDefault)).toBeUndefined()
+    })
+
+    test("a more specific glob blocks fallback to a shorter glob when methods do not match", () => {
+      const policies: RoutePolicyConfig = {
+        "/api/*": { replayable: true },
+        "/api/orders/*": { methods: ["POST"], replayable: false }
+      }
+
+      expect(matchRoutePolicy("GET", "/api/orders/1", policies)).toBeUndefined()
     })
   })
 })
