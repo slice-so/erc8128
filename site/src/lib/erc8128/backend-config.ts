@@ -32,8 +32,8 @@ const CACHE_STRATEGY: Record<StorageMode, CacheStrategy> = {
   postgres: "database"
 }
 
-const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
-const publicClient = createPublicClient({
+export const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
+export const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(rpcUrl)
 })

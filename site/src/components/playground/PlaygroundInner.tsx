@@ -115,10 +115,11 @@ type SentRequestSnapshot = {
 
 const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
 const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
+const PLAYGROUND_ORIGIN =
+  import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
 
 function getPlaygroundOrigin() {
-  if (typeof window === "undefined") return "https://erc8128.org"
-  return window.location.origin
+  return PLAYGROUND_ORIGIN
 }
 
 function readStoredAppWalletPrivateKey(): `0x${string}` | null {
@@ -437,9 +438,10 @@ export function PlaygroundInner() {
     setVerifying(true)
 
     const storedPrivateKey = readStoredAppWalletPrivateKey()
-    const sessionAddress = storedPrivateKey
-      ? privateKeyToAccount(storedPrivateKey).address
+    const sessionAccount = storedPrivateKey
+      ? privateKeyToAccount(storedPrivateKey)
       : null
+    const sessionAddress = sessionAccount?.address ?? null
 
     if (appWallet && !storedPrivateKey) {
       setAppWallet(null)
@@ -453,8 +455,7 @@ export function PlaygroundInner() {
       signMessage: async (message: Uint8Array) => {
         const t0 = performance.now()
 
-        if (storedPrivateKey && appWallet?.publicKey) {
-          const sessionAccount = privateKeyToAccount(storedPrivateKey)
+        if (sessionAccount) {
           const signature = await sessionAccount.signMessage({
             message: { raw: toHex(message) }
           })

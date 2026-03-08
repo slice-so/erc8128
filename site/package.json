@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
-    "@slicekit/better-auth": "^1.5.2-erc8128.2",
+    "@slicekit/better-auth": "^1.5.2-erc8128.3",
     "@slicekit/erc8128": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "astro": "^5.17.1",
