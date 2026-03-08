@@ -25,6 +25,30 @@ const REAL_SIGNER = {
 }
 
 describe("playground better-auth integration", () => {
+  test("reuses auth instances for the same mode, base URL, and verifier", () => {
+    const verify = async () => true
+
+    const first = getAuthInstance("postgres", "https://erc8128.org", verify)
+    const second = getAuthInstance("postgres", "https://erc8128.org/", verify)
+
+    expect(first).toBe(second)
+  })
+
+  test("keeps verifier-specific instances isolated", () => {
+    const first = getAuthInstance(
+      "postgres",
+      "https://erc8128.org",
+      async () => true
+    )
+    const second = getAuthInstance(
+      "postgres",
+      "https://erc8128.org",
+      async () => false
+    )
+
+    expect(first).not.toBe(second)
+  })
+
   test("accepts DELETE /verify as request-bound non-replayable", async () => {
     const auth = getAuthInstance(
       "postgres",
@@ -61,6 +85,47 @@ describe("playground better-auth integration", () => {
       address: TEST_SIGNER_VERIFIED_ADDRESS,
       binding: "request-bound",
       replayable: false
+    })
+  })
+
+  test("preserves nonce replay protection across repeated auth instance lookups", async () => {
+    const verify = async () => true
+    const first = getAuthInstance("postgres", "https://erc8128.org", verify)
+
+    const request = await signRequest(
+      "https://erc8128.org/verify",
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ storeId: 1, productId: 42, quantity: 2 })
+      },
+      TEST_SIGNER,
+      {
+        binding: "request-bound",
+        replay: "non-replayable",
+        nonce: `nonce-${Date.now()}`,
+        components: ["content-digest"]
+      }
+    )
+
+    const firstResult = await first.erc8128.protect(request)
+    expect(firstResult.ok).toBe(true)
+    if (!firstResult.ok) {
+      throw new Error("Expected first request protection to succeed")
+    }
+
+    const second = getAuthInstance("postgres", "https://erc8128.org/", verify)
+    const replayResult = await second.erc8128.protect(request)
+
+    expect(replayResult.ok).toBe(false)
+    if (replayResult.ok) {
+      throw new Error("Expected replayed request protection to fail")
+    }
+
+    expect(replayResult.response.status).toBe(401)
+    expect(await replayResult.response.json()).toMatchObject({
+      error: "erc8128_verification_failed",
+      reason: "replay"
     })
   })
 

@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
 import {
   type AuthInstance,
   getAuthInstance
@@ -11,6 +10,10 @@ import {
   parseStorageModeFromEnv,
   type StorageMode
 } from "./lib/erc8128/storage-header"
+import {
+  buildVerifyExceptionResponse,
+  buildVerifyProtectResponse
+} from "./lib/erc8128/verify-response"
 
 declare global {
   namespace Cloudflare {
@@ -27,62 +30,6 @@ type Env = {
   Variables: {
     storageMode: StorageMode
     authInstance: AuthInstance
-  }
-}
-
-// ── Helpers ──────────────────────────────────────────
-
-const mapErrorReason = (reason: string): string => {
-  if (reason === "missing_signature") return "missing_headers"
-  if (reason === "missing_request_context") return "missing_headers"
-  return reason
-}
-
-const reasonToStatus = (reason: string): number => {
-  if (
-    reason === "missing_headers" ||
-    reason === "bad_signature_input" ||
-    reason === "bad_keyid"
-  )
-    return 400
-  return 401
-}
-
-type HeaderMap = Record<string, string[]>
-
-const collectHeaders = (headers: Headers): HeaderMap => {
-  const result: HeaderMap = {}
-  for (const [key, value] of headers.entries()) {
-    const k = key.toLowerCase()
-    if (!result[k]) {
-      result[k] = []
-    }
-    result[k].push(value)
-  }
-  return result
-}
-
-const verbosePayload = (
-  request: Request,
-  verification: Record<string, unknown>
-) => {
-  const url = new URL(request.url)
-  return {
-    ok: verification.ok,
-    verified: verification.ok,
-    receivedAt: new Date().toISOString(),
-    request: {
-      method: request.method,
-      path: url.pathname,
-      query: url.search,
-      authority: request.headers.get("host")
-    },
-    signatureHeaders: {
-      signatureInput: request.headers.get("signature-input"),
-      signature: request.headers.get("signature")
-    },
-    verification,
-    headers: collectHeaders(request.headers)
   }
 }
 
@@ -132,125 +79,36 @@ export default app
     try {
       const protectResult = await authInstance.erc8128.protect(request)
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-
-      const metadata = {
-        verifyMs,
-        storageMode,
-        cacheStrategy: authInstance.cacheStrategy
-      }
-
-      if (protectResult.ok) {
-        if (protectResult.verification == null) {
-          return c.json(
-            {
-              ok: false,
-              error: "verification_error",
-              detail: "ERC-8128 verification result was not attached",
-              ...metadata
-            },
-            500
-          )
+      const response = await buildVerifyProtectResponse({
+        request,
+        protectResult,
+        verbose,
+        metadata: {
+          verifyMs,
+          storageMode,
+          cacheStrategy: authInstance.cacheStrategy
         }
+      })
 
-        const verification = {
-          ok: true as const,
-          address: protectResult.verification.address,
-          chainId: protectResult.verification.chainId,
-          label: protectResult.verification.label,
-          components: protectResult.verification.components,
-          binding: protectResult.verification.binding,
-          replayable: protectResult.verification.replayable,
-          params: protectResult.verification.params
-        }
-        const payload = verbose
-          ? { ...verbosePayload(request, verification), ...metadata }
-          : { ...verification, ...metadata }
-
-        const res = c.json(payload, 200)
-        for (const [key, value] of protectResult.responseHeaders.entries()) {
-          res.headers.set(key, value)
-        }
-        return res
-      }
-
-      const authResponseText = await protectResult.response.clone().text()
-      const body =
-        authResponseText.length > 0
-          ? (() => {
-              try {
-                return JSON.parse(authResponseText) as Record<string, unknown>
-              } catch {
-                return null
-              }
-            })()
-          : null
-
-      const acceptSignature =
-        protectResult.responseHeaders.get("accept-signature")
-
-      const reason = mapErrorReason((body?.reason as string) || "unknown")
-      const detail = (body?.detail as string) || (body?.message as string) || ""
-      const status = reasonToStatus(reason)
-
-      const verification = {
-        ok: false as const,
-        reason,
-        ...(detail ? { detail } : {})
-      }
-
-      const payload = verbose
-        ? {
-            ...verbosePayload(request, verification),
-            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
-            ...metadata
-          }
-        : {
-            ...verification,
-            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
-            ...metadata
-          }
-
-      const res = c.json(payload, status as ContentfulStatusCode)
-      for (const [key, value] of protectResult.responseHeaders.entries()) {
+      const res = c.json(response.payload, response.status)
+      for (const [key, value] of response.headers.entries()) {
         res.headers.set(key, value)
       }
       return res
     } catch (error) {
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-      const detail =
-        error instanceof Error
-          ? error.message
-          : typeof error === "string"
-            ? error
-            : "unknown_error"
+      const response = buildVerifyExceptionResponse({
+        request,
+        error,
+        verifyMs,
+        verbose
+      })
 
-      const payload = verbose
-        ? {
-            ok: false,
-            verified: false,
-            error: "verification_error",
-            detail,
-            request: {
-              method: request.method,
-              path: new URL(request.url).pathname,
-              query: new URL(request.url).search,
-              authority: request.headers.get("host")
-            },
-            signatureHeaders: {
-              signatureInput: request.headers.get("signature-input"),
-              signature: request.headers.get("signature")
-            },
-            verifyMs
-          }
-        : {
-            ok: false,
-            verified: false,
-            error: "verification_error",
-            detail,
-            verifyMs
-          }
-
-      return c.json(payload, 500)
+      const res = c.json(response.payload, response.status)
+      for (const [key, value] of response.headers.entries()) {
+        res.headers.set(key, value)
+      }
+      return res
     }
   })
 

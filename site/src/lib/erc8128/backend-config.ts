@@ -1,5 +1,6 @@
 /**
- * Better-auth instance factory — one singleton per storage mode.
+ * Better-auth instance factory — cached per storage mode, base URL, and
+ * verifier so in-memory storage survives across requests.
  *
  * The ERC-8128 plugin owns replay protection, invalidation, and verification
  * cache. App routes call the plugin's server API directly.
@@ -13,6 +14,7 @@ import {
   erc8128,
   getErc8128Api
 } from "@slicekit/better-auth/plugins/erc8128"
+import type { VerifyMessageFn } from "@slicekit/erc8128"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
 import { createMemorySecondaryStorage } from "./secondary-storage-memory"
@@ -26,11 +28,29 @@ export interface AuthInstance {
   cacheStrategy: CacheStrategy
 }
 
+type AuthInstanceCache = Map<string, WeakMap<VerifyMessageFn, AuthInstance>>
+
 const CACHE_STRATEGY: Record<StorageMode, CacheStrategy> = {
   none: "none",
   redis: "secondary-storage",
   postgres: "database"
 }
+
+const VERIFY_ROUTE_POLICY: NonNullable<ERC8128PluginOptions["routePolicy"]> = {
+  "/verify": [
+    {
+      methods: ["GET", "POST", "PUT", "PATCH"],
+      replayable: true,
+      classBoundPolicies: [["@authority"]]
+    },
+    {
+      methods: ["DELETE"],
+      replayable: false
+    }
+  ]
+}
+
+const authInstanceCache: AuthInstanceCache = new Map()
 
 export const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
 export const publicClient = createPublicClient({
@@ -50,31 +70,53 @@ function createMemoryDb() {
   }
 }
 
+function normalizeBaseURL(baseURL: string) {
+  return new URL(baseURL).toString().replace(/\/$/, "")
+}
+
+function getCachedAuthInstance(
+  mode: StorageMode,
+  baseURL: string,
+  verifyMessage: VerifyMessageFn
+) {
+  const cacheKey = `${mode}:${normalizeBaseURL(baseURL)}`
+  return authInstanceCache.get(cacheKey)?.get(verifyMessage) ?? null
+}
+
+function setCachedAuthInstance(
+  mode: StorageMode,
+  baseURL: string,
+  verifyMessage: VerifyMessageFn,
+  instance: AuthInstance
+) {
+  const cacheKey = `${mode}:${normalizeBaseURL(baseURL)}`
+  let instancesByVerifier = authInstanceCache.get(cacheKey)
+
+  if (!instancesByVerifier) {
+    instancesByVerifier = new WeakMap()
+    authInstanceCache.set(cacheKey, instancesByVerifier)
+  }
+
+  instancesByVerifier.set(verifyMessage, instance)
+}
+
 export function getAuthInstance(
   mode: StorageMode,
   baseURL: string,
   verifyMessage = publicClient.verifyMessage
 ): AuthInstance {
+  const cached = getCachedAuthInstance(mode, baseURL, verifyMessage)
+  if (cached) {
+    return cached
+  }
+
   const secondaryStorage =
     mode === "redis" ? createMemorySecondaryStorage() : undefined
-  const routePolicy: NonNullable<ERC8128PluginOptions["routePolicy"]> = {
-    "/verify": [
-      {
-        methods: ["GET", "POST", "PUT", "PATCH"],
-        replayable: true,
-        classBoundPolicies: [["@authority"]]
-      },
-      {
-        methods: ["DELETE"],
-        replayable: false
-      }
-    ]
-  }
 
   const auth = betterAuth({
     database: memoryAdapter(createMemoryDb()),
     basePath: "/api/auth",
-    baseURL,
+    baseURL: normalizeBaseURL(baseURL),
     ...(secondaryStorage ? { secondaryStorage } : {}),
     plugins: [
       erc8128({
@@ -83,7 +125,7 @@ export function getAuthInstance(
         anonymous: true,
         maxValiditySec: 300,
         clockSkewSec: 30,
-        routePolicy
+        routePolicy: VERIFY_ROUTE_POLICY
       })
     ]
   })
@@ -93,6 +135,8 @@ export function getAuthInstance(
     erc8128: getErc8128Api(auth),
     cacheStrategy: CACHE_STRATEGY[mode]
   }
+
+  setCachedAuthInstance(mode, baseURL, verifyMessage, instance)
 
   return instance
 }
