@@ -875,6 +875,41 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(resAllowed.replayable).toBe(true)
   })
 
+  test("empty classBoundPolicies allows authority-only class-bound verification", async () => {
+    const signer = makeSigner()
+    const verifyMessage = makeVerifyMessage()
+
+    const created = 1_700_000_000
+    const expires = created + 60
+    const signed = await signRequest(
+      "https://example.com/class-bound",
+      { method: "GET" },
+      signer,
+      {
+        binding: "class-bound",
+        components: [],
+        created,
+        expires,
+        replay: "replayable"
+      }
+    )
+
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        classBoundPolicies: [],
+        replayable: true,
+        replayableNotBefore: () => null
+      },
+      { verifyMessage }
+    )
+    expect(resAllowed.ok).toBe(true)
+    if (!resAllowed.ok) throw new Error("unreachable")
+    expect(resAllowed.binding).toBe("class-bound")
+    expect(resAllowed.components).toEqual(["@authority"])
+  })
+
   test("bad_time is enforced before signature verification", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000

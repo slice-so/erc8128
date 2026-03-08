@@ -73,7 +73,12 @@ export type RoutePolicy = {
   /** Extra components required in addition to default request-bound set. */
   additionalRequestBoundComponents?: string[]
 
-  /** Class-bound components policies (one list or a list of lists). @authority is always required. */
+  /**
+   * Class-bound component policies.
+   * - `undefined`: route is request-bound only
+   * - `[]`: allow authority-only class-bound
+   * - entries: require @authority plus those components
+   */
   classBoundPolicies?: string[] | string[][]
 }
 

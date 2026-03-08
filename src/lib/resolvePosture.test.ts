@@ -155,6 +155,32 @@ describe("resolvePosture", () => {
       })
     })
 
+    test("empty classBoundPolicies on route keeps class-bound with authority-only minimum", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "/api/sensitive": [
+            {
+              methods: ["POST"],
+              replayable: true,
+              classBoundPolicies: []
+            }
+          ]
+        }
+      }
+      expect(
+        resolvePosture("POST", "/api/sensitive", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: ["authorization"]
+        })
+      ).toEqual({
+        binding: "class-bound",
+        replay: "replayable",
+        components: ["authorization"]
+      })
+    })
+
     test("route enables replay even when default disables it", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
@@ -290,6 +316,30 @@ describe("resolvePosture", () => {
         binding: "request-bound",
         replay: "replayable",
         components: ["@authority", "custom"]
+      })
+    })
+
+    test("empty route classBoundPolicies keeps class-bound even with no extra components", () => {
+      const config: ServerConfig = {
+        max_validity_sec: 300,
+        route_policies: {
+          "/api/plain": {
+            methods: ["GET"],
+            replayable: true,
+            classBoundPolicies: []
+          }
+        }
+      }
+      expect(
+        resolvePosture("GET", "/api/plain", config, {
+          replay: "replayable",
+          binding: "class-bound",
+          components: []
+        })
+      ).toEqual({
+        binding: "class-bound",
+        replay: "replayable",
+        components: []
       })
     })
 

@@ -16,7 +16,8 @@ export function normalizeComponentsList(components?: string[]): string[] {
 export function normalizeClassBoundPolicies(
   policies?: string[] | string[][]
 ): ClassBoundPolicy[] {
-  if (!policies || policies.length === 0) return []
+  if (policies === undefined) return []
+  if (policies.length === 0) return [[]]
   if (typeof policies[0] === "string") {
     return [normalizeComponentsList(policies as string[])]
   }

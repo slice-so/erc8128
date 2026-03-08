@@ -49,8 +49,8 @@ export function resolvePosture(
 
   const useClassBound =
     mergedOptions.binding === "class-bound" &&
-    routePolicy?.classBoundPolicies &&
-    routePolicy.classBoundPolicies.length > 0
+    routePolicy != null &&
+    routePolicy.classBoundPolicies !== undefined
 
   // Class-bound is independent of replayability — it means only selected components are signed
   if (useClassBound) {
@@ -91,13 +91,18 @@ export function resolvePosture(
  * - `string[]`: a single policy — merge with client components
  * - `string[][]`: multiple policies — pick the one requiring the fewest
  *   extra components beyond what the client already provides, then merge
- * - `undefined`: use client components as-is
+ * - `[]`: authority-only class-bound policy
+ * - `undefined`: route does not allow class-bound
  */
 function mergeComponents(
   clientComponents: string[],
   classBoundPolicies: string[] | string[][] | undefined
 ): string[] {
-  if (!classBoundPolicies || classBoundPolicies.length === 0) {
+  if (classBoundPolicies === undefined) {
+    return clientComponents
+  }
+
+  if (classBoundPolicies.length === 0) {
     return clientComponents
   }
 

@@ -762,6 +762,40 @@ describe("ERC-8128 client - route-level effects", () => {
     expect(components).toContain("authorization")
   })
 
+  test("class-bound at client + serverConfig route with empty classBoundPolicies → stays class-bound with authority-only default", async () => {
+    const client = createSignerClient(makeSigner(), {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      preferReplayable: true,
+      binding: "class-bound",
+      components: ["authorization"],
+      serverConfigs: {
+        [ORIGIN]: {
+          max_validity_sec: 300,
+          route_policies: {
+            "/api/authority-only": {
+              methods: ["GET"],
+              replayable: true,
+              classBoundPolicies: []
+            }
+          }
+        }
+      }
+    })
+
+    const req = await client.signRequest(
+      new Request(`${ORIGIN}/api/authority-only`, {
+        headers: { authorization: "Bearer tok" }
+      })
+    )
+    const { hasNonce, components } = parseSignatureInput(req)
+    expect(hasNonce).toBe(false)
+    expect(components).not.toContain("@method")
+    expect(components).not.toContain("@path")
+    expect(components).toContain("@authority")
+    expect(components).toContain("authorization")
+  })
+
   test("route with multiple classBoundPolicies (string[][]) picks the best fit for client components", async () => {
     const client = createSignerClient(makeSigner(), {
       created: 1_700_000_000,
