@@ -27,6 +27,10 @@ function normalizePath(raw: string) {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`
 }
 
+function getSigningPath(raw: string) {
+  return normalizePath(raw)
+}
+
 function toHex(bytes: Uint8Array) {
   return `0x${Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -361,13 +365,12 @@ export function PlaygroundInner() {
   const signatureBasePreviewHtml = useMemo(() => {
     const lines: string[] = []
     const authority = new URL(getPlaygroundOrigin()).host
+    const signingPath = getSigningPath(path)
     lines.push(`<span style="color:#86efac">"@authority": ${authority}</span>`)
     if (selectedComponents.has("@method"))
       lines.push(`<span style="color:#86efac">"@method": ${method}</span>`)
     if (selectedComponents.has("@path"))
-      lines.push(
-        `<span style="color:#86efac">"@path": ${normalizePath(path)}</span>`
-      )
+      lines.push(`<span style="color:#86efac">"@path": ${signingPath}</span>`)
 
     if (includeContentDigest) {
       lines.push(
@@ -419,9 +422,10 @@ export function PlaygroundInner() {
     setSigning(true)
 
     const normalizedPath = normalizePath(path)
+    const signingPath = getSigningPath(path)
     const origin = getPlaygroundOrigin()
-    const signUrl = new URL(normalizedPath, origin).toString()
-    const fetchUrl = signUrl
+    const signUrl = new URL(signingPath, origin).toString()
+    const fetchUrl = new URL(normalizedPath, origin).toString()
     const components = Array.from(selectedComponents)
       .filter((c) => c !== "nonce")
       .filter((c) => !(c === "content-digest" && !hasBody))
@@ -731,6 +735,11 @@ export function PlaygroundInner() {
                   value={path}
                   disabled
                 />
+                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-white/35">
+                  Signed against /verify. Better-auth now protects the Hono
+                  route directly instead of routing through an internal auth
+                  endpoint.
+                </p>
               </label>
             </div>
 

@@ -13,11 +13,10 @@
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
-    "@slicekit/better-auth": "^1.5.2-erc8128.1",
+    "@slicekit/better-auth": "^1.5.2-erc8128.2",
     "@slicekit/erc8128": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "astro": "^5.17.1",
-    "better-auth": "1.5.1",
     "connectkit": "^1.9.1",
     "hono": "^4.12.5",
     "porto": "^0.2.37",

@@ -176,7 +176,7 @@ Signs and sends a request in one call.
 | `strictLabel` | `boolean` | `false` | Require exact label match |
 | `replayable` | `boolean` | `false` | Allow replayable (nonce-less) signatures |
 | `additionalRequestBoundComponents` | `string[]` | — | Extra components required for request-bound |
-| `classBoundPolicies` | `string[] \| string[][]` | — | Acceptable class-bound component policies |
+| `classBoundPolicies` | `string[] \| string[][]` | — | `undefined` disables class-bound, `[]` means authority-only, other entries require `@authority` plus those components |
 
 ## Nonce store
 

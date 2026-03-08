@@ -2,14 +2,10 @@ import { env } from "cloudflare:workers"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import { createPublicClient, http } from "viem"
-import { mainnet } from "viem/chains"
 import {
   type AuthInstance,
   getAuthInstance
 } from "./lib/erc8128/backend-config"
-import { verifyDeletePlaygroundRequest } from "./lib/erc8128/playground-delete-verify"
-import { prepareVerifyRequest } from "./lib/erc8128/playground-forwarding"
 import {
   parseStorageMode,
   parseStorageModeFromEnv,
@@ -26,12 +22,6 @@ declare global {
 }
 
 // ── Shared infra ─────────────────────────────────────
-
-const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(rpcUrl)
-})
 
 type Env = {
   Variables: {
@@ -116,11 +106,7 @@ export default app
   .use(async (c, next) => {
     const envDefault = parseStorageModeFromEnv(env.ERC8128_STORAGE_DEFAULT)
     const storageMode = parseStorageMode(c.req.raw.headers, envDefault)
-    const authInstance = getAuthInstance(
-      storageMode,
-      publicClient.verifyMessage,
-      new URL(c.req.url).origin
-    )
+    const authInstance = getAuthInstance(storageMode, new URL(c.req.url).origin)
     c.set("storageMode", storageMode)
     c.set("authInstance", authInstance)
     await next()
@@ -128,110 +114,66 @@ export default app
 
   // Preserve the public discovery URL while delegating document generation
   // to the erc8128 better-auth plugin.
-  .get("/.well-known/erc8128", (c) => {
-    const rewrittenUrl = new URL("/api/auth/.well-known/erc8128", c.req.url)
-    return c.var.authInstance.handler(
-      new Request(rewrittenUrl.toString(), {
-        method: "GET",
-        headers: c.req.raw.headers
-      })
-    )
+  .get("/.well-known/erc8128", async (c) => {
+    const config = await c.var.authInstance.erc8128.getConfig(c.req.raw)
+    return c.json(config)
   })
 
-  // Signature verification — rewrites to /api/auth/verify so the erc8128
-  // middleware intercepts. Route policy is enforced at the plugin level
-  // (DELETE = non-replayable, everything else = replayable class-bound).
+  // Signature verification for the public playground route. Better-auth owns
+  // verification and storage; Hono keeps owning the route.
   .all("/verify", async (c) => {
     const request = c.req.raw
     const { storageMode, authInstance } = c.var
     const verbose =
       c.req.query("verbose") === "1" || c.req.query("verbose") === "true"
 
-    if (request.method === "DELETE") {
-      const t0 = performance.now()
-      const responseHeaders = new Headers()
-      const result = await verifyDeletePlaygroundRequest({
-        request,
-        storageMode,
-        verifyMessage: publicClient.verifyMessage,
-        setHeaders: (name, value) => {
-          responseHeaders.set(name, value)
-        }
-      })
+    const t0 = performance.now()
+
+    try {
+      const protectResult = await authInstance.erc8128.protect(request)
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
+
       const metadata = {
         verifyMs,
         storageMode,
         cacheStrategy: authInstance.cacheStrategy
       }
-      const acceptSignature = responseHeaders.get("accept-signature")
 
-      if (result.ok) {
+      if (protectResult.ok) {
+        if (protectResult.verification == null) {
+          return c.json(
+            {
+              ok: false,
+              error: "verification_error",
+              detail: "ERC-8128 verification result was not attached",
+              ...metadata
+            },
+            500
+          )
+        }
+
+        const verification = {
+          ok: true as const,
+          address: protectResult.verification.address,
+          chainId: protectResult.verification.chainId,
+          label: protectResult.verification.label,
+          components: protectResult.verification.components,
+          binding: protectResult.verification.binding,
+          replayable: protectResult.verification.replayable,
+          params: protectResult.verification.params
+        }
         const payload = verbose
-          ? { ...verbosePayload(request, result), ...metadata }
-          : { ...result, ...metadata }
+          ? { ...verbosePayload(request, verification), ...metadata }
+          : { ...verification, ...metadata }
 
         const res = c.json(payload, 200)
-        if (acceptSignature) {
-          res.headers.set("accept-signature", acceptSignature)
+        for (const [key, value] of protectResult.responseHeaders.entries()) {
+          res.headers.set(key, value)
         }
         return res
       }
 
-      const reason = mapErrorReason(result.reason)
-      const verification = {
-        ok: false as const,
-        reason,
-        ...(result.detail ? { detail: result.detail } : {})
-      }
-      const status = reasonToStatus(reason)
-      const payload = verbose
-        ? {
-            ...verbosePayload(request, verification),
-            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
-            ...metadata
-          }
-        : {
-            ...verification,
-            ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
-            ...metadata
-          }
-
-      const res = c.json(payload, status as ContentfulStatusCode)
-      if (acceptSignature) {
-        res.headers.set("accept-signature", acceptSignature)
-      }
-      return res
-    }
-
-    // Rewrite URL so better-auth routes to the playground endpoint
-    const origin = new URL(request.url).origin
-    const rewrittenUrl = new URL("/api/auth/verify", origin)
-    for (const [k, v] of new URL(request.url).searchParams) {
-      rewrittenUrl.searchParams.set(k, v)
-    }
-
-    const preparedRequest = await prepareVerifyRequest(request, rewrittenUrl)
-    if (!preparedRequest.ok) {
-      return c.json(
-        {
-          ok: false,
-          error: preparedRequest.error,
-          detail: preparedRequest.detail
-        },
-        400
-      )
-    }
-
-    const rewrittenRequest = preparedRequest.request
-
-    const t0 = performance.now()
-
-    try {
-      const authResponse = await authInstance.handler(rewrittenRequest)
-      const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-
-      const authResponseText = await authResponse.clone().text()
+      const authResponseText = await protectResult.response.clone().text()
       const body =
         authResponseText.length > 0
           ? (() => {
@@ -243,27 +185,9 @@ export default app
             })()
           : null
 
-      const metadata = {
-        verifyMs,
-        storageMode,
-        cacheStrategy: authInstance.cacheStrategy
-      }
+      const acceptSignature =
+        protectResult.responseHeaders.get("accept-signature")
 
-      const acceptSignature = authResponse.headers.get("accept-signature")
-
-      // Success
-      if (authResponse.ok && body?.ok === true) {
-        const payload = verbose
-          ? { ...verbosePayload(request, body), ...metadata }
-          : { ...body, ...metadata }
-
-        const res = c.json(payload, 200)
-        if (acceptSignature)
-          res.headers.set("accept-signature", acceptSignature)
-        return res
-      }
-
-      // Verification failure
       const reason = mapErrorReason((body?.reason as string) || "unknown")
       const detail = (body?.detail as string) || (body?.message as string) || ""
       const status = reasonToStatus(reason)
@@ -287,7 +211,9 @@ export default app
           }
 
       const res = c.json(payload, status as ContentfulStatusCode)
-      if (acceptSignature) res.headers.set("accept-signature", acceptSignature)
+      for (const [key, value] of protectResult.responseHeaders.entries()) {
+        res.headers.set(key, value)
+      }
       return res
     } catch (error) {
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
