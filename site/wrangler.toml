@@ -10,15 +10,16 @@ directory = "./dist"
 pattern = "erc8128.org"
 custom_domain = true
 
-[vars]
-ERC8128_STORAGE_DEFAULT = "none"
-# ERC8128_ENABLE_REDIS = "false"
-# ERC8128_ENABLE_POSTGRES = "false"
-
 # Secrets (set via `wrangler secret put`):
 # SECRET_ALCHEMY_KEY
 # REDIS_URL
-# DATABASE_URL
+# DATABASE_URL  # local/dev fallback when Hyperdrive is not bound
+
+# Preferred production Postgres path:
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "16b7e78165e648ddb8b2119e7d139fa1"
+localConnectionString = "postgresql://postgres:postgres@localhost:5432/erc8128_site"
 
 [observability]
 [observability.logs]

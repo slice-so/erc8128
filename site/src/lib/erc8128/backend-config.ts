@@ -1,142 +1,232 @@
 /**
- * Better-auth instance factory — cached per storage mode, base URL, and
- * verifier so in-memory storage survives across requests.
+ * Better-auth instance factory for the playground worker.
  *
- * The ERC-8128 plugin owns replay protection, invalidation, and verification
- * cache. App routes call the plugin's server API directly.
+ * The auth instance itself is created per request. Caching the Better Auth
+ * instance caused runtime issues in Workers, so only lower-level storage
+ * helpers should be cached.
  */
 
-import { betterAuth, env } from "@slicekit/better-auth"
-import { memoryAdapter } from "@slicekit/better-auth/adapters/memory"
+import { AsyncLocalStorage } from "node:async_hooks"
+import { type BetterAuthOptions, betterAuth } from "@slicekit/better-auth"
+import { drizzleAdapter } from "@slicekit/better-auth/adapters/drizzle"
 import {
-  type ERC8128PluginOptions,
   type Erc8128ServerApi,
   erc8128,
   getErc8128Api
 } from "@slicekit/better-auth/plugins/erc8128"
 import type { VerifyMessageFn } from "@slicekit/erc8128"
+import { drizzle } from "drizzle-orm/postgres-js"
+import postgres from "postgres"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
-import { createMemorySecondaryStorage } from "./secondary-storage-memory"
+import * as authSchema from "../../auth-schema"
+import { createRedisSecondaryStorage } from "./secondary-storage-redis"
 import type { StorageMode } from "./storage-header"
 
-export type CacheStrategy = "none" | "secondary-storage" | "database"
+export type CacheStrategy = "secondary-storage" | "database"
 
 export interface AuthInstance {
   handler: (request: Request) => Promise<Response>
   erc8128: Erc8128ServerApi
   cacheStrategy: CacheStrategy
+  protect: (request: Request) => Promise<{
+    result: Awaited<ReturnType<Erc8128ServerApi["protect"]>>
+    cachedVerification: boolean
+  }>
 }
 
-type AuthInstanceCache = Map<string, WeakMap<VerifyMessageFn, AuthInstance>>
+type AuthDatabase = NonNullable<BetterAuthOptions["database"]>
+type AuthSecondaryStorage = NonNullable<BetterAuthOptions["secondaryStorage"]>
 
-const CACHE_STRATEGY: Record<StorageMode, CacheStrategy> = {
-  none: "none",
-  redis: "secondary-storage",
-  postgres: "database"
+export interface AuthRuntimeConfig {
+  cacheStrategy: CacheStrategy
+  database: AuthDatabase
+  secondaryStorage?: AuthSecondaryStorage
 }
 
-const VERIFY_ROUTE_POLICY: NonNullable<ERC8128PluginOptions["routePolicy"]> = {
-  "/verify": [
-    {
-      methods: ["GET", "POST", "PUT", "PATCH"],
-      replayable: true,
-      classBoundPolicies: [["@authority"]]
-    },
-    {
-      methods: ["DELETE"],
-      replayable: false
-    }
-  ]
+export interface AuthBindings {
+  hyperdrive?: string
+  databaseUrl?: string
+  redisUrl?: string
 }
 
-const authInstanceCache: AuthInstanceCache = new Map()
+const redisSecondaryStorageCache = new Map<string, AuthSecondaryStorage>()
+const verifyMessageCache = new Map<string, VerifyMessageFn>()
+const verifyCallContext = new AsyncLocalStorage<{
+  verifyMessageCalled: boolean
+}>()
 
-export const rpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY ?? ""}`
-export const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(rpcUrl)
-})
+function getRpcUrl(alchemyKey?: string) {
+  const key = alchemyKey?.trim()
+  return key ? `https://eth-mainnet.g.alchemy.com/v2/${key}` : undefined
+}
 
-function createMemoryDb() {
-  return {
-    user: [] as Record<string, unknown>[],
-    session: [] as Record<string, unknown>[],
-    account: [] as Record<string, unknown>[],
-    verification: [] as Record<string, unknown>[],
-    walletAddress: [] as Record<string, unknown>[],
-    erc8128Nonce: [] as Record<string, unknown>[],
-    erc8128Invalidation: [] as Record<string, unknown>[]
+export function getVerifyMessageFn(alchemyKey?: string): VerifyMessageFn {
+  const rpcUrl = getRpcUrl(alchemyKey) ?? "default"
+  const cached = verifyMessageCache.get(rpcUrl)
+  if (cached) {
+    return cached
   }
+
+  const verifyMessage = createPublicClient({
+    chain: mainnet,
+    transport: http(getRpcUrl(alchemyKey))
+  }).verifyMessage
+
+  verifyMessageCache.set(rpcUrl, verifyMessage)
+  return verifyMessage
 }
 
 function normalizeBaseURL(baseURL: string) {
   return new URL(baseURL).toString().replace(/\/$/, "")
 }
 
-function getCachedAuthInstance(
-  mode: StorageMode,
-  baseURL: string,
-  verifyMessage: VerifyMessageFn
-) {
-  const cacheKey = `${mode}:${normalizeBaseURL(baseURL)}`
-  return authInstanceCache.get(cacheKey)?.get(verifyMessage) ?? null
-}
-
-function setCachedAuthInstance(
-  mode: StorageMode,
-  baseURL: string,
-  verifyMessage: VerifyMessageFn,
-  instance: AuthInstance
-) {
-  const cacheKey = `${mode}:${normalizeBaseURL(baseURL)}`
-  let instancesByVerifier = authInstanceCache.get(cacheKey)
-
-  if (!instancesByVerifier) {
-    instancesByVerifier = new WeakMap()
-    authInstanceCache.set(cacheKey, instancesByVerifier)
+function resolvePostgresConnectionString(bindings: AuthBindings): string {
+  const hyperdriveConnectionString = bindings.hyperdrive?.trim()
+  if (hyperdriveConnectionString) {
+    return hyperdriveConnectionString
   }
 
-  instancesByVerifier.set(verifyMessage, instance)
+  const databaseUrl = bindings.databaseUrl?.trim()
+  if (databaseUrl) {
+    return databaseUrl
+  }
+
+  throw new Error(
+    "[erc8128/site] Postgres storage requires a Hyperdrive binding or DATABASE_URL"
+  )
+}
+
+function resolveRedisUrl(bindings: AuthBindings): string {
+  const redisUrl = bindings.redisUrl?.trim()
+  if (redisUrl) {
+    return redisUrl
+  }
+
+  throw new Error("[erc8128/site] Redis storage requires REDIS_URL")
+}
+
+function getPostgresAdapter(bindings: AuthBindings): AuthDatabase {
+  const connectionString = resolvePostgresConnectionString(bindings)
+  const sql = postgres(connectionString, {
+    max: 5,
+    fetch_types: false
+  })
+
+  return drizzleAdapter(
+    drizzle(sql, {
+      schema: authSchema,
+      casing: "snake_case"
+    }),
+    {
+      provider: "pg"
+    }
+  )
+}
+
+function getRedisSecondaryStorage(
+  bindings: AuthBindings
+): AuthSecondaryStorage {
+  const connectionString = resolveRedisUrl(bindings)
+  const cached = redisSecondaryStorageCache.get(connectionString)
+  if (cached) {
+    return cached
+  }
+
+  const storage = createRedisSecondaryStorage(connectionString)
+  redisSecondaryStorageCache.set(connectionString, storage)
+  return storage
+}
+
+function resolveRuntimeConfig(
+  mode: StorageMode,
+  bindings: AuthBindings
+): AuthRuntimeConfig {
+  if (mode === "postgres") {
+    return {
+      cacheStrategy: "database",
+      database: getPostgresAdapter(bindings)
+    }
+  }
+
+  return {
+    cacheStrategy: "secondary-storage",
+    database: getPostgresAdapter(bindings),
+    secondaryStorage: getRedisSecondaryStorage(bindings)
+  }
+}
+
+export function createAuthInstance(
+  runtimeConfig: AuthRuntimeConfig,
+  baseURL: string,
+  verifyMessage: VerifyMessageFn = getVerifyMessageFn()
+): AuthInstance {
+  const instrumentedVerifyMessage: VerifyMessageFn = async (args) => {
+    const context = verifyCallContext.getStore()
+    if (context) {
+      context.verifyMessageCalled = true
+    }
+
+    return verifyMessage(args)
+  }
+
+  const auth = betterAuth({
+    baseURL: normalizeBaseURL(baseURL),
+    database: runtimeConfig.database,
+    ...(runtimeConfig.secondaryStorage
+      ? { secondaryStorage: runtimeConfig.secondaryStorage }
+      : {}),
+    plugins: [
+      erc8128({
+        verifyMessage: instrumentedVerifyMessage,
+        routePolicy: {
+          "/verify": [
+            {
+              methods: ["GET", "POST", "PUT"],
+              replayable: true,
+              classBoundPolicies: ["@authority"]
+            },
+            {
+              methods: ["DELETE"],
+              replayable: false
+            }
+          ]
+        }
+      })
+    ]
+  })
+
+  return {
+    handler: (request: Request) => auth.handler(request),
+    erc8128: getErc8128Api(auth),
+    cacheStrategy: runtimeConfig.cacheStrategy,
+    protect: async (request: Request) =>
+      verifyCallContext.run({ verifyMessageCalled: false }, async () => {
+        const result = await getErc8128Api(auth).protect(request)
+        const context = verifyCallContext.getStore()
+        const cachedVerification =
+          result.ok &&
+          !!result.verification?.replayable &&
+          context != null &&
+          !context.verifyMessageCalled
+
+        return {
+          result,
+          cachedVerification
+        }
+      })
+  }
 }
 
 export function getAuthInstance(
   mode: StorageMode,
   baseURL: string,
-  verifyMessage = publicClient.verifyMessage
+  bindings: AuthBindings,
+  verifyMessage = getVerifyMessageFn()
 ): AuthInstance {
-  const cached = getCachedAuthInstance(mode, baseURL, verifyMessage)
-  if (cached) {
-    return cached
-  }
-
-  const secondaryStorage =
-    mode === "redis" ? createMemorySecondaryStorage() : undefined
-
-  const auth = betterAuth({
-    database: memoryAdapter(createMemoryDb()),
-    basePath: "/api/auth",
-    baseURL: normalizeBaseURL(baseURL),
-    ...(secondaryStorage ? { secondaryStorage } : {}),
-    plugins: [
-      erc8128({
-        verifyMessage,
-        authPrecedence: "signature-first",
-        anonymous: true,
-        maxValiditySec: 300,
-        clockSkewSec: 30,
-        routePolicy: VERIFY_ROUTE_POLICY
-      })
-    ]
-  })
-
-  const instance: AuthInstance = {
-    handler: (request: Request) => auth.handler(request),
-    erc8128: getErc8128Api(auth),
-    cacheStrategy: CACHE_STRATEGY[mode]
-  }
-
-  setCachedAuthInstance(mode, baseURL, verifyMessage, instance)
-
-  return instance
+  return createAuthInstance(
+    resolveRuntimeConfig(mode, bindings),
+    baseURL,
+    verifyMessage
+  )
 }

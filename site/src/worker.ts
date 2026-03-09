@@ -1,28 +1,20 @@
 import { env } from "cloudflare:workers"
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
 import { cors } from "hono/cors"
+import type { ContentfulStatusCode } from "hono/utils/http-status"
 import {
   type AuthInstance,
-  getAuthInstance
+  getAuthInstance,
+  getVerifyMessageFn
 } from "./lib/erc8128/backend-config"
 import {
   parseStorageMode,
-  parseStorageModeFromEnv,
   type StorageMode
 } from "./lib/erc8128/storage-header"
 import {
   buildVerifyExceptionResponse,
   buildVerifyProtectResponse
 } from "./lib/erc8128/verify-response"
-
-declare global {
-  namespace Cloudflare {
-    interface Env {
-      SECRET_ALCHEMY_KEY?: string
-      ERC8128_STORAGE_DEFAULT?: string
-    }
-  }
-}
 
 // ── Shared infra ─────────────────────────────────────
 
@@ -31,6 +23,21 @@ type Env = {
     storageMode: StorageMode
     authInstance: AuthInstance
   }
+}
+
+function jsonWithHeaders(
+  c: Context<Env>,
+  response: {
+    payload: Record<string, unknown>
+    status: ContentfulStatusCode
+    headers: Headers
+  }
+) {
+  const res = c.json(response.payload, response.status)
+  for (const [key, value] of response.headers.entries()) {
+    res.headers.set(key, value)
+  }
+  return res
 }
 
 // ── App ──────────────────────────────────────────────
@@ -47,13 +54,17 @@ export default app
     })
   )
   .use(async (c, next) => {
-    await next()
-    c.res.headers.set("cache-control", "no-store")
-  })
-  .use(async (c, next) => {
-    const envDefault = parseStorageModeFromEnv(env.ERC8128_STORAGE_DEFAULT)
-    const storageMode = parseStorageMode(c.req.raw.headers, envDefault)
-    const authInstance = getAuthInstance(storageMode, new URL(c.req.url).origin)
+    const storageMode = parseStorageMode(c.req.raw.headers)
+
+    const authInstance = getAuthInstance(
+      storageMode,
+      new URL(c.req.url).origin,
+      {
+        hyperdrive: env.HYPERDRIVE.connectionString,
+        redisUrl: env.REDIS_URL
+      },
+      getVerifyMessageFn(env.SECRET_ALCHEMY_KEY)
+    )
     c.set("storageMode", storageMode)
     c.set("authInstance", authInstance)
     await next()
@@ -69,45 +80,37 @@ export default app
   // Signature verification for the public playground route. Better-auth owns
   // verification and storage; Hono keeps owning the route.
   .all("/verify", async (c) => {
-    const request = c.req.raw
     const { storageMode, authInstance } = c.var
-    const verbose =
-      c.req.query("verbose") === "1" || c.req.query("verbose") === "true"
 
     const t0 = performance.now()
 
     try {
-      const protectResult = await authInstance.erc8128.protect(request)
+      const { result: protectResult, cachedVerification } =
+        await authInstance.protect(c.req.raw)
+
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
       const response = await buildVerifyProtectResponse({
-        request,
         protectResult,
-        verbose,
         metadata: {
           verifyMs,
           storageMode,
-          cacheStrategy: authInstance.cacheStrategy
+          cacheStrategy: authInstance.cacheStrategy,
+          cachedVerification
         }
       })
 
-      const res = c.json(response.payload, response.status)
-      for (const [key, value] of response.headers.entries()) {
-        res.headers.set(key, value)
-      }
+      const res = jsonWithHeaders(c, response)
+      res.headers.set("cache-control", "no-store")
       return res
     } catch (error) {
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
       const response = buildVerifyExceptionResponse({
-        request,
         error,
-        verifyMs,
-        verbose
+        verifyMs
       })
 
-      const res = c.json(response.payload, response.status)
-      for (const [key, value] of response.headers.entries()) {
-        res.headers.set(key, value)
-      }
+      const res = jsonWithHeaders(c, response)
+      res.headers.set("cache-control", "no-store")
       return res
     }
   })

@@ -9,7 +9,10 @@
     "dev": "astro build && wrangler dev",
     "build": "astro build",
     "preview": "wrangler dev",
-    "astro": "astro"
+    "astro": "astro",
+    "db:generate": "bunx drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "bunx drizzle-kit migrate --config=drizzle.config.ts",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
@@ -18,19 +21,23 @@
     "@tanstack/react-query": "^5.90.21",
     "astro": "^5.17.1",
     "connectkit": "^1.9.1",
+    "drizzle-orm": "catalog:",
     "hono": "^4.12.5",
+    "pg": "^8.20.0",
     "porto": "^0.2.37",
+    "postgres": "~3.4.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "viem": "catalog:",
     "wagmi": "^3.5.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260301.1",
     "@tailwindcss/vite": "~4.1.18",
     "@types/node": "~24.3.1",
+    "@types/pg": "~8.15.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "~0.31.4",
     "satori": "^0.12.0",
     "tailwindcss": "~4.1.18",
     "wrangler": "catalog:"

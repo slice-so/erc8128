@@ -6,12 +6,18 @@ type VerifyProtectResult = Awaited<
   ReturnType<AuthInstance["erc8128"]["protect"]>
 >
 
-type HeaderMap = Record<string, string[]>
-
 type VerificationMetadata = {
   verifyMs: number
   storageMode: StorageMode
   cacheStrategy: CacheStrategy
+  cachedVerification: boolean
+}
+
+function withCachedVerification(metadata: VerificationMetadata) {
+  return {
+    ...metadata,
+    "cached-verification": metadata.cachedVerification
+  }
 }
 
 export type VerificationHttpResponse = {
@@ -38,42 +44,6 @@ function reasonToStatus(reason: string): ContentfulStatusCode {
   return 401
 }
 
-function collectHeaders(headers: Headers): HeaderMap {
-  const result: HeaderMap = {}
-  for (const [key, value] of headers.entries()) {
-    const normalizedKey = key.toLowerCase()
-    if (!result[normalizedKey]) {
-      result[normalizedKey] = []
-    }
-    result[normalizedKey].push(value)
-  }
-  return result
-}
-
-function buildVerbosePayload(
-  request: Request,
-  verification: Record<string, unknown>
-) {
-  const url = new URL(request.url)
-  return {
-    ok: verification.ok,
-    verified: verification.ok,
-    receivedAt: new Date().toISOString(),
-    request: {
-      method: request.method,
-      path: url.pathname,
-      query: url.search,
-      authority: request.headers.get("host")
-    },
-    signatureHeaders: {
-      signatureInput: request.headers.get("signature-input"),
-      signature: request.headers.get("signature")
-    },
-    verification,
-    headers: collectHeaders(request.headers)
-  }
-}
-
 function withHeaders(target: Headers, source: Headers) {
   for (const [key, value] of source.entries()) {
     target.set(key, value)
@@ -82,12 +52,10 @@ function withHeaders(target: Headers, source: Headers) {
 }
 
 export async function buildVerifyProtectResponse(args: {
-  request: Request
   protectResult: VerifyProtectResult
-  verbose: boolean
   metadata: VerificationMetadata
 }): Promise<VerificationHttpResponse> {
-  const { request, protectResult, verbose, metadata } = args
+  const { protectResult, metadata } = args
 
   if (protectResult.ok) {
     if (protectResult.verification == null) {
@@ -97,7 +65,7 @@ export async function buildVerifyProtectResponse(args: {
           ok: false,
           error: "verification_error",
           detail: "ERC-8128 verification result was not attached",
-          ...metadata
+          ...withCachedVerification(metadata)
         },
         headers: withHeaders(new Headers(), protectResult.responseHeaders)
       }
@@ -116,9 +84,7 @@ export async function buildVerifyProtectResponse(args: {
 
     return {
       status: 200,
-      payload: verbose
-        ? { ...buildVerbosePayload(request, verification), ...metadata }
-        : { ...verification, ...metadata },
+      payload: { ...verification, ...withCachedVerification(metadata) },
       headers: withHeaders(new Headers(), protectResult.responseHeaders)
     }
   }
@@ -146,28 +112,20 @@ export async function buildVerifyProtectResponse(args: {
 
   return {
     status: reasonToStatus(reason),
-    payload: verbose
-      ? {
-          ...buildVerbosePayload(request, verification),
-          ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
-          ...metadata
-        }
-      : {
-          ...verification,
-          ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
-          ...metadata
-        },
+    payload: {
+      ...verification,
+      ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
+      ...withCachedVerification(metadata)
+    },
     headers: withHeaders(new Headers(), protectResult.responseHeaders)
   }
 }
 
 export function buildVerifyExceptionResponse(args: {
-  request: Request
   error: unknown
   verifyMs: number
-  verbose: boolean
 }): VerificationHttpResponse {
-  const { request, error, verifyMs, verbose } = args
+  const { error, verifyMs } = args
   const detail =
     error instanceof Error
       ? error.message
@@ -177,31 +135,13 @@ export function buildVerifyExceptionResponse(args: {
 
   return {
     status: 500,
-    payload: verbose
-      ? {
-          ok: false,
-          verified: false,
-          error: "verification_error",
-          detail,
-          request: {
-            method: request.method,
-            path: new URL(request.url).pathname,
-            query: new URL(request.url).search,
-            authority: request.headers.get("host")
-          },
-          signatureHeaders: {
-            signatureInput: request.headers.get("signature-input"),
-            signature: request.headers.get("signature")
-          },
-          verifyMs
-        }
-      : {
-          ok: false,
-          verified: false,
-          error: "verification_error",
-          detail,
-          verifyMs
-        },
+    payload: {
+      ok: false,
+      verified: false,
+      error: "verification_error",
+      detail,
+      verifyMs
+    },
     headers: new Headers()
   }
 }

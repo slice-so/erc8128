@@ -84,12 +84,11 @@ const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
 type AppWalletState = { id: string; publicKey: string; expiry: number }
 
-type StorageMode = "none" | "redis" | "postgres"
+type StorageMode = "redis" | "postgres"
 
 const STORAGE_LABELS: Record<StorageMode, string> = {
-  none: "None (baseline)",
-  redis: "In-Memory (Redis)",
-  postgres: "Database (Postgres)"
+  redis: "Redis",
+  postgres: "Postgres"
 }
 
 type VerifyPayload = {
@@ -104,6 +103,7 @@ type VerifyPayload = {
   verifyMs?: number
   storageMode?: StorageMode
   cacheStrategy?: string
+  "cached-verification"?: boolean
 }
 
 type SentRequestSnapshot = {
@@ -119,6 +119,14 @@ const PLAYGROUND_ORIGIN =
   import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
 
 function getPlaygroundOrigin() {
+  return PLAYGROUND_ORIGIN
+}
+
+function getRequestOrigin() {
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin.replace(/\/$/, "")
+  }
+
   return PLAYGROUND_ORIGIN
 }
 
@@ -187,7 +195,7 @@ export function PlaygroundInner() {
   const [nonce, setNonce] = useState(() =>
     crypto.randomUUID().replaceAll("-", "").slice(0, 16)
   )
-  const [storageMode, setStorageMode] = useState<StorageMode>("none")
+  const [storageMode, setStorageMode] = useState<StorageMode>("postgres")
 
   // Result state
   const [signedHeadersHtml, setSignedHeadersHtml] = useState(
@@ -311,6 +319,56 @@ export function PlaygroundInner() {
     })
   }, [address, getProvider])
 
+  const sendRequestSnapshot = useCallback(
+    async (requestSnapshot: SentRequestSnapshot) => {
+      setVerifyOk(false)
+      setVerifyData(null)
+      setVerifyTiming("")
+      setVerificationResultText("Processing request...")
+      setVerifying(true)
+
+      try {
+        const response = await fetch(requestSnapshot.url, {
+          method: requestSnapshot.method,
+          headers: requestSnapshot.headers,
+          body: requestSnapshot.body
+        })
+
+        const payload = await parseResponsePayload(response)
+
+        if (payload?.verifyMs != null) {
+          setVerifyTiming(`verified in ${Math.round(payload.verifyMs)}ms`)
+        }
+
+        setVerifyOk(!!payload?.ok)
+        setVerifyData(payload)
+
+        if (payload?.ok && payload?.address) {
+          resolveEns(payload.address).then(setEnsName)
+        } else {
+          setEnsName(null)
+        }
+
+        const displayPayload = { ...payload }
+        delete displayPayload.verifyMs
+        delete displayPayload.storageMode
+        delete displayPayload.cacheStrategy
+        setVerificationResultText(JSON.stringify(displayPayload, null, 2))
+      } catch (error) {
+        setVerifyTiming("")
+        setVerifyOk(false)
+        setVerifyData(null)
+        setEnsName(null)
+        setVerificationResultText(
+          `Request failed: ${(error as Error)?.message || "Unknown error"}`
+        )
+      } finally {
+        setVerifying(false)
+      }
+    },
+    []
+  )
+
   const enableAutoSigning = useCallback(async () => {
     if (!isConnected || !address) return
     setAutoSigningPending(true)
@@ -424,19 +482,14 @@ export function PlaygroundInner() {
 
     const normalizedPath = normalizePath(path)
     const signingPath = getSigningPath(path)
-    const origin = getPlaygroundOrigin()
-    const signUrl = new URL(signingPath, origin).toString()
-    const fetchUrl = new URL(normalizedPath, origin).toString()
+    const signingOrigin = getPlaygroundOrigin()
+    const requestOrigin = getRequestOrigin()
+    const signUrl = new URL(signingPath, signingOrigin).toString()
+    const fetchUrl = new URL(normalizedPath, requestOrigin).toString()
     const components = Array.from(selectedComponents)
       .filter((c) => c !== "nonce")
       .filter((c) => !(c === "content-digest" && !hasBody))
     const includeNonce = selectedComponents.has("nonce")
-    setVerifyOk(false)
-    setVerifyData(null)
-    setVerifyTiming("")
-    setVerificationResultText("Processing request...")
-    setVerifying(true)
-
     const storedPrivateKey = readStoredAppWalletPrivateKey()
     const sessionAccount = storedPrivateKey
       ? privateKeyToAccount(storedPrivateKey)
@@ -503,7 +556,7 @@ export function PlaygroundInner() {
       )
       const signMs =
         Math.round((performance.now() - signStart - walletWaitMs) * 10) / 10
-      setSignTiming(`${signMs}ms`)
+      setSignTiming(`signed in ${signMs}ms`)
 
       // Trigger pulse animation for app-wallet auto-signing (fast path).
       if (storedPrivateKey && walletWaitMs < 1000) {
@@ -524,39 +577,14 @@ export function PlaygroundInner() {
       // Send to server — inject hidden storage header (NOT signed)
       const fetchHeaders = new Headers(signed.headers)
       fetchHeaders.set("x-erc8128-storage", storageMode)
-      setLastSentRequest({
+      const requestSnapshot = {
         url: fetchUrl,
         method: signed.method,
         headers: Array.from(fetchHeaders.entries()),
         ...(hasBody ? { body } : {})
-      })
-
-      const response = await fetch(fetchUrl, {
-        method: signed.method,
-        headers: fetchHeaders,
-        body: hasBody ? body : undefined
-      })
-
-      const payload = await parseResponsePayload(response)
-
-      if (payload?.verifyMs != null) {
-        setVerifyTiming(`${Math.round(payload.verifyMs)}ms`)
-      }
-
-      setVerifyOk(!!payload?.ok)
-      setVerifyData(payload)
-
-      if (payload?.ok && payload?.address) {
-        resolveEns(payload.address).then(setEnsName)
-      } else {
-        setEnsName(null)
-      }
-
-      const displayPayload = { ...payload }
-      delete displayPayload.verifyMs
-      delete displayPayload.storageMode
-      delete displayPayload.cacheStrategy
-      setVerificationResultText(JSON.stringify(displayPayload, null, 2))
+      } satisfies SentRequestSnapshot
+      setLastSentRequest(requestSnapshot)
+      await sendRequestSnapshot(requestSnapshot)
 
       // Regenerate nonce
       setNonce(crypto.randomUUID().replaceAll("-", "").slice(0, 16))
@@ -572,7 +600,6 @@ export function PlaygroundInner() {
     } finally {
       signingRef.current = false
       setSigning(false)
-      setVerifying(false)
     }
   }, [
     address,
@@ -587,8 +614,14 @@ export function PlaygroundInner() {
     chainId,
     getWalletClient,
     appWallet,
-    storageMode
+    storageMode,
+    sendRequestSnapshot
   ])
+
+  const replayLastRequest = useCallback(async () => {
+    if (!lastSentRequest || signingRef.current) return
+    await sendRequestSnapshot(lastSentRequest)
+  }, [lastSentRequest, sendRequestSnapshot])
 
   // ── Copy as cURL ───────────────────────────────────
 
@@ -624,7 +657,7 @@ export function PlaygroundInner() {
     setSelectedComponents(new Set(ALL_COMPONENTS))
     setTtl(60)
     setNonce(crypto.randomUUID().replaceAll("-", "").slice(0, 16))
-    setStorageMode("none")
+    setStorageMode("postgres")
     setSignedHeadersHtml("Sign the request to generate headers.")
     setVerificationResultText("Not sent yet.")
     setSignTiming("")
@@ -706,7 +739,7 @@ export function PlaygroundInner() {
           <div>
             <div className="mb-5">
               <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                &gt; 01 {"// COMPOSE REQUEST"}
+                &gt; {"COMPOSE REQUEST"}
               </p>
             </div>
 
@@ -736,11 +769,6 @@ export function PlaygroundInner() {
                   value={path}
                   disabled
                 />
-                <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.12em] text-white/35">
-                  Signed against /verify. Better-auth now protects the Hono
-                  route directly instead of routing through an internal auth
-                  endpoint.
-                </p>
               </label>
             </div>
 
@@ -760,7 +788,7 @@ export function PlaygroundInner() {
 
             <div className="mb-4 flex items-center justify-between">
               <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                &gt; 02 {"// SIGNATURE COMPONENTS"}
+                &gt; {"SIGNATURE COMPONENTS"}
               </p>
               <button
                 onClick={resetAll}
@@ -813,20 +841,18 @@ export function PlaygroundInner() {
 
             <div className="mb-4 mt-6">
               <p className="mb-3 font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                &gt; 02b {"// SERVER STORAGE BACKEND"}
+                &gt; {"SERVER STORAGE BACKEND"}
               </p>
               <div className="border border-white/15 p-3">
                 <div className="grid grid-cols-1 gap-2">
-                  {(["none", "redis", "postgres"] as const).map((mode) => (
+                  {(["redis", "postgres"] as const).map((mode) => (
                     <label
                       key={mode}
                       className={`component-chip ${
                         storageMode === mode
-                          ? mode === "none"
-                            ? "text-white/80"
-                            : mode === "redis"
-                              ? "text-[#fbbf24]"
-                              : "text-[#60a5fa]"
+                          ? mode === "redis"
+                            ? "text-[#fbbf24]"
+                            : "text-[#60a5fa]"
                           : "text-white/35"
                       }`}
                     >
@@ -841,9 +867,6 @@ export function PlaygroundInner() {
                     </label>
                   ))}
                 </div>
-                <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-white/25">
-                  Hidden transport header — not part of signed components
-                </p>
               </div>
             </div>
           </div>
@@ -904,7 +927,7 @@ export function PlaygroundInner() {
         <div className="p-4 md:p-6 lg:flex lg:flex-col lg:min-h-0">
           <div className="mb-3">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; 03 {"// SIGNATURE BASE PREVIEW"}
+              &gt; {"SIGNATURE BASE PREVIEW"}
             </p>
           </div>
 
@@ -920,55 +943,94 @@ export function PlaygroundInner() {
           </div>
 
           <div className="mb-6">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="mb-2 flex items-start justify-between">
+              <div>
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                  &gt; 04 {"// SIGNED HEADERS"}
+                  &gt; {"SIGNED HEADERS"}
                 </p>
                 {signTiming && (
-                  <span className="font-mono text-[10px] text-yellow-300/90">
+                  <p className="mt-1 font-mono text-[10px] text-yellow-300/90">
                     {signTiming}
-                  </span>
+                  </p>
                 )}
               </div>
-              {lastSentRequest && (
+              <div className="flex items-center gap-3">
+                {lastSentRequest && (
+                  <button
+                    onClick={replayLastRequest}
+                    disabled={verifying}
+                    className={`inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] transition-all ${
+                      verifying
+                        ? "cursor-wait border-[#67e8f9]/25 text-[#67e8f9]/35"
+                        : "border-[#67e8f9]/60 bg-[#67e8f9]/8 text-[#67e8f9] hover:border-[#67e8f9] hover:bg-[#67e8f9]/14"
+                    }`}
+                    type="button"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className={`h-3.5 w-3.5 ${verifying ? "animate-spin" : ""}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M20 11a8 8 0 1 0-2.34 5.66M20 11V5m0 6h-6"
+                        stroke="currentColor"
+                        strokeLinecap="square"
+                        strokeLinejoin="miter"
+                        strokeWidth="1.8"
+                      />
+                    </svg>
+                    <span>{verifying ? "Replaying..." : "Replay Request"}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+            <ExpandablePre html={signedHeadersHtml} />
+            {lastSentRequest && (
+              <div className="mt-3 flex justify-end">
                 <button
                   onClick={copyCurl}
-                  className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/50 transition-colors hover:text-white"
+                  className="border border-white/12 bg-white/4 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 transition-colors hover:border-white/20 hover:bg-white/7 hover:text-white/70"
                   type="button"
                 >
                   {copiedCurl ? "Copied" : "Copy as cURL"}
                 </button>
-              )}
-            </div>
-            <ExpandablePre html={signedHeadersHtml} />
+              </div>
+            )}
           </div>
 
           <div className="lg:flex lg:flex-1 lg:flex-col lg:min-h-0">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="mb-2 flex items-start justify-between">
+              <div>
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                  &gt; 05 {"// VERIFICATION RESULT"}
+                  &gt; {"VERIFICATION RESULT"}
                 </p>
                 {verifyTiming && (
-                  <span className="font-mono text-[10px] text-yellow-300/90">
+                  <p
+                    className={`mt-1 font-mono text-[10px] ${
+                      verifyData?.["cached-verification"]
+                        ? "text-emerald-300/90"
+                        : "text-yellow-300/90"
+                    }`}
+                  >
                     {verifyTiming}
+                    {verifyData?.["cached-verification"] && (
+                      <span className="text-emerald-300/90"> (cached)</span>
+                    )}
                     {verifyData?.storageMode && (
                       <span
                         className="ml-1"
                         style={{
                           color:
-                            verifyData.storageMode === "none"
-                              ? "rgba(255,255,255,0.5)"
-                              : verifyData.storageMode === "redis"
-                                ? "#fbbf24"
-                                : "#60a5fa"
+                            verifyData.storageMode === "redis"
+                              ? "#fbbf24"
+                              : "#60a5fa"
                         }}
                       >
                         · {verifyData.storageMode}
                       </span>
                     )}
-                  </span>
+                  </p>
                 )}
               </div>
               {verifyOk && verifyData && (
