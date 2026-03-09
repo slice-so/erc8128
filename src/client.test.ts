@@ -762,7 +762,7 @@ describe("ERC-8128 client - route-level effects", () => {
     expect(components).toContain("authorization")
   })
 
-  test("class-bound at client + serverConfig route with empty classBoundPolicies → stays class-bound with authority-only default", async () => {
+  test("class-bound at client + serverConfig route with empty classBoundPolicies shorthand → stays class-bound with authority-only default", async () => {
     const client = createSignerClient(makeSigner(), {
       created: 1_700_000_000,
       expires: 1_700_000_060,

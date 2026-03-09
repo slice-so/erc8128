@@ -50,15 +50,15 @@ function serializeAcceptSignatureValue(
 export function buildAcceptSignatureHeader(args: {
   requestBoundRequired: string[]
   classBoundPolicies: string[][]
-  requireNonce: boolean
+  allowReplayable: boolean
 }): string {
-  const { requestBoundRequired, classBoundPolicies, requireNonce } = args
+  const { requestBoundRequired, classBoundPolicies, allowReplayable } = args
   const entries: string[] = []
   const seen = new Set<string>()
   let index = 1
 
-  const addEntry = (components: string[]) => {
-    const key = components.join("\u0000")
+  const addEntry = (components: string[], requireNonce: boolean) => {
+    const key = `${components.join("\u0000")}\u0000${requireNonce ? "nonce" : "replayable"}`
     if (seen.has(key)) return
     seen.add(key)
     const value = serializeAcceptSignatureValue(components, requireNonce)
@@ -66,8 +66,13 @@ export function buildAcceptSignatureHeader(args: {
     index++
   }
 
-  addEntry(requestBoundRequired)
-  for (const policy of classBoundPolicies) addEntry(policy)
+  const addPolicyEntries = (components: string[]) => {
+    addEntry(components, true)
+    if (allowReplayable) addEntry(components, false)
+  }
+
+  addPolicyEntries(requestBoundRequired)
+  for (const policy of classBoundPolicies) addPolicyEntries(policy)
 
   return entries.join(", ")
 }

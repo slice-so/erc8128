@@ -134,7 +134,7 @@ export async function verifyRequest(
       const acceptSignature = buildAcceptSignatureHeader({
         requestBoundRequired,
         classBoundPolicies,
-        requireNonce: !allowReplayable
+        allowReplayable
       })
       setHeaders("Accept-Signature", acceptSignature)
     } catch {

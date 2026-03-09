@@ -91,7 +91,8 @@ export function resolvePosture(
  * - `string[]`: a single policy — merge with client components
  * - `string[][]`: multiple policies — pick the one requiring the fewest
  *   extra components beyond what the client already provides, then merge
- * - `[]`: authority-only class-bound policy
+ * - `["@authority"]`: explicit minimal class-bound policy
+ * - `[]`: supported shorthand for `["@authority"]`
  * - `undefined`: route does not allow class-bound
  */
 function mergeComponents(

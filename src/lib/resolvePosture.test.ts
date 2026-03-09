@@ -155,7 +155,7 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("empty classBoundPolicies on route keeps class-bound with authority-only minimum", () => {
+    test("empty classBoundPolicies shorthand keeps class-bound with authority-only minimum", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {
@@ -319,7 +319,7 @@ describe("resolvePosture", () => {
       })
     })
 
-    test("empty route classBoundPolicies keeps class-bound even with no extra components", () => {
+    test("empty route classBoundPolicies shorthand keeps class-bound even with no extra components", () => {
       const config: ServerConfig = {
         max_validity_sec: 300,
         route_policies: {

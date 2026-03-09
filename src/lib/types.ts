@@ -76,8 +76,9 @@ export type RoutePolicy = {
   /**
    * Class-bound component policies.
    * - `undefined`: route is request-bound only
-   * - `[]`: allow authority-only class-bound
+   * - `["@authority"]`: allow minimal class-bound
    * - entries: require @authority plus those components
+   * - `[]`: supported shorthand for `["@authority"]`
    */
   classBoundPolicies?: string[] | string[][]
 }

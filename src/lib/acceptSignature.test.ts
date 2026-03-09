@@ -13,7 +13,7 @@ describe("parseAcceptSignatureHeader", () => {
     const header = buildAcceptSignatureHeader({
       requestBoundRequired: ["@authority", "@method", "@path"],
       classBoundPolicies: [["@authority", "x-tenant"]],
-      requireNonce: true
+      allowReplayable: false
     })
 
     const parsed = parseAcceptSignatureHeader(header)
@@ -32,6 +32,48 @@ describe("parseAcceptSignatureHeader", () => {
       acceptSignatureValue:
         '("@authority" "x-tenant");keyid;created;expires;nonce'
     })
+  })
+
+  test("emits both non-replayable and replayable variants when replayable signatures are allowed", () => {
+    const header = buildAcceptSignatureHeader({
+      requestBoundRequired: [
+        "@authority",
+        "@method",
+        "@path",
+        "content-digest"
+      ],
+      classBoundPolicies: [["@authority"]],
+      allowReplayable: true
+    })
+
+    expect(parseAcceptSignatureHeader(header)).toEqual([
+      {
+        label: "sig1",
+        components: ["@authority", "@method", "@path", "content-digest"],
+        requiredParams: ["keyid", "created", "expires", "nonce"],
+        acceptSignatureValue:
+          '("@authority" "@method" "@path" "content-digest");keyid;created;expires;nonce'
+      },
+      {
+        label: "sig2",
+        components: ["@authority", "@method", "@path", "content-digest"],
+        requiredParams: ["keyid", "created", "expires"],
+        acceptSignatureValue:
+          '("@authority" "@method" "@path" "content-digest");keyid;created;expires'
+      },
+      {
+        label: "sig3",
+        components: ["@authority"],
+        requiredParams: ["keyid", "created", "expires", "nonce"],
+        acceptSignatureValue: '("@authority");keyid;created;expires;nonce'
+      },
+      {
+        label: "sig4",
+        components: ["@authority"],
+        requiredParams: ["keyid", "created", "expires"],
+        acceptSignatureValue: '("@authority");keyid;created;expires'
+      }
+    ])
   })
 
   test("derives signRequest options when request shape is provided", () => {

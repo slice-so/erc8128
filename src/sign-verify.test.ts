@@ -875,7 +875,7 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(resAllowed.replayable).toBe(true)
   })
 
-  test("empty classBoundPolicies allows authority-only class-bound verification", async () => {
+  test("empty classBoundPolicies shorthand allows authority-only class-bound verification", async () => {
     const signer = makeSigner()
     const verifyMessage = makeVerifyMessage()
 
