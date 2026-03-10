@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks"
+
 type RedisValue = string | number | null | RedisValue[]
 
 export interface SecondaryStorage {
@@ -19,6 +21,37 @@ type RedisConnectionInfo = {
   username?: string
   password?: string
   database?: number
+}
+
+interface RedisConnection {
+  writer: WritableStreamDefaultWriter<Uint8Array>
+  reader: RespReader
+  close: () => Promise<void>
+}
+
+interface RedisRequestStore {
+  connection: RedisConnection | null
+  config: RedisConnectionInfo | null
+  keyPrefix: string
+}
+
+const redisRequestContext = new AsyncLocalStorage<RedisRequestStore>()
+
+export async function runWithRedisRequestContext<T>(
+  fn: () => Promise<T>
+): Promise<T> {
+  const store: RedisRequestStore = {
+    connection: null,
+    config: null,
+    keyPrefix: ""
+  }
+  try {
+    return await redisRequestContext.run(store, fn)
+  } finally {
+    if (store.connection) {
+      await store.connection.close().catch(() => undefined)
+    }
+  }
 }
 
 const encoder = new TextEncoder()
@@ -159,6 +192,63 @@ function encodeCommand(parts: string[]) {
   return encoder.encode(serialized)
 }
 
+async function openConnection(
+  config: RedisConnectionInfo
+): Promise<RedisConnection> {
+  const { connect } = await import("cloudflare:sockets")
+  const socket = connect(
+    {
+      hostname: config.hostname,
+      port: config.port
+    },
+    {
+      secureTransport: config.secure ? "on" : "off",
+      allowHalfOpen: false
+    }
+  )
+
+  const writer = socket.writable.getWriter()
+  const rawReader = socket.readable.getReader()
+  const reader = new RespReader(rawReader)
+
+  if (config.password) {
+    const authCommand = config.username
+      ? ["AUTH", config.username, config.password]
+      : ["AUTH", config.password]
+    await writer.write(encodeCommand(authCommand))
+    await reader.readValue()
+  }
+
+  if (config.database != null && config.database !== 0) {
+    await writer.write(encodeCommand(["SELECT", String(config.database)]))
+    await reader.readValue()
+  }
+
+  return {
+    writer,
+    reader,
+    close: async () => {
+      rawReader.releaseLock()
+      writer.releaseLock()
+      await socket.close().catch(() => undefined)
+    }
+  }
+}
+
+function configMatches(
+  a: RedisConnectionInfo,
+  b: RedisConnectionInfo
+): boolean {
+  return (
+    a.hostname === b.hostname &&
+    a.port === b.port &&
+    a.secure === b.secure &&
+    a.username === b.username &&
+    a.password === b.password &&
+    a.database === b.database
+  )
+}
+
 export function createRedisSecondaryStorage(
   options: string | RedisSecondaryStorageOptions
 ): SecondaryStorage {
@@ -170,43 +260,64 @@ export function createRedisSecondaryStorage(
   const config = parseRedisUrl(connectionString)
   const prefixKey = (key: string) => `${keyPrefix}${key}`
 
-  async function execute(command: string[]) {
-    const { connect } = await import("cloudflare:sockets")
-    const socket = connect(
-      {
-        hostname: config.hostname,
-        port: config.port
-      },
-      {
-        secureTransport: config.secure ? "on" : "off",
-        allowHalfOpen: false
-      }
-    )
+  async function getOrCreateConnection(): Promise<RedisConnection> {
+    const store = redisRequestContext.getStore()
 
-    const writer = socket.writable.getWriter()
-    const reader = socket.readable.getReader()
-    const respReader = new RespReader(reader)
+    if (store) {
+      if (
+        store.connection &&
+        store.config &&
+        configMatches(store.config, config)
+      ) {
+        return store.connection
+      }
+
+      const conn = await openConnection(config)
+      store.connection = conn
+      store.config = config
+      store.keyPrefix = keyPrefix
+      return conn
+    }
+
+    return openConnection(config)
+  }
+
+  async function execute(command: string[]) {
+    const store = redisRequestContext.getStore()
+    const hasContext = !!store
+
+    let conn: RedisConnection
+    try {
+      conn = await getOrCreateConnection()
+    } catch (err) {
+      if (hasContext && store.connection) {
+        store.connection = null
+        store.config = null
+      }
+      throw err
+    }
 
     try {
-      if (config.password) {
-        const authCommand = config.username
-          ? ["AUTH", config.username, config.password]
-          : ["AUTH", config.password]
-        await writer.write(encodeCommand(authCommand))
-        await respReader.readValue()
-      }
+      await conn.writer.write(encodeCommand(command))
+      return await conn.reader.readValue()
+    } catch (err) {
+      if (hasContext) {
+        await conn.close().catch(() => undefined)
+        store.connection = null
+        store.config = null
 
-      if (config.database != null && config.database !== 0) {
-        await writer.write(encodeCommand(["SELECT", String(config.database)]))
-        await respReader.readValue()
-      }
+        const freshConn = await openConnection(config)
+        store.connection = freshConn
+        store.config = config
 
-      await writer.write(encodeCommand(command))
-      return await respReader.readValue()
+        await freshConn.writer.write(encodeCommand(command))
+        return await freshConn.reader.readValue()
+      }
+      throw err
     } finally {
-      reader.releaseLock()
-      writer.releaseLock()
-      await socket.close().catch(() => undefined)
+      if (!hasContext) {
+        await conn.close().catch(() => undefined)
+      }
     }
   }
 
