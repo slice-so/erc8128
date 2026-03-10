@@ -419,6 +419,60 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(result.ok).toBe(true)
   })
 
+  test("replayable verification starts not-before, invalidation, and signature checks before awaiting any of them", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyStarted = deferred<void>()
+    const notBeforeStarted = deferred<void>()
+    const invalidationStarted = deferred<void>()
+    const releaseVerify = deferred<boolean>()
+    const releaseNotBefore = deferred<number | null>()
+    const releaseInvalidation = deferred<boolean>()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-full-parallel",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resultPromise = verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableNotBefore: async () => {
+          notBeforeStarted.resolve()
+          return releaseNotBefore.promise
+        },
+        replayableInvalidated: async () => {
+          invalidationStarted.resolve()
+          return releaseInvalidation.promise
+        }
+      },
+      {
+        verifyMessage: async () => {
+          verifyStarted.resolve()
+          return releaseVerify.promise
+        }
+      }
+    )
+
+    await Promise.all([
+      verifyStarted.promise,
+      notBeforeStarted.promise,
+      invalidationStarted.promise
+    ])
+
+    releaseVerify.resolve(true)
+    releaseNotBefore.resolve(null)
+    releaseInvalidation.resolve(false)
+
+    const result = await resultPromise
+    expect(result.ok).toBe(true)
+  })
+
   test("replayable invalidation still wins over signature verification errors", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000

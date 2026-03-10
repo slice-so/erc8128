@@ -107,12 +107,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
    */
   replayableInvalidated?: (args: {
     keyid: string
-    created: number
-    expires: number
-    label: string
     signature: Hex
-    signatureBase: Uint8Array
-    signatureParamsValue: string
   }) => boolean | Promise<boolean>
 
   /** Maximum number of signatures to verify (default 3). */

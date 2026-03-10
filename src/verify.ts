@@ -21,6 +21,16 @@ import {
 const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
+type ReplayableInvalidationArgs = NonNullable<
+  Parameters<
+    NonNullable<
+      NonNullable<VerifyRequestArgs["policy"]>["replayableInvalidated"]
+    >
+  >[0]
+>
+type ReplayableCheckArgs = ReplayableInvalidationArgs & {
+  created: number
+}
 type VerifyMessageOutcome = {
   ok: boolean
   failure: VerifyResult | null
@@ -28,37 +38,35 @@ type VerifyMessageOutcome = {
 
 async function runVerifyMessageCheck(args: {
   replayable: boolean
-  verifyMessage: NonNullable<VerifyRequestArgs["verifyMessage"]>
-  verifyMessageArgs: Parameters<
+  verifyMessageCheck: () => ReturnType<
     NonNullable<VerifyRequestArgs["verifyMessage"]>
-  >[0]
+  >
+  replayableNotBefore:
+    | NonNullable<
+        NonNullable<VerifyRequestArgs["policy"]>["replayableNotBefore"]
+      >
+    | undefined
   replayableInvalidated:
     | NonNullable<
         NonNullable<VerifyRequestArgs["policy"]>["replayableInvalidated"]
       >
     | undefined
-  replayableInvalidationArgs: NonNullable<
-    Parameters<
-      NonNullable<
-        NonNullable<VerifyRequestArgs["policy"]>["replayableInvalidated"]
-      >
-    >[0]
-  >
+  replayableArgs: ReplayableCheckArgs
 }): Promise<VerifyMessageOutcome> {
   const {
     replayable,
-    verifyMessage,
-    verifyMessageArgs,
+    verifyMessageCheck,
+    replayableNotBefore,
     replayableInvalidated,
-    replayableInvalidationArgs
+    replayableArgs
   } = args
 
-  if (replayable && replayableInvalidated) {
-    const [verifyOutcome, invalidated] = await Promise.all([
+  if (replayable) {
+    const [verifyOutcome, notBefore, invalidated] = await Promise.all([
       (async () => {
         try {
           return {
-            ok: await verifyMessage(verifyMessageArgs),
+            ok: await verifyMessageCheck(),
             failure: null
           }
         } catch {
@@ -71,8 +79,20 @@ async function runVerifyMessageCheck(args: {
           }
         }
       })(),
-      replayableInvalidated(replayableInvalidationArgs)
+      replayableNotBefore?.(replayableArgs.keyid),
+      replayableInvalidated?.(replayableArgs)
     ])
+
+    if (
+      typeof notBefore === "number" &&
+      Number.isFinite(notBefore) &&
+      replayableArgs.created < notBefore
+    ) {
+      return {
+        ok: false,
+        failure: { ok: false, reason: "replayable_not_before" }
+      }
+    }
 
     if (invalidated) {
       return {
@@ -86,7 +106,7 @@ async function runVerifyMessageCheck(args: {
 
   try {
     return {
-      ok: await verifyMessage(verifyMessageArgs),
+      ok: await verifyMessageCheck(),
       failure: null
     }
   } catch {
@@ -233,17 +253,6 @@ export async function verifyRequest(
         lastFailure = { ok: false, reason: "replayable_invalidation_required" }
         continue
       }
-      if (typeof resolvedPolicy.replayableNotBefore === "function") {
-        const notBefore = await resolvedPolicy.replayableNotBefore(params.keyid)
-        if (
-          typeof notBefore === "number" &&
-          Number.isFinite(notBefore) &&
-          params.created < notBefore
-        ) {
-          lastFailure = { ok: false, reason: "replayable_not_before" }
-          continue
-        }
-      }
     }
 
     // If content-digest is covered, enforce header exists and matches body bytes
@@ -291,17 +300,13 @@ export async function verifyRequest(
     // current failure and keep iterating instead of returning immediately.
     const verifyOutcome = await runVerifyMessageCheck({
       replayable,
-      verifyMessage: verifyFn,
-      verifyMessageArgs,
+      verifyMessageCheck: () => verifyFn(verifyMessageArgs),
+      replayableNotBefore: resolvedPolicy.replayableNotBefore,
       replayableInvalidated: resolvedPolicy.replayableInvalidated,
-      replayableInvalidationArgs: {
+      replayableArgs: {
         keyid: params.keyid,
         created: params.created,
-        expires: params.expires,
-        label,
-        signature: sigHex,
-        signatureBase: M,
-        signatureParamsValue
+        signature: sigHex
       }
     })
     if (verifyOutcome.failure) {

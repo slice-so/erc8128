@@ -73,6 +73,37 @@ describe("playground better-auth integration", () => {
     expect(first).not.toBe(second)
   })
 
+  test("closes request-scoped resources with the auth instance", async () => {
+    let closedDatabase = false
+    let closedSecondaryStorage = false
+
+    const auth = createAuthInstance(
+      {
+        cacheStrategy: "secondary-storage",
+        database: memoryAdapter(createMemoryDb()),
+        secondaryStorage: {
+          get: async () => null,
+          set: async () => undefined,
+          delete: async () => undefined,
+          setIfNotExists: async () => true
+        },
+        closeDatabase: async () => {
+          closedDatabase = true
+        },
+        closeSecondaryStorage: async () => {
+          closedSecondaryStorage = true
+        }
+      },
+      "https://erc8128.org",
+      async () => true
+    )
+
+    await auth.close()
+
+    expect(closedDatabase).toBe(true)
+    expect(closedSecondaryStorage).toBe(true)
+  })
+
   test("accepts DELETE /verify as request-bound non-replayable", async () => {
     const auth = createAuthInstance(
       createDatabaseRuntimeConfig(),

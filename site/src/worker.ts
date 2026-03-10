@@ -9,7 +9,6 @@ import {
   cleanupExpiredAuthStorage,
   getAuthInstance
 } from "./lib/erc8128/backend-config"
-import { runWithRedisRequestContext } from "./lib/erc8128/secondary-storage-redis"
 import {
   parseStorageMode,
   type StorageMode
@@ -67,28 +66,28 @@ app
     })
   )
   .use(async (c, next) => {
-    await runWithRedisRequestContext(async () => {
-      const storageMode = parseStorageMode(c.req.raw.headers)
+    const storageMode = parseStorageMode(c.req.raw.headers)
 
-      const authInstance = getAuthInstance(
-        storageMode,
-        new URL(c.req.url).origin,
-        {
-          hyperdrive: env.HYPERDRIVE.connectionString,
-          redisUrl: env.REDIS_URL
-        },
-        publicClient.verifyMessage
-      )
-      c.set("storageMode", storageMode)
-      c.set("authInstance", authInstance)
+    const authInstance = getAuthInstance(
+      storageMode,
+      new URL(c.req.url).origin,
+      {
+        hyperdrive: env.HYPERDRIVE.connectionString,
+        redisUrl: env.REDIS_URL
+      },
+      publicClient.verifyMessage
+    )
+    c.set("storageMode", storageMode)
+    c.set("authInstance", authInstance)
+    try {
       await next()
-
+    } finally {
       try {
         c.executionCtx.waitUntil(authInstance.close())
       } catch {
         await authInstance.close()
       }
-    })
+    }
   })
 
   // Preserve the public discovery URL while delegating document generation

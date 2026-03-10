@@ -2,8 +2,8 @@
  * Better-auth instance factory for the playground worker.
  *
  * The auth instance itself is created per request. Caching the Better Auth
- * instance caused runtime issues in Workers, so only lower-level storage
- * helpers should be cached.
+ * instance caused runtime issues in Workers, so request-scoped storage helpers
+ * are created alongside it and disposed at the end of the request.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks"
@@ -19,7 +19,10 @@ import type { VerifyMessageFn } from "@slicekit/erc8128"
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 import * as authSchema from "../../../src/auth-schema"
-import { createRedisSecondaryStorage } from "./secondary-storage-redis"
+import {
+  createRedisSecondaryStorage,
+  type RequestScopedSecondaryStorage
+} from "./secondary-storage-redis"
 import type { StorageMode } from "./storage-header"
 
 export type CacheStrategy = "secondary-storage" | "database"
@@ -45,6 +48,7 @@ export interface AuthRuntimeConfig {
   cleanupAdapter?: CleanupAdapter
   secondaryStorage?: AuthSecondaryStorage
   closeDatabase?: () => Promise<void>
+  closeSecondaryStorage?: () => Promise<void>
 }
 
 export interface AuthBindings {
@@ -54,8 +58,6 @@ export interface AuthBindings {
 }
 
 const REDIS_KEY_PREFIX = "erc8128-site:better-auth:"
-
-const redisSecondaryStorageCache = new Map<string, AuthSecondaryStorage>()
 const verifyCallContext = new AsyncLocalStorage<{
   verifyMessageCalled: boolean
 }>()
@@ -135,22 +137,14 @@ function createPostgresRuntime(
   }
 }
 
-function getRedisSecondaryStorage(
+function createRequestScopedRedisSecondaryStorage(
   bindings: AuthBindings
-): AuthSecondaryStorage {
+): RequestScopedSecondaryStorage {
   const connectionString = resolveRedisUrl(bindings)
-  const cacheKey = `${connectionString}::${REDIS_KEY_PREFIX}`
-  const cached = redisSecondaryStorageCache.get(cacheKey)
-  if (cached) {
-    return cached
-  }
-
-  const storage = createRedisSecondaryStorage({
+  return createRedisSecondaryStorage({
     connectionString,
     keyPrefix: REDIS_KEY_PREFIX
   })
-  redisSecondaryStorageCache.set(cacheKey, storage)
-  return storage
 }
 
 function resolveRuntimeConfig(
@@ -168,10 +162,13 @@ function resolveRuntimeConfig(
     }
   }
 
+  const secondaryStorage = createRequestScopedRedisSecondaryStorage(bindings)
+
   return {
     cacheStrategy: "secondary-storage",
     ...postgresRuntime,
-    secondaryStorage: getRedisSecondaryStorage(bindings)
+    secondaryStorage,
+    closeSecondaryStorage: () => secondaryStorage.close()
   }
 }
 
@@ -194,11 +191,17 @@ export function createAuthInstance(
     erc8128: getErc8128Api(auth),
     cacheStrategy: runtimeConfig.cacheStrategy,
     close: async () => {
-      await runtimeConfig.closeDatabase?.()
+      await Promise.allSettled([
+        runtimeConfig.closeSecondaryStorage?.(),
+        runtimeConfig.closeDatabase?.()
+      ])
     },
     protect: async (request: Request) =>
       verifyCallContext.run({ verifyMessageCalled: false }, async () => {
+        console.log("protect init", Date.now())
         const result = await getErc8128Api(auth).protect(request)
+        console.log("protect end", Date.now())
+
         const context = verifyCallContext.getStore()
         const cachedVerification =
           result.ok &&

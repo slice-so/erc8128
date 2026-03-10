@@ -1,4 +1,5 @@
-import { AsyncLocalStorage } from "node:async_hooks"
+import { connect } from "cloudflare:sockets"
+import { date } from "@slicekit/better-auth"
 
 type RedisValue = string | number | null | RedisValue[]
 
@@ -7,6 +8,10 @@ export interface SecondaryStorage {
   set(key: string, value: string, ttlSec?: number): Promise<void>
   delete(key: string): Promise<void>
   setIfNotExists?(key: string, value: string, ttlSec?: number): Promise<boolean>
+}
+
+export interface RequestScopedSecondaryStorage extends SecondaryStorage {
+  close(): Promise<void>
 }
 
 export interface RedisSecondaryStorageOptions {
@@ -27,31 +32,6 @@ interface RedisConnection {
   writer: WritableStreamDefaultWriter<Uint8Array>
   reader: RespReader
   close: () => Promise<void>
-}
-
-interface RedisRequestStore {
-  connection: RedisConnection | null
-  config: RedisConnectionInfo | null
-  keyPrefix: string
-}
-
-const redisRequestContext = new AsyncLocalStorage<RedisRequestStore>()
-
-export async function runWithRedisRequestContext<T>(
-  fn: () => Promise<T>
-): Promise<T> {
-  const store: RedisRequestStore = {
-    connection: null,
-    config: null,
-    keyPrefix: ""
-  }
-  try {
-    return await redisRequestContext.run(store, fn)
-  } finally {
-    if (store.connection) {
-      await store.connection.close().catch(() => undefined)
-    }
-  }
 }
 
 const encoder = new TextEncoder()
@@ -195,7 +175,6 @@ function encodeCommand(parts: string[]) {
 async function openConnection(
   config: RedisConnectionInfo
 ): Promise<RedisConnection> {
-  const { connect } = await import("cloudflare:sockets")
   const socket = connect(
     {
       hostname: config.hostname,
@@ -235,23 +214,9 @@ async function openConnection(
   }
 }
 
-function configMatches(
-  a: RedisConnectionInfo,
-  b: RedisConnectionInfo
-): boolean {
-  return (
-    a.hostname === b.hostname &&
-    a.port === b.port &&
-    a.secure === b.secure &&
-    a.username === b.username &&
-    a.password === b.password &&
-    a.database === b.database
-  )
-}
-
 export function createRedisSecondaryStorage(
   options: string | RedisSecondaryStorageOptions
-): SecondaryStorage {
+): RequestScopedSecondaryStorage {
   const { connectionString, keyPrefix = "better-auth:" } =
     typeof options === "string"
       ? { connectionString: options, keyPrefix: "better-auth:" }
@@ -259,101 +224,100 @@ export function createRedisSecondaryStorage(
 
   const config = parseRedisUrl(connectionString)
   const prefixKey = (key: string) => `${keyPrefix}${key}`
+  let connection: RedisConnection | null = null
+  let pending = Promise.resolve()
 
   async function getOrCreateConnection(): Promise<RedisConnection> {
-    const store = redisRequestContext.getStore()
-
-    if (store) {
-      if (
-        store.connection &&
-        store.config &&
-        configMatches(store.config, config)
-      ) {
-        return store.connection
-      }
-
-      const conn = await openConnection(config)
-      store.connection = conn
-      store.config = config
-      store.keyPrefix = keyPrefix
-      return conn
+    if (connection) {
+      return connection
     }
 
-    return openConnection(config)
+    connection = await openConnection(config)
+    return connection
   }
 
   async function execute(command: string[]) {
-    const store = redisRequestContext.getStore()
-    const hasContext = !!store
-
-    let conn: RedisConnection
     try {
-      conn = await getOrCreateConnection()
-    } catch (err) {
-      if (hasContext && store.connection) {
-        store.connection = null
-        store.config = null
-      }
-      throw err
-    }
-
-    try {
+      const conn = await getOrCreateConnection()
       await conn.writer.write(encodeCommand(command))
       return await conn.reader.readValue()
     } catch (err) {
-      if (hasContext) {
-        await conn.close().catch(() => undefined)
-        store.connection = null
-        store.config = null
-
-        const freshConn = await openConnection(config)
-        store.connection = freshConn
-        store.config = config
-
-        await freshConn.writer.write(encodeCommand(command))
-        return await freshConn.reader.readValue()
+      if (connection) {
+        await connection.close().catch(() => undefined)
+        connection = null
+        const freshConnection = await openConnection(config)
+        connection = freshConnection
+        await freshConnection.writer.write(encodeCommand(command))
+        return await freshConnection.reader.readValue()
       }
       throw err
-    } finally {
-      if (!hasContext) {
-        await conn.close().catch(() => undefined)
-      }
     }
+  }
+
+  function runSerialized<T>(fn: () => Promise<T>): Promise<T> {
+    const operation = pending.then(fn, fn)
+    pending = operation.then(
+      () => undefined,
+      () => undefined
+    )
+    return operation
   }
 
   return {
     async get(key) {
-      const value = await execute(["GET", prefixKey(key)])
+      const value = await runSerialized(() => execute(["GET", prefixKey(key)]))
+      console.log("get", prefixKey(key), value)
       return typeof value === "string" ? value : null
     },
 
     async set(key, value, ttlSec) {
-      if (ttlSec != null) {
-        await execute([
-          "SET",
-          prefixKey(key),
-          value,
-          "EX",
-          String(Math.max(1, ttlSec))
-        ])
-        return
-      }
+      await runSerialized(async () => {
+        console.log("set init", Date.now())
 
-      await execute(["SET", prefixKey(key), value])
+        if (ttlSec != null) {
+          await execute([
+            "SET",
+            prefixKey(key),
+            value,
+            "EX",
+            String(Math.max(1, ttlSec))
+          ])
+          return
+        }
+
+        await execute(["SET", prefixKey(key), value])
+      })
     },
 
     async delete(key) {
-      await execute(["DEL", prefixKey(key)])
+      await runSerialized(() => execute(["DEL", prefixKey(key)]))
     },
 
     async setIfNotExists(key, value, ttlSec) {
-      const command = ["SET", prefixKey(key), value, "NX"]
-      if (ttlSec != null) {
-        command.push("EX", String(Math.max(1, ttlSec)))
+      return runSerialized(async () => {
+        console.log("setIfNotExists init", Date.now())
+
+        const command = ["SET", prefixKey(key), value, "NX"]
+        if (ttlSec != null) {
+          command.push("EX", String(Math.max(1, ttlSec)))
+        }
+
+        const result = await execute(command)
+        console.log("setIfNotExists end", Date.now())
+        return result === "OK"
+      })
+    },
+
+    async close() {
+      console.log("close init", Date.now())
+      await pending
+      if (!connection) {
+        return
       }
 
-      const result = await execute(command)
-      return result === "OK"
+      const currentConnection = connection
+      connection = null
+      await currentConnection.close().catch(() => undefined)
     }
   }
 }
