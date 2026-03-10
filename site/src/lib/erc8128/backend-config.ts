@@ -19,7 +19,7 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
-import * as authSchema from "../../auth-schema"
+import * as authSchema from "../../../src/auth-schema"
 import { createRedisSecondaryStorage } from "./secondary-storage-redis"
 import type { StorageMode } from "./storage-header"
 
@@ -29,6 +29,7 @@ export interface AuthInstance {
   handler: (request: Request) => Promise<Response>
   erc8128: Erc8128ServerApi
   cacheStrategy: CacheStrategy
+  close: () => Promise<void>
   protect: (request: Request) => Promise<{
     result: Awaited<ReturnType<Erc8128ServerApi["protect"]>>
     cachedVerification: boolean
@@ -42,6 +43,7 @@ export interface AuthRuntimeConfig {
   cacheStrategy: CacheStrategy
   database: AuthDatabase
   secondaryStorage?: AuthSecondaryStorage
+  closeDatabase?: () => Promise<void>
 }
 
 export interface AuthBindings {
@@ -106,22 +108,26 @@ function resolveRedisUrl(bindings: AuthBindings): string {
   throw new Error("[erc8128/site] Redis storage requires REDIS_URL")
 }
 
-function getPostgresAdapter(bindings: AuthBindings): AuthDatabase {
-  const connectionString = resolvePostgresConnectionString(bindings)
+function createPostgresRuntime(
+  connectionString: string
+): Pick<AuthRuntimeConfig, "database" | "closeDatabase"> {
   const sql = postgres(connectionString, {
     max: 5,
     fetch_types: false
   })
 
-  return drizzleAdapter(
-    drizzle(sql, {
-      schema: authSchema,
-      casing: "snake_case"
-    }),
-    {
-      provider: "pg"
-    }
-  )
+  return {
+    database: drizzleAdapter(
+      drizzle(sql, {
+        schema: authSchema,
+        casing: "snake_case"
+      }),
+      {
+        provider: "pg"
+      }
+    ),
+    closeDatabase: () => sql.end()
+  }
 }
 
 function getRedisSecondaryStorage(
@@ -142,16 +148,20 @@ function resolveRuntimeConfig(
   mode: StorageMode,
   bindings: AuthBindings
 ): AuthRuntimeConfig {
+  const postgresRuntime = createPostgresRuntime(
+    resolvePostgresConnectionString(bindings)
+  )
+
   if (mode === "postgres") {
     return {
       cacheStrategy: "database",
-      database: getPostgresAdapter(bindings)
+      ...postgresRuntime
     }
   }
 
   return {
     cacheStrategy: "secondary-storage",
-    database: getPostgresAdapter(bindings),
+    ...postgresRuntime,
     secondaryStorage: getRedisSecondaryStorage(bindings)
   }
 }
@@ -200,6 +210,9 @@ export function createAuthInstance(
     handler: (request: Request) => auth.handler(request),
     erc8128: getErc8128Api(auth),
     cacheStrategy: runtimeConfig.cacheStrategy,
+    close: async () => {
+      await runtimeConfig.closeDatabase?.()
+    },
     protect: async (request: Request) =>
       verifyCallContext.run({ verifyMessageCalled: false }, async () => {
         const result = await getErc8128Api(auth).protect(request)

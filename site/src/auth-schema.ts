@@ -98,19 +98,52 @@ export const walletAddress = pgTable(
   ]
 )
 
+export const erc8128Nonce = pgTable(
+  "erc8128_nonce",
+  {
+    id: text("id").primaryKey(),
+    nonceKey: text("nonce_key").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull()
+  },
+  (table) => [index("erc8128Nonce_expiresAt_idx").on(table.expiresAt)]
+)
+
+export const erc8128VerificationCache = pgTable(
+  "erc8128_verification_cache",
+  {
+    id: text("id").primaryKey(),
+    cacheKey: text("cache_key").notNull().unique(),
+    address: text("address").notNull(),
+    chainId: integer("chain_id").notNull(),
+    signatureHash: text("signature_hash").notNull(),
+    expiresAt: timestamp("expires_at").notNull()
+  },
+  (table) => [
+    index("erc8128VerificationCache_address_idx").on(table.address),
+    index("erc8128VerificationCache_chainId_idx").on(table.chainId),
+    index("erc8128VerificationCache_signatureHash_idx").on(table.signatureHash),
+    index("erc8128VerificationCache_expiresAt_idx").on(table.expiresAt)
+  ]
+)
+
 export const erc8128Invalidation = pgTable(
   "erc8128_invalidation",
   {
     id: text("id").primaryKey(),
-    keyId: text("key_id").notNull(),
-    signature: text("signature").default(""),
-    notBefore: integer("not_before").notNull(),
-    expiresAt: integer("expires_at").default(0),
-    updatedAt: timestamp("updated_at").notNull()
+    kind: text("kind").notNull(),
+    matchKey: text("match_key").notNull().unique(),
+    address: text("address").notNull(),
+    chainId: integer("chain_id").notNull(),
+    signatureHash: text("signature_hash"),
+    notBefore: integer("not_before"),
+    expiresAt: timestamp("expires_at")
   },
   (table) => [
-    index("erc8128Invalidation_keyId_idx").on(table.keyId),
-    index("erc8128Invalidation_signature_idx").on(table.signature)
+    index("erc8128Invalidation_kind_idx").on(table.kind),
+    index("erc8128Invalidation_address_idx").on(table.address),
+    index("erc8128Invalidation_chainId_idx").on(table.chainId),
+    index("erc8128Invalidation_signatureHash_idx").on(table.signatureHash),
+    index("erc8128Invalidation_expiresAt_idx").on(table.expiresAt)
   ]
 )
 

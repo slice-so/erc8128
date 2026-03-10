@@ -68,6 +68,12 @@ export default app
     c.set("storageMode", storageMode)
     c.set("authInstance", authInstance)
     await next()
+
+    try {
+      c.executionCtx.waitUntil(authInstance.close())
+    } catch {
+      await authInstance.close()
+    }
   })
 
   // Preserve the public discovery URL while delegating document generation
