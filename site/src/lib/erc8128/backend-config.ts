@@ -39,10 +39,12 @@ export interface AuthInstance {
 
 type AuthDatabase = NonNullable<BetterAuthOptions["database"]>
 type AuthSecondaryStorage = NonNullable<BetterAuthOptions["secondaryStorage"]>
+type CleanupAdapter = ReturnType<ReturnType<typeof drizzleAdapter>>
 
 export interface AuthRuntimeConfig {
   cacheStrategy: CacheStrategy
   database: AuthDatabase
+  cleanupAdapter?: CleanupAdapter
   secondaryStorage?: AuthSecondaryStorage
   closeDatabase?: () => Promise<void>
 }
@@ -109,24 +111,48 @@ function resolveRedisUrl(bindings: AuthBindings): string {
   throw new Error("[erc8128/site] Redis storage requires REDIS_URL")
 }
 
+function createErc8128Plugin(verifyMessage: VerifyMessageFn) {
+  return erc8128({
+    verifyMessage,
+    routePolicy: {
+      "/verify": [
+        {
+          methods: ["GET", "POST", "PUT"],
+          replayable: true,
+          classBoundPolicies: ["@authority"]
+        },
+        {
+          methods: ["DELETE"],
+          replayable: false
+        }
+      ]
+    }
+  })
+}
+
 function createPostgresRuntime(
   connectionString: string
-): Pick<AuthRuntimeConfig, "database" | "closeDatabase"> {
+): Pick<AuthRuntimeConfig, "database" | "cleanupAdapter" | "closeDatabase"> {
   const sql = postgres(connectionString, {
     max: 5,
     fetch_types: false
   })
 
+  const database = drizzleAdapter(
+    drizzle(sql, {
+      schema: authSchema,
+      casing: "snake_case"
+    }),
+    {
+      provider: "pg"
+    }
+  )
+
   return {
-    database: drizzleAdapter(
-      drizzle(sql, {
-        schema: authSchema,
-        casing: "snake_case"
-      }),
-      {
-        provider: "pg"
-      }
-    ),
+    database,
+    cleanupAdapter: database({
+      plugins: [createErc8128Plugin(async () => false)]
+    } as BetterAuthOptions),
     closeDatabase: () => sql.end()
   }
 }
@@ -172,39 +198,13 @@ export function createAuthInstance(
   baseURL: string,
   verifyMessage: VerifyMessageFn = getVerifyMessageFn()
 ): AuthInstance {
-  const instrumentedVerifyMessage: VerifyMessageFn = async (args) => {
+  const auth = createBetterAuth(runtimeConfig, baseURL, async (args) => {
     const context = verifyCallContext.getStore()
     if (context) {
       context.verifyMessageCalled = true
     }
 
     return verifyMessage(args)
-  }
-
-  const auth = betterAuth({
-    baseURL: normalizeBaseURL(baseURL),
-    database: runtimeConfig.database,
-    ...(runtimeConfig.secondaryStorage
-      ? { secondaryStorage: runtimeConfig.secondaryStorage }
-      : {}),
-    plugins: [
-      erc8128({
-        verifyMessage: instrumentedVerifyMessage,
-        routePolicy: {
-          "/verify": [
-            {
-              methods: ["GET", "POST", "PUT"],
-              replayable: true,
-              classBoundPolicies: ["@authority"]
-            },
-            {
-              methods: ["DELETE"],
-              replayable: false
-            }
-          ]
-        }
-      })
-    ]
   })
 
   return {
@@ -245,17 +245,32 @@ export function getAuthInstance(
   )
 }
 
+function createBetterAuth(
+  runtimeConfig: AuthRuntimeConfig,
+  baseURL: string,
+  verifyMessage: VerifyMessageFn
+) {
+  return betterAuth({
+    baseURL: normalizeBaseURL(baseURL),
+    database: runtimeConfig.database,
+    ...(runtimeConfig.secondaryStorage
+      ? { secondaryStorage: runtimeConfig.secondaryStorage }
+      : {}),
+    plugins: [createErc8128Plugin(verifyMessage)]
+  })
+}
+
 export async function cleanupExpiredAuthStorage(
   bindings: AuthBindings,
   now = new Date()
-): Promise<CleanupExpiredAuthStorageResult> {
+): Promise<Awaited<ReturnType<typeof cleanupExpiredErc8128Storage>>> {
   const runtime = createPostgresRuntime(
     resolvePostgresConnectionString(bindings)
   )
 
   try {
     return await cleanupExpiredErc8128Storage({
-      adapter: runtime.database,
+      adapter: runtime.cleanupAdapter ?? runtime.database,
       now
     })
   } finally {
