@@ -4,6 +4,7 @@ export interface SecondaryStorage {
   get(key: string): Promise<string | null>
   set(key: string, value: string, ttlSec?: number): Promise<void>
   delete(key: string): Promise<void>
+  setIfNotExists?(key: string, value: string, ttlSec?: number): Promise<boolean>
 }
 
 export interface RedisSecondaryStorageOptions {
@@ -201,7 +202,6 @@ export function createRedisSecondaryStorage(
       }
 
       await writer.write(encodeCommand(command))
-      await writer.close()
       return await respReader.readValue()
     } finally {
       reader.releaseLock()
@@ -233,6 +233,16 @@ export function createRedisSecondaryStorage(
 
     async delete(key) {
       await execute(["DEL", prefixKey(key)])
+    },
+
+    async setIfNotExists(key, value, ttlSec) {
+      const command = ["SET", prefixKey(key), value, "NX"]
+      if (ttlSec != null) {
+        command.push("EX", String(Math.max(1, ttlSec)))
+      }
+
+      const result = await execute(command)
+      return result === "OK"
     }
   }
 }
