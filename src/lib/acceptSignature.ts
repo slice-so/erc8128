@@ -66,13 +66,11 @@ export function buildAcceptSignatureHeader(args: {
     index++
   }
 
-  const addPolicyEntries = (components: string[]) => {
-    addEntry(components, true)
-    if (allowReplayable) addEntry(components, false)
-  }
-
-  addPolicyEntries(requestBoundRequired)
-  for (const policy of classBoundPolicies) addPolicyEntries(policy)
+  // Advertise one canonical signature shape per policy:
+  // - request-bound uses the nonce-bearing baseline
+  // - class-bound uses replayable when allowed, otherwise nonce-bearing
+  addEntry(requestBoundRequired, true)
+  for (const policy of classBoundPolicies) addEntry(policy, !allowReplayable)
 
   return entries.join(", ")
 }

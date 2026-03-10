@@ -34,7 +34,7 @@ describe("parseAcceptSignatureHeader", () => {
     })
   })
 
-  test("emits both non-replayable and replayable variants when replayable signatures are allowed", () => {
+  test("emits one canonical entry per policy when replayable signatures are allowed", () => {
     const header = buildAcceptSignatureHeader({
       requestBoundRequired: [
         "@authority",
@@ -56,19 +56,6 @@ describe("parseAcceptSignatureHeader", () => {
       },
       {
         label: "sig2",
-        components: ["@authority", "@method", "@path", "content-digest"],
-        requiredParams: ["keyid", "created", "expires"],
-        acceptSignatureValue:
-          '("@authority" "@method" "@path" "content-digest");keyid;created;expires'
-      },
-      {
-        label: "sig3",
-        components: ["@authority"],
-        requiredParams: ["keyid", "created", "expires", "nonce"],
-        acceptSignatureValue: '("@authority");keyid;created;expires;nonce'
-      },
-      {
-        label: "sig4",
         components: ["@authority"],
         requiredParams: ["keyid", "created", "expires"],
         acceptSignatureValue: '("@authority");keyid;created;expires'

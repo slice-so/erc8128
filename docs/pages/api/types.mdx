@@ -412,7 +412,7 @@ type VerifierClientOptions = VerifyPolicy
 
 ## SetHeadersFn
 
-Callback to set response headers. Used by `verifyRequest` to emit `Accept-Signature`.
+Callback to set response headers. Used by `verifyRequest` to emit `Accept-Signature` with one canonical signature shape per supported policy.
 
 ```typescript
 type SetHeadersFn = (name: string, value: string) => void

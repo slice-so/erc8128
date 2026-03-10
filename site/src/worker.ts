@@ -4,6 +4,7 @@ import { cors } from "hono/cors"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import {
   type AuthInstance,
+  cleanupExpiredAuthStorage,
   getAuthInstance,
   getVerifyMessageFn
 } from "./lib/erc8128/backend-config"
@@ -44,7 +45,7 @@ function jsonWithHeaders(
 
 const app = new Hono<Env>()
 
-export default app
+app
   .use(
     cors({
       origin: "*",
@@ -128,3 +129,26 @@ export default app
     "/api/auth/*",
     (c) => c.var.authInstance.handler(c.req.raw)
   )
+
+export default {
+  fetch: app.fetch,
+  scheduled(
+    controller: ScheduledController,
+    env: CloudflareBindings,
+    ctx: ExecutionContext
+  ) {
+    ctx.waitUntil(
+      cleanupExpiredAuthStorage(
+        {
+          hyperdrive: env.HYPERDRIVE.connectionString
+        },
+        new Date(controller.scheduledTime)
+      ).then((result) => {
+        console.info("[erc8128/site] cron cleanup completed", {
+          scheduledTime: new Date(controller.scheduledTime).toISOString(),
+          ...result
+        })
+      })
+    )
+  }
+} satisfies ExportedHandler<CloudflareBindings>

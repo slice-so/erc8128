@@ -88,7 +88,7 @@ Verification policy with rules for validation. Signatures are verified in the or
 
 - **Type:** `(name: string, value: string) => void`
 
-Callback to set response headers. When provided, `verifyRequest` sets `Accept-Signature` with the required components for each supported policy.
+Callback to set response headers. When provided, `verifyRequest` sets `Accept-Signature` with one canonical signature shape per supported policy: the nonce-bearing request-bound baseline, plus one representative shape for each class-bound policy.
 
 ## Examples
 

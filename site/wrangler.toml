@@ -6,6 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "./dist"
 
+[triggers]
+crons = ["*/15 * * * *"]
+
 [[routes]]
 pattern = "erc8128.org"
 custom_domain = true

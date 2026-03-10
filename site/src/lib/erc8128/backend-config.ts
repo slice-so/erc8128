@@ -10,6 +10,7 @@ import { AsyncLocalStorage } from "node:async_hooks"
 import { type BetterAuthOptions, betterAuth } from "@slicekit/better-auth"
 import { drizzleAdapter } from "@slicekit/better-auth/adapters/drizzle"
 import {
+  cleanupExpiredErc8128Storage,
   type Erc8128ServerApi,
   erc8128,
   getErc8128Api
@@ -242,4 +243,22 @@ export function getAuthInstance(
     baseURL,
     verifyMessage
   )
+}
+
+export async function cleanupExpiredAuthStorage(
+  bindings: AuthBindings,
+  now = new Date()
+): Promise<CleanupExpiredAuthStorageResult> {
+  const runtime = createPostgresRuntime(
+    resolvePostgresConnectionString(bindings)
+  )
+
+  try {
+    return await cleanupExpiredErc8128Storage({
+      adapter: runtime.database,
+      now
+    })
+  } finally {
+    await runtime.closeDatabase?.()
+  }
 }

@@ -12,6 +12,7 @@
     "astro": "astro",
     "db:generate": "bunx drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "bunx drizzle-kit migrate --config=drizzle.config.ts",
+    "db:cleanup": "wrangler dev --test-scheduled",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
