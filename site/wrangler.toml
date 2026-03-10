@@ -24,6 +24,9 @@ binding = "HYPERDRIVE"
 id = "16b7e78165e648ddb8b2119e7d139fa1"
 localConnectionString = "postgresql://postgres:postgres@localhost:5432/erc8128_site"
 
+[placement]
+region = "aws:us-east-1"
+
 [observability]
 [observability.logs]
 enabled = true

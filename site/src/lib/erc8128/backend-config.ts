@@ -44,7 +44,7 @@ type CleanupAdapter = ReturnType<ReturnType<typeof drizzleAdapter>>
 
 export interface AuthRuntimeConfig {
   cacheStrategy: CacheStrategy
-  database: AuthDatabase
+  database?: AuthDatabase
   cleanupAdapter?: CleanupAdapter
   secondaryStorage?: AuthSecondaryStorage
   closeDatabase?: () => Promise<void>
@@ -152,11 +152,11 @@ async function resolveRuntimeConfig(
   mode: StorageMode,
   bindings: AuthBindings
 ): Promise<AuthRuntimeConfig> {
-  const postgresRuntime = await createPostgresRuntime(
-    resolvePostgresConnectionString(bindings)
-  )
-
   if (mode === "postgres") {
+    const postgresRuntime = await createPostgresRuntime(
+      resolvePostgresConnectionString(bindings)
+    )
+
     return {
       cacheStrategy: "database",
       ...postgresRuntime
@@ -167,7 +167,6 @@ async function resolveRuntimeConfig(
 
   return {
     cacheStrategy: "secondary-storage",
-    ...postgresRuntime,
     secondaryStorage,
     closeSecondaryStorage: () => secondaryStorage.close()
   }
@@ -238,7 +237,7 @@ function createBetterAuth(
 ) {
   return betterAuth({
     baseURL: normalizeBaseURL(baseURL),
-    database: runtimeConfig.database,
+    ...(runtimeConfig.database ? { database: runtimeConfig.database } : {}),
     ...(runtimeConfig.secondaryStorage
       ? { secondaryStorage: runtimeConfig.secondaryStorage }
       : {}),
