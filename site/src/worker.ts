@@ -68,7 +68,7 @@ app
   .use(async (c, next) => {
     const storageMode = parseStorageMode(c.req.raw.headers)
 
-    const authInstance = getAuthInstance(
+    const authInstance = await getAuthInstance(
       storageMode,
       new URL(c.req.url).origin,
       {

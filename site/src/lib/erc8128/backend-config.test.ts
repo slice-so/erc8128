@@ -54,16 +54,16 @@ const TEST_BINDINGS: AuthBindings = {
 }
 
 describe("playground better-auth integration", () => {
-  test("returns fresh auth instances for the same mode and base URL", () => {
+  test("returns fresh auth instances for the same mode and base URL", async () => {
     const verify = async () => true
 
-    const first = getAuthInstance(
+    const first = await getAuthInstance(
       "postgres",
       "https://erc8128.org",
       TEST_BINDINGS,
       verify
     )
-    const second = getAuthInstance(
+    const second = await getAuthInstance(
       "postgres",
       "https://erc8128.org/",
       TEST_BINDINGS,

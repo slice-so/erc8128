@@ -123,8 +123,10 @@ function getPlaygroundOrigin() {
 }
 
 function getRequestOrigin() {
-  if (typeof window !== "undefined" && window.location.origin) {
-    return window.location.origin.replace(/\/$/, "")
+  if (typeof window !== "undefined") {
+    if (window.location.origin) {
+      return window.location.origin.replace(/\/$/, "")
+    }
   }
 
   return PLAYGROUND_ORIGIN
@@ -178,6 +180,7 @@ async function parseResponsePayload(
 // ── component ────────────────────────────────────────
 
 export function PlaygroundInner() {
+  const composeTapTimesRef = useRef<number[]>([])
   const { address, isConnected, connector } = useAccount()
   const chainId = useChainId()
   const { setOpen: openConnectModal } = useModal()
@@ -218,6 +221,7 @@ export function PlaygroundInner() {
   const [verifying, setVerifying] = useState(false)
   const [copiedCurl, setCopiedCurl] = useState(false)
   const [contentDigestPreview, setContentDigestPreview] = useState<string>("")
+  const [showStorageBackend, setShowStorageBackend] = useState(false)
   const providerRef = useRef<EIP1193Provider | null>(null)
   const signingRef = useRef(false)
 
@@ -679,6 +683,22 @@ export function PlaygroundInner() {
     })
   }
 
+  const handleComposeHeaderClick = useCallback(() => {
+    if (showStorageBackend) return
+
+    const now = Date.now()
+    const recentTapTimes = composeTapTimesRef.current.filter(
+      (time) => now - time <= 1200
+    )
+    recentTapTimes.push(now)
+    composeTapTimesRef.current = recentTapTimes
+
+    if (recentTapTimes.length >= 5) {
+      setShowStorageBackend(true)
+      composeTapTimesRef.current = []
+    }
+  }, [showStorageBackend])
+
   // ── Render ─────────────────────────────────────────
 
   return (
@@ -738,7 +758,10 @@ export function PlaygroundInner() {
         <div className="border-b border-white/15 p-4 md:p-6 lg:border-b-0 lg:border-r lg:border-white/15 flex flex-col justify-between">
           <div>
             <div className="mb-5">
-              <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
+              <p
+                className="font-mono text-xs uppercase tracking-[0.12em] text-white/55 cursor-default select-none"
+                onKeyUp={handleComposeHeaderClick}
+              >
                 &gt; {"COMPOSE REQUEST"}
               </p>
             </div>
@@ -839,36 +862,38 @@ export function PlaygroundInner() {
               </div>
             </div>
 
-            <div className="mb-4 mt-6">
-              <p className="mb-3 font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                &gt; {"SERVER STORAGE BACKEND"}
-              </p>
-              <div className="border border-white/15 p-3">
-                <div className="grid grid-cols-1 gap-2">
-                  {(["redis", "postgres"] as const).map((mode) => (
-                    <label
-                      key={mode}
-                      className={`component-chip ${
-                        storageMode === mode
-                          ? mode === "redis"
-                            ? "text-[#fbbf24]"
-                            : "text-[#60a5fa]"
-                          : "text-white/35"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="storage-mode"
-                        className="component-checkbox"
-                        checked={storageMode === mode}
-                        onChange={() => setStorageMode(mode)}
-                      />
-                      <span>{STORAGE_LABELS[mode]}</span>
-                    </label>
-                  ))}
+            {showStorageBackend && (
+              <div className="mb-4 mt-6">
+                <p className="mb-3 font-mono text-xs uppercase tracking-[0.12em] text-white/55">
+                  &gt; {"SERVER STORAGE BACKEND"}
+                </p>
+                <div className="border border-white/15 p-3">
+                  <div className="grid grid-cols-1 gap-2">
+                    {(["redis", "postgres"] as const).map((mode) => (
+                      <label
+                        key={mode}
+                        className={`component-chip ${
+                          storageMode === mode
+                            ? mode === "redis"
+                              ? "text-[#fbbf24]"
+                              : "text-[#60a5fa]"
+                            : "text-white/35"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="storage-mode"
+                          className="component-checkbox"
+                          checked={storageMode === mode}
+                          onChange={() => setStorageMode(mode)}
+                        />
+                        <span>{STORAGE_LABELS[mode]}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
           <div>
             <div className="flex flex-col gap-3">

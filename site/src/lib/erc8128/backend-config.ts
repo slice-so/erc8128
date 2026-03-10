@@ -16,8 +16,8 @@ import {
   getErc8128Api
 } from "@slicekit/better-auth/plugins/erc8128"
 import type { VerifyMessageFn } from "@slicekit/erc8128"
-import { drizzle } from "drizzle-orm/postgres-js"
-import postgres from "postgres"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { Client } from "pg"
 import * as authSchema from "../../../src/auth-schema"
 import {
   createRedisSecondaryStorage,
@@ -110,21 +110,22 @@ function createErc8128Plugin(verifyMessage: VerifyMessageFn) {
   })
 }
 
-function createPostgresRuntime(
+async function createPostgresRuntime(
   connectionString: string
-): Pick<AuthRuntimeConfig, "database" | "cleanupAdapter" | "closeDatabase"> {
-  const sql = postgres(connectionString, {
-    max: 5,
-    fetch_types: false
-  })
+): Promise<
+  Pick<AuthRuntimeConfig, "database" | "cleanupAdapter" | "closeDatabase">
+> {
+  const client = new Client({ connectionString })
+  await client.connect()
 
   const database = drizzleAdapter(
-    drizzle(sql, {
-      schema: authSchema,
+    drizzle({
+      client,
       casing: "snake_case"
     }),
     {
-      provider: "pg"
+      provider: "pg",
+      schema: authSchema
     }
   )
 
@@ -133,7 +134,7 @@ function createPostgresRuntime(
     cleanupAdapter: database({
       plugins: [createErc8128Plugin(async () => false)]
     } as BetterAuthOptions),
-    closeDatabase: () => sql.end()
+    closeDatabase: () => client.end()
   }
 }
 
@@ -147,11 +148,11 @@ function createRequestScopedRedisSecondaryStorage(
   })
 }
 
-function resolveRuntimeConfig(
+async function resolveRuntimeConfig(
   mode: StorageMode,
   bindings: AuthBindings
-): AuthRuntimeConfig {
-  const postgresRuntime = createPostgresRuntime(
+): Promise<AuthRuntimeConfig> {
+  const postgresRuntime = await createPostgresRuntime(
     resolvePostgresConnectionString(bindings)
   )
 
@@ -217,14 +218,14 @@ export function createAuthInstance(
   }
 }
 
-export function getAuthInstance(
+export async function getAuthInstance(
   mode: StorageMode,
   baseURL: string,
   bindings: AuthBindings,
   verifyMessage: VerifyMessageFn
-): AuthInstance {
+): Promise<AuthInstance> {
   return createAuthInstance(
-    resolveRuntimeConfig(mode, bindings),
+    await resolveRuntimeConfig(mode, bindings),
     baseURL,
     verifyMessage
   )
@@ -241,7 +242,8 @@ function createBetterAuth(
     ...(runtimeConfig.secondaryStorage
       ? { secondaryStorage: runtimeConfig.secondaryStorage }
       : {}),
-    plugins: [createErc8128Plugin(verifyMessage)]
+    plugins: [createErc8128Plugin(verifyMessage)],
+    secret: "ff68f964f62c4b669fb2c89507250fa22d8b452ae97a2ab0b5ff038e7cec1875"
   })
 }
 
@@ -249,7 +251,7 @@ export async function cleanupExpiredAuthStorage(
   bindings: AuthBindings,
   now = new Date()
 ): Promise<Awaited<ReturnType<typeof cleanupExpiredErc8128Storage>>> {
-  const runtime = createPostgresRuntime(
+  const runtime = await createPostgresRuntime(
     resolvePostgresConnectionString(bindings)
   )
 
