@@ -2,11 +2,12 @@ import { env } from "cloudflare:workers"
 import { type Context, Hono } from "hono"
 import { cors } from "hono/cors"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
+import { createPublicClient, http } from "viem"
+import { mainnet } from "viem/chains"
 import {
   type AuthInstance,
   cleanupExpiredAuthStorage,
-  getAuthInstance,
-  getVerifyMessageFn
+  getAuthInstance
 } from "./lib/erc8128/backend-config"
 import {
   parseStorageMode,
@@ -25,6 +26,16 @@ type Env = {
     authInstance: AuthInstance
   }
 }
+
+function getRpcUrl(alchemyKey?: string) {
+  const key = alchemyKey?.trim()
+  return key ? `https://eth-mainnet.g.alchemy.com/v2/${key}` : undefined
+}
+
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http(getRpcUrl(env.SECRET_ALCHEMY_KEY))
+})
 
 function jsonWithHeaders(
   c: Context<Env>,
@@ -64,7 +75,7 @@ app
         hyperdrive: env.HYPERDRIVE.connectionString,
         redisUrl: env.REDIS_URL
       },
-      getVerifyMessageFn(env.SECRET_ALCHEMY_KEY)
+      publicClient.verifyMessage
     )
     c.set("storageMode", storageMode)
     c.set("authInstance", authInstance)

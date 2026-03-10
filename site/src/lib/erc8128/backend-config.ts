@@ -18,8 +18,6 @@ import {
 import type { VerifyMessageFn } from "@slicekit/erc8128"
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
-import { createPublicClient, http } from "viem"
-import { mainnet } from "viem/chains"
 import * as authSchema from "../../../src/auth-schema"
 import { createRedisSecondaryStorage } from "./secondary-storage-redis"
 import type { StorageMode } from "./storage-header"
@@ -55,32 +53,12 @@ export interface AuthBindings {
   redisUrl?: string
 }
 
+const REDIS_KEY_PREFIX = "erc8128-site:better-auth:"
+
 const redisSecondaryStorageCache = new Map<string, AuthSecondaryStorage>()
-const verifyMessageCache = new Map<string, VerifyMessageFn>()
 const verifyCallContext = new AsyncLocalStorage<{
   verifyMessageCalled: boolean
 }>()
-
-function getRpcUrl(alchemyKey?: string) {
-  const key = alchemyKey?.trim()
-  return key ? `https://eth-mainnet.g.alchemy.com/v2/${key}` : undefined
-}
-
-export function getVerifyMessageFn(alchemyKey?: string): VerifyMessageFn {
-  const rpcUrl = getRpcUrl(alchemyKey) ?? "default"
-  const cached = verifyMessageCache.get(rpcUrl)
-  if (cached) {
-    return cached
-  }
-
-  const verifyMessage = createPublicClient({
-    chain: mainnet,
-    transport: http(getRpcUrl(alchemyKey))
-  }).verifyMessage
-
-  verifyMessageCache.set(rpcUrl, verifyMessage)
-  return verifyMessage
-}
 
 function normalizeBaseURL(baseURL: string) {
   return new URL(baseURL).toString().replace(/\/$/, "")
@@ -161,13 +139,17 @@ function getRedisSecondaryStorage(
   bindings: AuthBindings
 ): AuthSecondaryStorage {
   const connectionString = resolveRedisUrl(bindings)
-  const cached = redisSecondaryStorageCache.get(connectionString)
+  const cacheKey = `${connectionString}::${REDIS_KEY_PREFIX}`
+  const cached = redisSecondaryStorageCache.get(cacheKey)
   if (cached) {
     return cached
   }
 
-  const storage = createRedisSecondaryStorage(connectionString)
-  redisSecondaryStorageCache.set(connectionString, storage)
+  const storage = createRedisSecondaryStorage({
+    connectionString,
+    keyPrefix: REDIS_KEY_PREFIX
+  })
+  redisSecondaryStorageCache.set(cacheKey, storage)
   return storage
 }
 
@@ -196,7 +178,7 @@ function resolveRuntimeConfig(
 export function createAuthInstance(
   runtimeConfig: AuthRuntimeConfig,
   baseURL: string,
-  verifyMessage: VerifyMessageFn = getVerifyMessageFn()
+  verifyMessage: VerifyMessageFn
 ): AuthInstance {
   const auth = createBetterAuth(runtimeConfig, baseURL, async (args) => {
     const context = verifyCallContext.getStore()
@@ -236,7 +218,7 @@ export function getAuthInstance(
   mode: StorageMode,
   baseURL: string,
   bindings: AuthBindings,
-  verifyMessage = getVerifyMessageFn()
+  verifyMessage: VerifyMessageFn
 ): AuthInstance {
   return createAuthInstance(
     resolveRuntimeConfig(mode, bindings),

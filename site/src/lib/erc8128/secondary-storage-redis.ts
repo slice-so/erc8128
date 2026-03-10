@@ -6,6 +6,11 @@ export interface SecondaryStorage {
   delete(key: string): Promise<void>
 }
 
+export interface RedisSecondaryStorageOptions {
+  connectionString: string
+  keyPrefix?: string
+}
+
 type RedisConnectionInfo = {
   hostname: string
   port: number
@@ -154,9 +159,15 @@ function encodeCommand(parts: string[]) {
 }
 
 export function createRedisSecondaryStorage(
-  connectionString: string
+  options: string | RedisSecondaryStorageOptions
 ): SecondaryStorage {
+  const { connectionString, keyPrefix = "better-auth:" } =
+    typeof options === "string"
+      ? { connectionString: options, keyPrefix: "better-auth:" }
+      : options
+
   const config = parseRedisUrl(connectionString)
+  const prefixKey = (key: string) => `${keyPrefix}${key}`
 
   async function execute(command: string[]) {
     const { connect } = await import("cloudflare:sockets")
@@ -201,21 +212,27 @@ export function createRedisSecondaryStorage(
 
   return {
     async get(key) {
-      const value = await execute(["GET", key])
+      const value = await execute(["GET", prefixKey(key)])
       return typeof value === "string" ? value : null
     },
 
     async set(key, value, ttlSec) {
       if (ttlSec != null) {
-        await execute(["SET", key, value, "EX", String(Math.max(1, ttlSec))])
+        await execute([
+          "SET",
+          prefixKey(key),
+          value,
+          "EX",
+          String(Math.max(1, ttlSec))
+        ])
         return
       }
 
-      await execute(["SET", key, value])
+      await execute(["SET", prefixKey(key), value])
     },
 
     async delete(key) {
-      await execute(["DEL", key])
+      await execute(["DEL", prefixKey(key)])
     }
   }
 }
