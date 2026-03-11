@@ -7,7 +7,8 @@ import {
   type AuthBindings,
   type AuthRuntimeConfig,
   createAuthInstance,
-  getAuthInstance
+  getAuthInstance,
+  resolveVerifyPolicy
 } from "./backend-config"
 
 const TEST_SIGNER = {
@@ -179,6 +180,44 @@ describe("playground better-auth integration", () => {
       binding: "class-bound",
       replayable: true
     })
+  })
+
+  test("verifyRequest validates /verify signatures without creating wallet users", async () => {
+    const db = createMemoryDb()
+    const auth = createAuthInstance(
+      {
+        cacheStrategy: "database",
+        database: memoryAdapter(db)
+      },
+      "https://erc8128.org",
+      async () => true
+    )
+
+    const request = await signRequest(
+      "https://erc8128.org/verify",
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ storeId: 1, productId: 42, quantity: 2 })
+      },
+      TEST_SIGNER,
+      {
+        binding: "request-bound",
+        replay: "non-replayable",
+        nonce: `nonce-${Date.now()}`,
+        components: ["content-digest"]
+      }
+    )
+
+    const { result } = await auth.verifyRequest(
+      request,
+      resolveVerifyPolicy(request.method)
+    )
+
+    expect(result.ok).toBe(true)
+    expect(db.user).toHaveLength(0)
+    expect(db.walletAddress).toHaveLength(0)
+    expect(db.account).toHaveLength(0)
   })
 
   test("rejects unsigned requests on protected routes", async () => {

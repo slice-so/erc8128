@@ -15,7 +15,7 @@ import {
 } from "./lib/erc8128/storage-header"
 import {
   buildVerifyExceptionResponse,
-  buildVerifyProtectResponse
+  buildVerifyResultResponse
 } from "./lib/erc8128/verify-response"
 
 // ── Shared infra ─────────────────────────────────────
@@ -105,12 +105,12 @@ app
     const t0 = performance.now()
 
     try {
-      const { result: protectResult, cachedVerification } =
-        await authInstance.protect(c.req.raw)
+      const { result: verifyResult, cachedVerification } =
+        await authInstance.verifyRequest(c.req.raw)
 
       const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-      const response = await buildVerifyProtectResponse({
-        protectResult,
+      const response = await buildVerifyResultResponse({
+        verifyResult,
         metadata: {
           verifyMs,
           storageMode,

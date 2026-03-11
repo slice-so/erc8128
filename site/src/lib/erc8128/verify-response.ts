@@ -5,6 +5,9 @@ import type { StorageMode } from "./storage-header"
 type VerifyProtectResult = Awaited<
   ReturnType<AuthInstance["erc8128"]["protect"]>
 >
+type VerifyRequestResult = Awaited<
+  ReturnType<AuthInstance["erc8128"]["verifyRequest"]>
+>
 
 type VerificationMetadata = {
   verifyMs: number
@@ -49,6 +52,60 @@ function withHeaders(target: Headers, source: Headers) {
     target.set(key, value)
   }
   return target
+}
+
+export async function buildVerifyResultResponse(args: {
+  verifyResult: VerifyRequestResult
+  metadata: VerificationMetadata
+}): Promise<VerificationHttpResponse> {
+  const { verifyResult, metadata } = args
+
+  if (verifyResult.ok) {
+    const verification = {
+      ok: true as const,
+      address: verifyResult.verification.address,
+      chainId: verifyResult.verification.chainId,
+      label: verifyResult.verification.label,
+      components: verifyResult.verification.components,
+      binding: verifyResult.verification.binding,
+      replayable: verifyResult.verification.replayable,
+      params: verifyResult.verification.params
+    }
+
+    return {
+      status: 200,
+      payload: { ...verification, ...withCachedVerification(metadata) },
+      headers: withHeaders(new Headers(), verifyResult.responseHeaders)
+    }
+  }
+
+  const authResponseText = await verifyResult.response.clone().text()
+  const body =
+    authResponseText.length > 0
+      ? (() => {
+          try {
+            return JSON.parse(authResponseText) as Record<string, unknown>
+          } catch {
+            return null
+          }
+        })()
+      : null
+
+  const acceptSignature = verifyResult.responseHeaders.get("accept-signature")
+  const reason = mapErrorReason((body?.reason as string) || "unknown")
+  const detail = (body?.detail as string) || (body?.message as string) || ""
+
+  return {
+    status: reasonToStatus(reason),
+    payload: {
+      ok: false,
+      reason,
+      ...(detail ? { detail } : {}),
+      ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
+      ...withCachedVerification(metadata)
+    },
+    headers: withHeaders(new Headers(), verifyResult.responseHeaders)
+  }
 }
 
 export async function buildVerifyProtectResponse(args: {

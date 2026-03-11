@@ -1,9 +1,9 @@
 /**
  * Better-auth instance factory for the playground worker.
  *
- * The auth instance itself is created per request. Caching the Better Auth
- * instance caused runtime issues in Workers, so request-scoped storage helpers
- * are created alongside it and disposed at the end of the request.
+ * The Better Auth instance itself remains request-scoped because sharing it in
+ * Workers caused runtime issues. The Hyperdrive-backed Postgres client also
+ * follows Cloudflare's per-request pattern instead of using a driver pool.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks"
@@ -15,7 +15,11 @@ import {
   erc8128,
   getErc8128Api
 } from "@slicekit/better-auth/plugins/erc8128"
-import type { VerifyMessageFn } from "@slicekit/erc8128"
+import type {
+  RoutePolicy,
+  VerifyMessageFn,
+  VerifyPolicy
+} from "@slicekit/erc8128"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Client } from "pg"
 import * as authSchema from "../../../src/auth-schema"
@@ -32,6 +36,13 @@ export interface AuthInstance {
   erc8128: Erc8128ServerApi
   cacheStrategy: CacheStrategy
   close: () => Promise<void>
+  verifyRequest: (
+    request: Request,
+    policy?: VerifyPolicy
+  ) => Promise<{
+    result: Awaited<ReturnType<Erc8128ServerApi["verifyRequest"]>>
+    cachedVerification: boolean
+  }>
   protect: (request: Request) => Promise<{
     result: Awaited<ReturnType<Erc8128ServerApi["protect"]>>
     cachedVerification: boolean
@@ -58,6 +69,17 @@ export interface AuthBindings {
 }
 
 const REDIS_KEY_PREFIX = "erc8128-site:better-auth:"
+const VERIFY_ROUTE_POLICIES: RoutePolicy[] = [
+  {
+    methods: ["GET", "POST", "PUT"],
+    replayable: true,
+    classBoundPolicies: ["@authority"]
+  },
+  {
+    methods: ["DELETE"],
+    replayable: false
+  }
+]
 const verifyCallContext = new AsyncLocalStorage<{
   verifyMessageCalled: boolean
 }>()
@@ -95,32 +117,19 @@ function createErc8128Plugin(verifyMessage: VerifyMessageFn) {
   return erc8128({
     verifyMessage,
     routePolicy: {
-      "/verify": [
-        {
-          methods: ["GET", "POST", "PUT"],
-          replayable: true,
-          classBoundPolicies: ["@authority"]
-        },
-        {
-          methods: ["DELETE"],
-          replayable: false
-        }
-      ]
+      "/verify": VERIFY_ROUTE_POLICIES
     }
   })
 }
 
 async function createPostgresRuntime(
   connectionString: string
-): Promise<
-  Pick<AuthRuntimeConfig, "database" | "cleanupAdapter" | "closeDatabase">
-> {
+): Promise<Pick<AuthRuntimeConfig, "database" | "cleanupAdapter">> {
   const client = new Client({ connectionString })
   await client.connect()
 
   const database = drizzleAdapter(
-    drizzle({
-      client,
+    drizzle(client, {
       casing: "snake_case"
     }),
     {
@@ -133,8 +142,7 @@ async function createPostgresRuntime(
     database,
     cleanupAdapter: database({
       plugins: [createErc8128Plugin(async () => false)]
-    } as BetterAuthOptions),
-    closeDatabase: () => client.end()
+    } as BetterAuthOptions)
   }
 }
 
@@ -196,11 +204,25 @@ export function createAuthInstance(
         runtimeConfig.closeDatabase?.()
       ])
     },
+    verifyRequest: async (request: Request) =>
+      verifyCallContext.run({ verifyMessageCalled: false }, async () => {
+        const result = await getErc8128Api(auth).verifyRequest(request)
+
+        const context = verifyCallContext.getStore()
+        const cachedVerification =
+          result.ok &&
+          !!result.verification.replayable &&
+          context != null &&
+          !context.verifyMessageCalled
+
+        return {
+          result,
+          cachedVerification
+        }
+      }),
     protect: async (request: Request) =>
       verifyCallContext.run({ verifyMessageCalled: false }, async () => {
-        console.log("protect init", Date.now())
         const result = await getErc8128Api(auth).protect(request)
-        console.log("protect end", Date.now())
 
         const context = verifyCallContext.getStore()
         const cachedVerification =
@@ -253,13 +275,8 @@ export async function cleanupExpiredAuthStorage(
   const runtime = await createPostgresRuntime(
     resolvePostgresConnectionString(bindings)
   )
-
-  try {
-    return await cleanupExpiredErc8128Storage({
-      adapter: runtime.cleanupAdapter ?? runtime.database,
-      now
-    })
-  } finally {
-    await runtime.closeDatabase?.()
-  }
+  return cleanupExpiredErc8128Storage({
+    adapter: runtime.cleanupAdapter ?? runtime.database,
+    now
+  })
 }
