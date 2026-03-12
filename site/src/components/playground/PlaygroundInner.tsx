@@ -27,10 +27,6 @@ function normalizePath(raw: string) {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`
 }
 
-function getSigningPath(raw: string) {
-  return normalizePath(raw)
-}
-
 function toHex(bytes: Uint8Array) {
   return `0x${Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -84,13 +80,6 @@ const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 
 type AppWalletState = { id: string; publicKey: string; expiry: number }
 
-type StorageMode = "redis" | "postgres"
-
-const STORAGE_LABELS: Record<StorageMode, string> = {
-  redis: "Redis",
-  postgres: "Postgres"
-}
-
 type VerifyPayload = {
   ok?: boolean
   status?: number
@@ -101,86 +90,14 @@ type VerifyPayload = {
   binding?: string
   replayable?: boolean
   verifyMs?: number
-  storageMode?: StorageMode
-  cacheStrategy?: string
-  "cached-verification"?: boolean
-}
-
-type SentRequestSnapshot = {
-  url: string
-  method: string
-  headers: [string, string][]
-  body?: string
 }
 
 const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
 const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
-const PLAYGROUND_ORIGIN =
-  import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
-
-function getPlaygroundOrigin() {
-  return PLAYGROUND_ORIGIN
-}
-
-function getRequestOrigin() {
-  if (typeof window !== "undefined") {
-    if (window.location.origin) {
-      return window.location.origin.replace(/\/$/, "")
-    }
-  }
-
-  return PLAYGROUND_ORIGIN
-}
-
-function readStoredAppWalletPrivateKey(): `0x${string}` | null {
-  if (typeof window === "undefined") return null
-
-  const privateKey = localStorage.getItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY) as
-    | `0x${string}`
-    | null
-  const expiryRaw = localStorage.getItem(APP_WALLET_EXPIRY_STORAGE_KEY)
-  const expiry = Number(expiryRaw)
-
-  if (!privateKey || !Number.isFinite(expiry)) {
-    return null
-  }
-
-  if (expiry <= Math.floor(Date.now() / 1000)) {
-    localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-    localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
-    return null
-  }
-
-  return privateKey
-}
-
-async function parseResponsePayload(
-  response: Response
-): Promise<VerifyPayload> {
-  const text = await response.text()
-  if (!text) {
-    return {
-      ok: response.ok,
-      status: response.status,
-      message: ""
-    }
-  }
-
-  try {
-    return JSON.parse(text) as VerifyPayload
-  } catch {
-    return {
-      ok: response.ok,
-      status: response.status,
-      message: text
-    }
-  }
-}
 
 // ── component ────────────────────────────────────────
 
 export function PlaygroundInner() {
-  const composeTapTimesRef = useRef<number[]>([])
   const { address, isConnected, connector } = useAccount()
   const chainId = useChainId()
   const { setOpen: openConnectModal } = useModal()
@@ -198,7 +115,6 @@ export function PlaygroundInner() {
   const [nonce, setNonce] = useState(() =>
     crypto.randomUUID().replaceAll("-", "").slice(0, 16)
   )
-  const [storageMode, setStorageMode] = useState<StorageMode>("postgres")
 
   // Result state
   const [signedHeadersHtml, setSignedHeadersHtml] = useState(
@@ -212,8 +128,9 @@ export function PlaygroundInner() {
   const [verifyData, setVerifyData] = useState<VerifyPayload | null>(null)
   const [ensName, setEnsName] = useState<string | null>(null)
   const [userEnsName, setUserEnsName] = useState<string | null>(null)
-  const [lastSentRequest, setLastSentRequest] =
-    useState<SentRequestSnapshot | null>(null)
+  const [lastSignedRequest, setLastSignedRequest] = useState<Request | null>(
+    null
+  )
 
   // UI state
   const [signing, setSigning] = useState(false)
@@ -322,56 +239,6 @@ export function PlaygroundInner() {
     })
   }, [address, getProvider])
 
-  const sendRequestSnapshot = useCallback(
-    async (requestSnapshot: SentRequestSnapshot) => {
-      setVerifyOk(false)
-      setVerifyData(null)
-      setVerifyTiming("")
-      setVerificationResultText("Processing request...")
-      setVerifying(true)
-
-      try {
-        const response = await fetch(requestSnapshot.url, {
-          method: requestSnapshot.method,
-          headers: requestSnapshot.headers,
-          body: requestSnapshot.body
-        })
-
-        const payload = await parseResponsePayload(response)
-
-        if (payload?.verifyMs != null) {
-          setVerifyTiming(`verified in ${Math.round(payload.verifyMs)}ms`)
-        }
-
-        setVerifyOk(!!payload?.ok)
-        setVerifyData(payload)
-
-        if (payload?.ok && payload?.address) {
-          resolveEns(payload.address).then(setEnsName)
-        } else {
-          setEnsName(null)
-        }
-
-        const displayPayload = { ...payload }
-        delete displayPayload.verifyMs
-        delete displayPayload.storageMode
-        delete displayPayload.cacheStrategy
-        setVerificationResultText(JSON.stringify(displayPayload, null, 2))
-      } catch (error) {
-        setVerifyTiming("")
-        setVerifyOk(false)
-        setVerifyData(null)
-        setEnsName(null)
-        setVerificationResultText(
-          `Request failed: ${(error as Error)?.message || "Unknown error"}`
-        )
-      } finally {
-        setVerifying(false)
-      }
-    },
-    []
-  )
-
   const enableAutoSigning = useCallback(async () => {
     if (!isConnected || !address) return
     setAutoSigningPending(true)
@@ -426,13 +293,14 @@ export function PlaygroundInner() {
 
   const signatureBasePreviewHtml = useMemo(() => {
     const lines: string[] = []
-    const authority = new URL(getPlaygroundOrigin()).host
-    const signingPath = getSigningPath(path)
+    const authority = "erc8128.org"
     lines.push(`<span style="color:#86efac">"@authority": ${authority}</span>`)
     if (selectedComponents.has("@method"))
       lines.push(`<span style="color:#86efac">"@method": ${method}</span>`)
     if (selectedComponents.has("@path"))
-      lines.push(`<span style="color:#86efac">"@path": ${signingPath}</span>`)
+      lines.push(
+        `<span style="color:#86efac">"@path": ${normalizePath(path)}</span>`
+      )
 
     if (includeContentDigest) {
       lines.push(
@@ -452,7 +320,10 @@ export function PlaygroundInner() {
     const expires = now + ttl
     let paramsStr = `;created=${now};expires=${expires}`
     if (selectedComponents.has("nonce")) paramsStr += `;nonce="${nonce}"`
-    const storedSessionKey = readStoredAppWalletPrivateKey()
+    const storedSessionKey =
+      typeof window !== "undefined"
+        ? localStorage.getItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
+        : null
     const previewSigner = storedSessionKey
       ? privateKeyToAccount(storedSessionKey as `0x${string}`).address
       : (address ?? "0x...")
@@ -484,34 +355,34 @@ export function PlaygroundInner() {
     setSigning(true)
 
     const normalizedPath = normalizePath(path)
-    const signingPath = getSigningPath(path)
-    const signingOrigin = getPlaygroundOrigin()
-    const requestOrigin = getRequestOrigin()
-    const signUrl = new URL(signingPath, signingOrigin).toString()
-    const fetchUrl = new URL(normalizedPath, requestOrigin).toString()
+    const signUrl = `https://erc8128.org${normalizedPath}`
+    const fetchUrl = `${window.location.origin}${normalizedPath}`
     const components = Array.from(selectedComponents)
       .filter((c) => c !== "nonce")
       .filter((c) => !(c === "content-digest" && !hasBody))
     const includeNonce = selectedComponents.has("nonce")
-    const storedPrivateKey = readStoredAppWalletPrivateKey()
-    const sessionAccount = storedPrivateKey
-      ? privateKeyToAccount(storedPrivateKey)
-      : null
-    const sessionAddress = sessionAccount?.address ?? null
+    setVerifyOk(false)
+    setVerifyData(null)
+    setVerifyTiming("")
+    setVerificationResultText("Processing request...")
+    setVerifying(true)
 
-    if (appWallet && !storedPrivateKey) {
-      setAppWallet(null)
-    }
+    const storedPrivateKey = localStorage.getItem(
+      APP_WALLET_PRIVATE_KEY_STORAGE_KEY
+    ) as `0x${string}` | null
+    const sessionAddress = storedPrivateKey
+      ? privateKeyToAccount(storedPrivateKey).address
+      : null
 
     let walletWaitMs = 0
-
     const signer = {
       address: (sessionAddress ?? address) as `0x${string}`,
       chainId: chainId || 1,
       signMessage: async (message: Uint8Array) => {
         const t0 = performance.now()
 
-        if (sessionAccount) {
+        if (storedPrivateKey && appWallet?.publicKey) {
+          const sessionAccount = privateKeyToAccount(storedPrivateKey)
           const signature = await sessionAccount.signMessage({
             message: { raw: toHex(message) }
           })
@@ -536,7 +407,7 @@ export function PlaygroundInner() {
 
     try {
       const requestHeaders: Record<string, string> = {}
-      if (hasBody) {
+      if (includeContentDigest && hasBody) {
         requestHeaders["content-type"] = "application/json"
       }
 
@@ -559,7 +430,8 @@ export function PlaygroundInner() {
       )
       const signMs =
         Math.round((performance.now() - signStart - walletWaitMs) * 10) / 10
-      setSignTiming(`signed in ${signMs}ms`)
+      setSignTiming(`${signMs}ms`)
+      setLastSignedRequest(signed)
 
       // Trigger pulse animation for app-wallet auto-signing (fast path).
       if (storedPrivateKey && walletWaitMs < 1000) {
@@ -577,17 +449,40 @@ export function PlaygroundInner() {
       })
       setSignedHeadersHtml(headerLines.join("\n"))
 
-      // Send to server — inject hidden storage header (NOT signed)
-      const fetchHeaders = new Headers(signed.headers)
-      fetchHeaders.set("x-erc8128-storage", storageMode)
-      const requestSnapshot = {
-        url: fetchUrl,
+      // Send to server
+      const response = await fetch(fetchUrl, {
         method: signed.method,
-        headers: Array.from(fetchHeaders.entries()),
-        ...(hasBody ? { body } : {})
-      } satisfies SentRequestSnapshot
-      setLastSentRequest(requestSnapshot)
-      await sendRequestSnapshot(requestSnapshot)
+        headers: signed.headers,
+        body: hasBody ? body : undefined
+      })
+
+      let payload: VerifyPayload | null = null
+      try {
+        payload = await response.json()
+      } catch {
+        payload = {
+          ok: response.ok,
+          status: response.status,
+          message: await response.text()
+        }
+      }
+
+      if (payload?.verifyMs != null) {
+        setVerifyTiming(`${Math.round(payload.verifyMs)}ms`)
+      }
+
+      setVerifyOk(!!payload?.ok)
+      setVerifyData(payload)
+
+      if (payload?.ok && payload?.address) {
+        resolveEns(payload.address).then(setEnsName)
+      } else {
+        setEnsName(null)
+      }
+
+      const displayPayload = { ...payload }
+      delete displayPayload.verifyMs
+      setVerificationResultText(JSON.stringify(displayPayload, null, 2))
 
       // Regenerate nonce
       setNonce(crypto.randomUUID().replaceAll("-", "").slice(0, 16))
@@ -599,10 +494,10 @@ export function PlaygroundInner() {
       setVerifyTiming("")
       setVerifyOk(false)
       setVerifyData(null)
-      setLastSentRequest(null)
     } finally {
       signingRef.current = false
       setSigning(false)
+      setVerifying(false)
     }
   }, [
     address,
@@ -615,33 +510,27 @@ export function PlaygroundInner() {
     nonce,
     hasBody,
     chainId,
+    includeContentDigest,
     getWalletClient,
-    appWallet,
-    storageMode,
-    sendRequestSnapshot
+    appWallet
   ])
-
-  const replayLastRequest = useCallback(async () => {
-    if (!lastSentRequest || signingRef.current) return
-    await sendRequestSnapshot(lastSentRequest)
-  }, [lastSentRequest, sendRequestSnapshot])
 
   // ── Copy as cURL ───────────────────────────────────
 
   const copyCurl = useCallback(async () => {
-    if (!lastSentRequest) {
+    if (!lastSignedRequest) {
       setVerificationResultText("Sign a request first, then copy as cURL.")
       return
     }
     const headers: string[] = []
-    for (const [key, value] of lastSentRequest.headers) {
+    lastSignedRequest.headers.forEach((value, key) => {
       headers.push(`-H '${key}: ${value.replaceAll("'", "'\\''")}'`)
-    }
+    })
     const curl = [
-      `curl -X ${lastSentRequest.method} '${lastSentRequest.url}'`,
+      `curl -X ${method} '${window.location.origin}${normalizePath(path)}'`,
       ...headers,
-      lastSentRequest.body !== undefined
-        ? `--data '${lastSentRequest.body.replaceAll("'", "'\\''")}'`
+      method !== "GET" && method !== "DELETE"
+        ? `--data '${body.replaceAll("'", "'\\''")}'`
         : ""
     ]
       .filter(Boolean)
@@ -650,7 +539,7 @@ export function PlaygroundInner() {
     await navigator.clipboard.writeText(curl)
     setCopiedCurl(true)
     setTimeout(() => setCopiedCurl(false), 1200)
-  }, [lastSentRequest])
+  }, [lastSignedRequest, method, path, body])
 
   // ── Reset ──────────────────────────────────────────
 
@@ -660,7 +549,6 @@ export function PlaygroundInner() {
     setSelectedComponents(new Set(ALL_COMPONENTS))
     setTtl(60)
     setNonce(crypto.randomUUID().replaceAll("-", "").slice(0, 16))
-    setStorageMode("postgres")
     setSignedHeadersHtml("Sign the request to generate headers.")
     setVerificationResultText("Not sent yet.")
     setSignTiming("")
@@ -668,7 +556,7 @@ export function PlaygroundInner() {
     setVerifyOk(false)
     setVerifyData(null)
     setEnsName(null)
-    setLastSentRequest(null)
+    setLastSignedRequest(null)
   }, [])
 
   // ── Toggle component checkbox ──────────────────────
@@ -741,8 +629,8 @@ export function PlaygroundInner() {
         <div className="border-b border-white/15 p-4 md:p-6 lg:border-b-0 lg:border-r lg:border-white/15 flex flex-col justify-between">
           <div>
             <div className="mb-5">
-              <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55 cursor-default select-none">
-                &gt; {"COMPOSE REQUEST"}
+              <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
+                &gt; 01 {"// COMPOSE REQUEST"}
               </p>
             </div>
 
@@ -791,7 +679,7 @@ export function PlaygroundInner() {
 
             <div className="mb-4 flex items-center justify-between">
               <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                &gt; {"SIGNATURE COMPONENTS"}
+                &gt; 02 {"// SIGNATURE COMPONENTS"}
               </p>
               <button
                 onClick={resetAll}
@@ -839,37 +727,6 @@ export function PlaygroundInner() {
                   />
                   <span>sec</span>
                 </label>
-              </div>
-            </div>
-
-            <div className="mb-4 mt-6">
-              <p className="mb-3 font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                &gt; {"SERVER STORAGE BACKEND"}
-              </p>
-              <div className="border border-white/15 p-3">
-                <div className="grid grid-cols-1 gap-2">
-                  {(["redis", "postgres"] as const).map((mode) => (
-                    <label
-                      key={mode}
-                      className={`component-chip ${
-                        storageMode === mode
-                          ? mode === "redis"
-                            ? "text-[#fbbf24]"
-                            : "text-[#60a5fa]"
-                          : "text-white/35"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="storage-mode"
-                        className="component-checkbox"
-                        checked={storageMode === mode}
-                        onChange={() => setStorageMode(mode)}
-                      />
-                      <span>{STORAGE_LABELS[mode]}</span>
-                    </label>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
@@ -930,7 +787,7 @@ export function PlaygroundInner() {
         <div className="p-4 md:p-6 lg:flex lg:flex-col lg:min-h-0">
           <div className="mb-3">
             <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-              &gt; {"SIGNATURE BASE PREVIEW"}
+              &gt; 03 {"// SIGNATURE BASE PREVIEW"}
             </p>
           </div>
 
@@ -946,94 +803,38 @@ export function PlaygroundInner() {
           </div>
 
           <div className="mb-6">
-            <div className="mb-2 flex items-start justify-between">
-              <div>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                  &gt; {"SIGNED HEADERS"}
+                  &gt; 04 {"// SIGNED HEADERS"}
                 </p>
                 {signTiming && (
-                  <p className="mt-1 font-mono text-[10px] text-yellow-300/90">
+                  <span className="font-mono text-[10px] text-yellow-300/90">
                     {signTiming}
-                  </p>
+                  </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                {lastSentRequest && (
-                  <button
-                    onClick={replayLastRequest}
-                    disabled={verifying}
-                    className={`inline-flex items-center gap-2 border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] transition-all ${
-                      verifying
-                        ? "cursor-wait border-[#67e8f9]/25 text-[#67e8f9]/35"
-                        : "border-[#67e8f9]/60 bg-[#67e8f9]/8 text-[#67e8f9] hover:border-[#67e8f9] hover:bg-[#67e8f9]/14"
-                    }`}
-                    type="button"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      className={`h-3.5 w-3.5 ${verifying ? "animate-spin" : ""}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M20 11a8 8 0 1 0-2.34 5.66M20 11V5m0 6h-6"
-                        stroke="currentColor"
-                        strokeLinecap="square"
-                        strokeLinejoin="miter"
-                        strokeWidth="1.8"
-                      />
-                    </svg>
-                    <span>{verifying ? "Replaying..." : "Replay Request"}</span>
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={copyCurl}
+                className="font-mono text-[11px] uppercase tracking-[0.14em] text-white/50 transition-colors hover:text-white"
+                type="button"
+              >
+                {copiedCurl ? "Copied" : "Copy as cURL"}
+              </button>
             </div>
             <ExpandablePre html={signedHeadersHtml} />
-            {lastSentRequest && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  onClick={copyCurl}
-                  className="border border-white/12 bg-white/4 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/45 transition-colors hover:border-white/20 hover:bg-white/7 hover:text-white/70"
-                  type="button"
-                >
-                  {copiedCurl ? "Copied" : "Copy as cURL"}
-                </button>
-              </div>
-            )}
           </div>
 
           <div className="lg:flex lg:flex-1 lg:flex-col lg:min-h-0">
-            <div className="mb-2 flex items-start justify-between">
-              <div>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <p className="font-mono text-xs uppercase tracking-[0.12em] text-white/55">
-                  &gt; {"VERIFICATION RESULT"}
+                  &gt; 05 {"// VERIFICATION RESULT"}
                 </p>
                 {verifyTiming && (
-                  <p
-                    className={`mt-1 font-mono text-[10px] ${
-                      verifyData?.["cached-verification"]
-                        ? "text-emerald-300/90"
-                        : "text-yellow-300/90"
-                    }`}
-                  >
+                  <span className="font-mono text-[10px] text-yellow-300/90">
                     {verifyTiming}
-                    {verifyData?.["cached-verification"] && (
-                      <span className="text-emerald-300/90"> (cached)</span>
-                    )}
-                    {verifyData?.storageMode && (
-                      <span
-                        className="ml-1"
-                        style={{
-                          color:
-                            verifyData.storageMode === "redis"
-                              ? "#fbbf24"
-                              : "#60a5fa"
-                        }}
-                      >
-                        · {verifyData.storageMode}
-                      </span>
-                    )}
-                  </p>
+                  </span>
                 )}
               </div>
               {verifyOk && verifyData && (
