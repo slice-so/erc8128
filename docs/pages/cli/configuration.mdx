@@ -36,7 +36,7 @@ All fields are optional. CLI flags override config file values.
 | `replay` | `string` | `"non-replayable"` or `"replayable"` |
 | `ttl` | `number` | Signature TTL in seconds |
 | `keyfile` | `string` | Path to private key file |
-| `keyid` | `string` | Default key id (`erc8128:chainId:address`) |
+| `keyid` | `string` | Expected key id (`erc8128:chainId:address`) used to validate the signer and infer `chainId` |
 | `headers` | `string[]` | Default headers to include |
 | `components` | `string[]` | Default components to sign |
 

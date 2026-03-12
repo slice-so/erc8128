@@ -118,9 +118,9 @@ Formats the `/.well-known/erc8128` discovery document for your server.
 import { formatDiscoveryDocument } from '@slicekit/erc8128'
 
 const doc = formatDiscoveryDocument({
-  baseURL: 'https://api.example.com',
+  verificationEndpoint: 'https://api.example.com/erc8128/verify',
+  invalidationEndpoint: 'https://api.example.com/erc8128/invalidate',
   maxValiditySec: 300,
-  defaultPolicy: { replayable: false },
   routePolicy: {
     '/api/public/*': { replayable: true },
     '/api/orders/*': [

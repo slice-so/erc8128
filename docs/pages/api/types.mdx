@@ -138,7 +138,7 @@ type ContentDigestMode = "auto" | "recompute" | "require" | "off"
 | `auto` | Add Content-Digest if body is present and components include it. Default. |
 | `recompute` | Always recompute Content-Digest even if header exists. |
 | `require` | Require existing Content-Digest header. |
-| `off` | Don't add Content-Digest. |
+| `off` | Disable automatic digest handling. Signing throws if covered components require `content-digest`. |
 
 ---
 
@@ -182,12 +182,7 @@ type VerifyPolicy = {
    */
   replayableInvalidated?: (args: {
     keyid: string
-    created: number
-    expires: number
-    label: string
     signature: Hex
-    signatureBase: Uint8Array
-    signatureParamsValue: string
   }) => boolean | Promise<boolean>
   
   /** Maximum number of signatures to verify (default: 3) */
@@ -337,24 +332,25 @@ type VerifyFailReason =
 
 ---
 
-## Client
+## SignerClient
 
 Return type of [createSignerClient](/api/createSignerClient). Provides bound methods for signing requests.
 
 ```typescript
-type Client = {
+type SignerClient = {
   signRequest: {
     (input: RequestInfo, opts?: SignOptions): Promise<Request>
     (input: RequestInfo, init: RequestInit | undefined, opts?: SignOptions): Promise<Request>
   }
   signedFetch: {
-    (input: RequestInfo, opts?: ClientOptions): Promise<Response>
-    (input: RequestInfo, init: RequestInit | undefined, opts?: ClientOptions): Promise<Response>
+    (input: RequestInfo, opts?: FetchOptions): Promise<Response>
+    (input: RequestInfo, init: RequestInit | undefined, opts?: FetchOptions): Promise<Response>
   }
   fetch: {
-    (input: RequestInfo, opts?: ClientOptions): Promise<Response>
-    (input: RequestInfo, init: RequestInit | undefined, opts?: ClientOptions): Promise<Response>
+    (input: RequestInfo, opts?: FetchOptions): Promise<Response>
+    (input: RequestInfo, init: RequestInit | undefined, opts?: FetchOptions): Promise<Response>
   }
+  setServerConfig: (origin: string, config: ServerConfig | null) => void
 }
 ```
 
@@ -365,15 +361,30 @@ type Client = {
 | `signRequest` | Sign a request without sending |
 | `signedFetch` | Sign and send a request |
 | `fetch` | Alias for `signedFetch` |
+| `setServerConfig` | Set or remove per-origin discovery config |
 
 ---
 
-## ClientOptions
+## FetchOptions
 
-Options for [createSignerClient](/api/createSignerClient) and client methods. Extends [SignOptions](#signoptions).
+Per-call options for `client.fetch()` and `client.signedFetch()`. Extends [SignOptions](#signoptions) with an optional fetch implementation override.
 
 ```typescript
-type ClientOptions = SignOptions & { fetch?: typeof fetch }
+type FetchOptions = SignOptions & { fetch?: typeof fetch }
+```
+
+---
+
+## SignerClientOptions
+
+Options for [createSignerClient](/api/createSignerClient).
+
+```typescript
+type SignerClientOptions = Omit<SignOptions, "replay"> & {
+  fetch?: typeof fetch
+  serverConfigs?: Record<string, ServerConfig>
+  preferReplayable?: boolean
+}
 ```
 
 ---
