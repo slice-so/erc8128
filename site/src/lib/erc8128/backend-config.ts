@@ -2,8 +2,7 @@
  * Better-auth instance factory for the playground worker.
  *
  * The Better Auth instance itself remains request-scoped because sharing it in
- * Workers caused runtime issues. The Hyperdrive-backed Postgres client also
- * follows Cloudflare's per-request pattern instead of using a driver pool.
+ * Workers caused runtime issues.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks"
@@ -52,6 +51,7 @@ export interface AuthInstance {
 type AuthDatabase = NonNullable<BetterAuthOptions["database"]>
 type AuthSecondaryStorage = NonNullable<BetterAuthOptions["secondaryStorage"]>
 type CleanupAdapter = ReturnType<ReturnType<typeof drizzleAdapter>>
+type AsyncCallTracker = ReturnType<typeof createAsyncCallTracker>
 
 export interface AuthRuntimeConfig {
   cacheStrategy: CacheStrategy
@@ -115,6 +115,7 @@ function resolveRedisUrl(bindings: AuthBindings): string {
 
 function createErc8128Plugin(verifyMessage: VerifyMessageFn) {
   return erc8128({
+    storeInDatabase: false,
     verifyMessage,
     routePolicy: {
       "/verify": VERIFY_ROUTE_POLICIES
@@ -122,27 +123,96 @@ function createErc8128Plugin(verifyMessage: VerifyMessageFn) {
   })
 }
 
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value != null &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof (value as { then?: unknown }).then === "function"
+  )
+}
+
+function createAsyncCallTracker() {
+  const pending = new Set<Promise<unknown>>()
+
+  return {
+    track<T>(value: T): T {
+      if (!isPromiseLike(value)) {
+        return value
+      }
+
+      const promise = Promise.resolve(value)
+      pending.add(promise)
+      void promise.finally(() => {
+        pending.delete(promise)
+      })
+      return value
+    },
+
+    async waitForIdle() {
+      if (pending.size === 0) {
+        return
+      }
+
+      await Promise.allSettled([...pending])
+    }
+  }
+}
+
+function trackAdapter<T extends object>(
+  adapter: T,
+  tracker: AsyncCallTracker
+): T {
+  return new Proxy(adapter, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver)
+      if (typeof value !== "function") {
+        return value
+      }
+
+      return (...args: unknown[]) => tracker.track(value.apply(target, args))
+    }
+  })
+}
+
+function createTrackedDatabaseFactory(
+  database: AuthDatabase,
+  tracker: AsyncCallTracker
+): AuthDatabase {
+  return ((options: BetterAuthOptions) =>
+    trackAdapter(database(options), tracker)) as AuthDatabase
+}
+
 async function createPostgresRuntime(
   connectionString: string
-): Promise<Pick<AuthRuntimeConfig, "database" | "cleanupAdapter">> {
+): Promise<
+  Pick<AuthRuntimeConfig, "database" | "cleanupAdapter" | "closeDatabase">
+> {
   const client = new Client({ connectionString })
   await client.connect()
+  const tracker = createAsyncCallTracker()
 
-  const database = drizzleAdapter(
-    drizzle(client, {
-      casing: "snake_case"
-    }),
-    {
-      provider: "pg",
-      schema: authSchema
-    }
+  const database = createTrackedDatabaseFactory(
+    drizzleAdapter(
+      drizzle(client, {
+        casing: "snake_case"
+      }),
+      {
+        provider: "pg",
+        schema: authSchema
+      }
+    ),
+    tracker
   )
 
   return {
     database,
     cleanupAdapter: database({
       plugins: [createErc8128Plugin(async () => false)]
-    } as BetterAuthOptions)
+    } as BetterAuthOptions),
+    closeDatabase: async () => {
+      await tracker.waitForIdle()
+      await client.end().catch(() => undefined)
+    }
   }
 }
 
@@ -204,9 +274,11 @@ export function createAuthInstance(
         runtimeConfig.closeDatabase?.()
       ])
     },
-    verifyRequest: async (request: Request) =>
+    verifyRequest: async (request: Request, policy?: VerifyPolicy) =>
       verifyCallContext.run({ verifyMessageCalled: false }, async () => {
-        const result = await getErc8128Api(auth).verifyRequest(request)
+        const result = await getErc8128Api(auth).verifyRequest(request, {
+          policy
+        })
 
         const context = verifyCallContext.getStore()
         const cachedVerification =
@@ -264,7 +336,12 @@ function createBetterAuth(
       ? { secondaryStorage: runtimeConfig.secondaryStorage }
       : {}),
     plugins: [createErc8128Plugin(verifyMessage)],
-    secret: "ff68f964f62c4b669fb2c89507250fa22d8b452ae97a2ab0b5ff038e7cec1875"
+    secret: "ff68f964f62c4b669fb2c89507250fa22d8b452ae97a2ab0b5ff038e7cec1875",
+    session: {
+      cookieCache: {
+        refreshCache: false
+      }
+    }
   })
 }
 
@@ -275,8 +352,12 @@ export async function cleanupExpiredAuthStorage(
   const runtime = await createPostgresRuntime(
     resolvePostgresConnectionString(bindings)
   )
-  return cleanupExpiredErc8128Storage({
-    adapter: runtime.cleanupAdapter ?? runtime.database,
-    now
-  })
+  try {
+    return await cleanupExpiredErc8128Storage({
+      adapter: runtime.cleanupAdapter ?? runtime.database,
+      now
+    })
+  } finally {
+    await runtime.closeDatabase?.()
+  }
 }

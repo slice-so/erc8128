@@ -1,14 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import { memoryAdapter } from "@slicekit/better-auth/adapters/memory"
-import { signRequest } from "@slicekit/erc8128"
+import { type RoutePolicy, signRequest } from "@slicekit/erc8128"
 import { verifyMessage } from "viem"
 import { type Address, privateKeyToAccount } from "viem/accounts"
 import {
   type AuthBindings,
   type AuthRuntimeConfig,
   createAuthInstance,
-  getAuthInstance,
-  resolveVerifyPolicy
+  getAuthInstance
 } from "./backend-config"
 
 const TEST_SIGNER = {
@@ -77,17 +76,18 @@ describe("playground better-auth integration", () => {
   test("closes request-scoped resources with the auth instance", async () => {
     let closedDatabase = false
     let closedSecondaryStorage = false
+    const secondaryStorage = {
+      get: async () => null,
+      set: async () => undefined,
+      delete: async () => undefined,
+      setIfNotExists: async () => true
+    }
 
     const auth = createAuthInstance(
       {
         cacheStrategy: "secondary-storage",
         database: memoryAdapter(createMemoryDb()),
-        secondaryStorage: {
-          get: async () => null,
-          set: async () => undefined,
-          delete: async () => undefined,
-          setIfNotExists: async () => true
-        },
+        secondaryStorage,
         closeDatabase: async () => {
           closedDatabase = true
         },
@@ -209,15 +209,50 @@ describe("playground better-auth integration", () => {
       }
     )
 
-    const { result } = await auth.verifyRequest(
-      request,
-      resolveVerifyPolicy(request.method)
-    )
+    const verifyPolicy: RoutePolicy = {
+      methods: ["DELETE"],
+      replayable: false
+    }
+
+    const { result } = await auth.verifyRequest(request, verifyPolicy)
 
     expect(result.ok).toBe(true)
     expect(db.user).toHaveLength(0)
     expect(db.walletAddress).toHaveLength(0)
     expect(db.account).toHaveLength(0)
+  })
+
+  test("verifyRequest forwards explicit policies to better-auth", async () => {
+    const auth = createAuthInstance(
+      createDatabaseRuntimeConfig(),
+      "https://erc8128.org",
+      async () => true
+    )
+
+    const verifyPolicy: RoutePolicy = {
+      methods: ["DELETE"],
+      replayable: false
+    }
+
+    const request = await signRequest(
+      "https://erc8128.org/custom-verify",
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ok: true })
+      },
+      TEST_SIGNER,
+      {
+        binding: "request-bound",
+        replay: "non-replayable",
+        nonce: `nonce-${Date.now()}`,
+        components: ["content-digest"]
+      }
+    )
+
+    const { result } = await auth.verifyRequest(request, verifyPolicy)
+
+    expect(result.ok).toBe(true)
   })
 
   test("rejects unsigned requests on protected routes", async () => {

@@ -21,7 +21,7 @@ custom_domain = true
 # Preferred production Postgres path:
 [[hyperdrive]]
 binding = "HYPERDRIVE"
-id = "16b7e78165e648ddb8b2119e7d139fa1"
+id = "d67b99317a59400384cb81a5a3889358"
 localConnectionString = "postgresql://postgres:postgres@localhost:5432/erc8128_site"
 
 [placement]

@@ -1,10 +1,12 @@
 import { connect } from "cloudflare:sockets"
-import { date } from "@slicekit/better-auth"
 
 type RedisValue = string | number | null | RedisValue[]
 
 export interface SecondaryStorage {
   get(key: string): Promise<string | null>
+  getMany?(keys: string[]): Promise<(string | null)[]>
+  mget?(keys: string[]): Promise<(string | null)[]>
+  getMultiple?(keys: string[]): Promise<(string | null)[]>
   set(key: string, value: string, ttlSec?: number): Promise<void>
   delete(key: string): Promise<void>
   setIfNotExists?(key: string, value: string, ttlSec?: number): Promise<boolean>
@@ -263,17 +265,43 @@ export function createRedisSecondaryStorage(
     return operation
   }
 
+  async function getMany(keys: string[]) {
+    if (keys.length === 0) {
+      return []
+    }
+
+    const value = await runSerialized(() =>
+      execute(["MGET", ...keys.map((key) => prefixKey(key))])
+    )
+
+    if (!Array.isArray(value)) {
+      return keys.map(() => null)
+    }
+
+    return keys.map((_, index) => {
+      const entry = value[index]
+      return typeof entry === "string" ? entry : null
+    })
+  }
+
   return {
     async get(key) {
       const value = await runSerialized(() => execute(["GET", prefixKey(key)]))
-      console.log("get", prefixKey(key), value)
       return typeof value === "string" ? value : null
+    },
+
+    getMany,
+
+    async mget(keys) {
+      return getMany(keys)
+    },
+
+    async getMultiple(keys) {
+      return getMany(keys)
     },
 
     async set(key, value, ttlSec) {
       await runSerialized(async () => {
-        console.log("set init", Date.now())
-
         if (ttlSec != null) {
           await execute([
             "SET",
@@ -295,21 +323,17 @@ export function createRedisSecondaryStorage(
 
     async setIfNotExists(key, value, ttlSec) {
       return runSerialized(async () => {
-        console.log("setIfNotExists init", Date.now())
-
         const command = ["SET", prefixKey(key), value, "NX"]
         if (ttlSec != null) {
           command.push("EX", String(Math.max(1, ttlSec)))
         }
 
         const result = await execute(command)
-        console.log("setIfNotExists end", Date.now())
         return result === "OK"
       })
     },
 
     async close() {
-      console.log("close init", Date.now())
       await pending
       if (!connection) {
         return

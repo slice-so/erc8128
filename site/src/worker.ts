@@ -82,10 +82,14 @@ app
     try {
       await next()
     } finally {
-      try {
-        c.executionCtx.waitUntil(authInstance.close())
-      } catch {
+      if (storageMode === "postgres") {
         await authInstance.close()
+      } else {
+        try {
+          c.executionCtx.waitUntil(authInstance.close())
+        } catch {
+          await authInstance.close()
+        }
       }
     }
   })
