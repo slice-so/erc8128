@@ -202,7 +202,7 @@ const client = createSignerClient(signer)
 | `missing_headers` | Required `Signature` / `Signature-Input` headers not found |
 | `expired` | Signature TTL has elapsed |
 | `replay` | Nonce already consumed (replay attempt) |
-| `bad_keyid` | `keyid` doesn't match `eip8128:<chainId>:<address>` format |
+| `bad_keyid` | `keyid` doesn't match `erc8128:<chainId>:<address>` format |
 | `bad_signature_check` | Signature doesn't match the claimed address |
 | `digest_mismatch` | Body was modified after signing |
 
