@@ -18,7 +18,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { keccak256 } from "viem"
-import { createSigner } from "./wallet.js"
+import { createSigner } from "./wallet"
 
 // Test private key (well-known test key, DO NOT USE IN PRODUCTION)
 const TEST_PRIVATE_KEY =

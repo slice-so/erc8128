@@ -110,6 +110,42 @@ type VerifyResult =
   | { ok: false; reason: VerifyFailReason }
 ```
 
+### `formatDiscoveryDocument(config)`
+
+Formats the `/.well-known/erc8128` discovery document for your server.
+
+```typescript
+import { formatDiscoveryDocument } from '@slicekit/erc8128'
+
+const doc = formatDiscoveryDocument({
+  verificationEndpoint: 'https://api.example.com/erc8128/verify',
+  invalidationEndpoint: 'https://api.example.com/erc8128/invalidate',
+  maxValiditySec: 300,
+  routePolicy: {
+    '/api/public/*': { replayable: true },
+    '/api/orders/*': [
+      {
+        methods: ['POST', 'PUT'],
+        additionalRequestBoundComponents: ['content-type'],
+      },
+      {
+        methods: ['GET'],
+        classBoundPolicies: [['@authority', '@path']],
+      },
+    ],
+    default: { replayable: false },
+  },
+})
+// {
+//   verification_endpoint: "https://api.example.com/erc8128/verify",
+//   invalidation_endpoint: "https://api.example.com/erc8128/invalidate",
+//   max_validity_sec: 300,
+//   route_policies: { ... }
+// }
+```
+
+`invalidation_endpoint` is only included when at least one policy enables `replayable`. Route policy entries set to `false` are filtered out.
+
 ### `signRequest(input, init?, signer, options?)`
 
 Signs a fetch `Request` and returns a new `Request` with signature headers.
@@ -140,7 +176,7 @@ Signs and sends a request in one call.
 | `strictLabel` | `boolean` | `false` | Require exact label match |
 | `replayable` | `boolean` | `false` | Allow replayable (nonce-less) signatures |
 | `additionalRequestBoundComponents` | `string[]` | — | Extra components required for request-bound |
-| `classBoundPolicies` | `string[] \| string[][]` | — | Acceptable class-bound component policies |
+| `classBoundPolicies` | `string[] \| string[][]` | — | `undefined` disables class-bound, `[]` means authority-only, other entries require `@authority` plus those components |
 
 ## Nonce store
 

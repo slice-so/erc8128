@@ -120,6 +120,7 @@ const result = await verifyRequest({
   nonceStore,
   policy: {
   replayable: true,         // Allow replayable signatures
+  replayableNotBefore: async (keyid) => getNotBeforeForKeyId(keyid),
   maxValiditySec: 300,      // Longer window
   clockSkewSec: 30,         // More tolerance
   },

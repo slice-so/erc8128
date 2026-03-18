@@ -237,13 +237,17 @@ const signedRequest = await signRequest(
 
 ### Manual Control
 
-Disable automatic Content-Digest computation when you want to handle it yourself or skip it entirely.
+Disable automatic Content-Digest handling only when the covered components do not require `content-digest`.
 
 ```typescript
 const signedRequest = await signRequest(
-  request,
+  'https://api.example.com/status',
   signer,
-  { contentDigest: 'off' } // Don't add Content-Digest
+  {
+    binding: 'class-bound',
+    components: ['@authority'],
+    contentDigest: 'off',
+  }
 )
 ```
 

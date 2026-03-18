@@ -1,6 +1,6 @@
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2"
-import type { EthHttpSigner, Hex } from "./types.js"
-import { Erc8128Error } from "./types.js"
+import type { EthHttpSigner, Hex } from "./types"
+import { Erc8128Error } from "./types"
 
 const BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

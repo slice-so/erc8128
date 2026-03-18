@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { Erc8128Error } from "../types.js"
-import { createSignatureBaseMinimal } from "./createSignatureBase.js"
+import { Erc8128Error } from "../types"
+import { createSignatureBaseMinimal } from "./createSignatureBase"
 
 function makeRequest(url: string, opts?: RequestInit): Request {
   return new Request(url, opts)

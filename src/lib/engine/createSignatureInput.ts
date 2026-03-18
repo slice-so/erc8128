@@ -2,9 +2,9 @@
 // Parsing: Signature-Input / Signature
 //////////////////////////////
 
-import { Erc8128Error, type SignatureParams } from "../types.js"
+import { Erc8128Error, type SignatureParams } from "../types"
 
-type ParsedSignatureInputMember = {
+export type ParsedSignatureInputMember = {
   label: string
   components: string[]
   params: SignatureParams
@@ -65,6 +65,16 @@ export function parseSignatureDictionary(
     out.set(label, b64)
   }
   return out
+}
+
+export function parseSignatureInputHeader(
+  headerValue: string
+): ParsedSignatureInputMember[] {
+  return parseSignatureInputDictionary(headerValue)
+}
+
+export function parseSignatureHeader(headerValue: string): Map<string, string> {
+  return parseSignatureDictionary(headerValue)
 }
 
 function parseBinaryItem(v: string): string {
@@ -201,7 +211,89 @@ function parseInnerListWithParams(value: string): {
   }
 }
 
-function splitTopLevelCommas(s: string): string[] {
+export function parseInnerListWithBareParams(value: string): {
+  items: string[]
+  bareParams: string[]
+} {
+  let i = 0
+  const s = value.trim()
+  if (s[i] !== "(")
+    throw new Erc8128Error("PARSE_ERROR", "Inner list must start with '('.")
+
+  i++
+  const items: string[] = []
+  while (i < s.length) {
+    skipWs()
+    if (s[i] === ")") {
+      i++
+      break
+    }
+    items.push(parseSfString())
+    skipWs()
+  }
+  if (items.length === 0)
+    throw new Erc8128Error("PARSE_ERROR", "Inner list has no items.")
+
+  const bareParams: string[] = []
+  while (i < s.length) {
+    skipWs()
+    if (s[i] !== ";") break
+    i++
+    skipWs()
+    const key = parseToken()
+    skipWs()
+    if (s[i] === "=") {
+      throw new Erc8128Error(
+        "PARSE_ERROR",
+        `Accept-Signature param ${key} must be bare.`
+      )
+    }
+    bareParams.push(key)
+  }
+
+  return { items, bareParams }
+
+  function skipWs() {
+    while (i < s.length && (s[i] === " " || s[i] === "\t")) i++
+  }
+
+  function parseSfString(): string {
+    if (s[i] !== '"')
+      throw new Erc8128Error("PARSE_ERROR", "Expected sf-string.")
+    i++
+    let out = ""
+    while (i < s.length) {
+      const ch = s[i]
+      if (ch === '"') {
+        i++
+        break
+      }
+      if (ch === "\\") {
+        i++
+        if (i >= s.length)
+          throw new Erc8128Error("PARSE_ERROR", "Bad escape in sf-string.")
+        out += s[i]
+        i++
+        continue
+      }
+      const code = ch.charCodeAt(0)
+      if (code < 0x20 || code === 0x7f)
+        throw new Erc8128Error("PARSE_ERROR", "Control char in sf-string.")
+      out += ch
+      i++
+    }
+    return out
+  }
+
+  function parseToken(): string {
+    const start = i
+    while (i < s.length && /[A-Za-z0-9_\-*.]/.test(s[i])) i++
+    if (i === start) throw new Erc8128Error("PARSE_ERROR", "Expected token.")
+    return s.slice(start, i)
+  }
+}
+
+export function splitTopLevelCommas(s: string): string[] {
   // Split on commas not inside quotes.
   const out: string[] = []
   let cur = ""

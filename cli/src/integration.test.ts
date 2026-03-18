@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test"
 import { signedFetch, signRequest, verifyRequest } from "@slicekit/erc8128"
 import type { Address, Hex } from "viem"
 import { createPublicClient, http } from "viem"
-import { createSigner } from "./wallet.js"
+import { createSigner } from "./wallet"
 
 // Test private key (well-known test key, DO NOT USE IN PRODUCTION)
 const TEST_PRIVATE_KEY =

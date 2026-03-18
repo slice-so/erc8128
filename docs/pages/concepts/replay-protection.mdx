@@ -236,6 +236,7 @@ const result = await verifyRequest({
   nonceStore,
   policy: {
   replayable: true,  // Accept with or without nonce
+  replayableNotBefore: async (keyid) => getNotBeforeForKeyId(keyid),
   },
 })
 ```
