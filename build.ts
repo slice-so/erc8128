@@ -1,4 +1,4 @@
-import { buildPackage } from "../../build"
+import { buildPackage } from "./build.shared.ts"
 import { dependencies, peerDependencies } from "./package.json"
 
 const DtsPath = new URL("./dist/esm/index.d.ts", import.meta.url)
