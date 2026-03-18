@@ -180,7 +180,7 @@ async function parseResponsePayload(
 // ── component ────────────────────────────────────────
 
 export function PlaygroundInner() {
-  const composeTapTimesRef = useRef<number[]>([])
+  // const composeTapTimesRef = useRef<number[]>([])
   const { address, isConnected, connector } = useAccount()
   const chainId = useChainId()
   const { setOpen: openConnectModal } = useModal()
