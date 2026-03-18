@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import { Erc8128Error, signRequest, verifyRequest } from "./index.js"
-import type { Address, Hex, VerifyPolicy } from "./lib/types.js"
+import { Erc8128Error, signRequest, verifyRequest } from "."
+import type { Address, Hex, VerifyPolicy } from "./lib/types"
 
 const publicClient = createPublicClient({
   transport: http("http://localhost:8787")
@@ -43,6 +43,16 @@ function makeNonceStore() {
       return true
     }
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
 }
 
 function verifyWithPolicy(
@@ -360,6 +370,136 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       { verifyMessage }
     )
     expect(resInvalidated).toEqual({
+      ok: false,
+      reason: "replayable_invalidated"
+    })
+  })
+
+  test("replayable verification starts invalidation and signature checks before awaiting either", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyStarted = deferred<void>()
+    const invalidationStarted = deferred<void>()
+    const releaseVerify = deferred<boolean>()
+    const releaseInvalidation = deferred<boolean>()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-parallel",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resultPromise = verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableInvalidated: async () => {
+          invalidationStarted.resolve()
+          return releaseInvalidation.promise
+        }
+      },
+      {
+        verifyMessage: async () => {
+          verifyStarted.resolve()
+          return releaseVerify.promise
+        }
+      }
+    )
+
+    // If this resolves, neither branch is blocked on the other to start.
+    await Promise.all([verifyStarted.promise, invalidationStarted.promise])
+
+    releaseVerify.resolve(true)
+    releaseInvalidation.resolve(false)
+
+    const result = await resultPromise
+    expect(result.ok).toBe(true)
+  })
+
+  test("replayable verification starts not-before, invalidation, and signature checks before awaiting any of them", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyStarted = deferred<void>()
+    const notBeforeStarted = deferred<void>()
+    const invalidationStarted = deferred<void>()
+    const releaseVerify = deferred<boolean>()
+    const releaseNotBefore = deferred<number | null>()
+    const releaseInvalidation = deferred<boolean>()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-full-parallel",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const resultPromise = verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableNotBefore: async () => {
+          notBeforeStarted.resolve()
+          return releaseNotBefore.promise
+        },
+        replayableInvalidated: async () => {
+          invalidationStarted.resolve()
+          return releaseInvalidation.promise
+        }
+      },
+      {
+        verifyMessage: async () => {
+          verifyStarted.resolve()
+          return releaseVerify.promise
+        }
+      }
+    )
+
+    await Promise.all([
+      verifyStarted.promise,
+      notBeforeStarted.promise,
+      invalidationStarted.promise
+    ])
+
+    releaseVerify.resolve(true)
+    releaseNotBefore.resolve(null)
+    releaseInvalidation.resolve(false)
+
+    const result = await resultPromise
+    expect(result.ok).toBe(true)
+  })
+
+  test("replayable invalidation still wins over signature verification errors", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+
+    const signed = await signRequest(
+      "https://example.com/replayable-parallel-precedence",
+      { method: "GET" },
+      signer,
+      { created, expires, replay: "replayable" }
+    )
+
+    const result = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        replayableInvalidated: async () => true
+      },
+      {
+        verifyMessage: async () => {
+          throw new Error("verification backend failed")
+        }
+      }
+    )
+
+    expect(result).toEqual({
       ok: false,
       reason: "replayable_invalidated"
     })
@@ -787,6 +927,41 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     if (!resAllowed.ok) throw new Error("unreachable")
     expect(resAllowed.binding).toBe("class-bound")
     expect(resAllowed.replayable).toBe(true)
+  })
+
+  test("empty classBoundPolicies shorthand allows authority-only class-bound verification", async () => {
+    const signer = makeSigner()
+    const verifyMessage = makeVerifyMessage()
+
+    const created = 1_700_000_000
+    const expires = created + 60
+    const signed = await signRequest(
+      "https://example.com/class-bound",
+      { method: "GET" },
+      signer,
+      {
+        binding: "class-bound",
+        components: [],
+        created,
+        expires,
+        replay: "replayable"
+      }
+    )
+
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        classBoundPolicies: [],
+        replayable: true,
+        replayableNotBefore: () => null
+      },
+      { verifyMessage }
+    )
+    expect(resAllowed.ok).toBe(true)
+    if (!resAllowed.ok) throw new Error("unreachable")
+    expect(resAllowed.binding).toBe("class-bound")
+    expect(resAllowed.components).toEqual(["@authority"])
   })
 
   test("bad_time is enforced before signature verification", async () => {

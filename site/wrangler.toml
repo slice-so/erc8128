@@ -1,12 +1,36 @@
 name = "erc8128-site"
 main = "src/worker.ts"
 compatibility_date = "2025-01-01"
-pages_build_output_dir = "dist"
+compatibility_flags = ["nodejs_compat"]
 
 [assets]
 directory = "./dist"
-binding = "ASSETS"
+
+[triggers]
+crons = ["*/15 * * * *"]
 
 [[routes]]
 pattern = "erc8128.org"
 custom_domain = true
+
+# Secrets (set via `wrangler secret put`):
+# SECRET_ALCHEMY_KEY
+# REDIS_URL
+# DATABASE_URL  # local/dev fallback when Hyperdrive is not bound
+
+# Preferred production Postgres path:
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "d67b99317a59400384cb81a5a3889358"
+localConnectionString = "postgresql://postgres:postgres@localhost:5432/erc8128_site"
+
+[placement]
+region = "aws:us-east-1"
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false

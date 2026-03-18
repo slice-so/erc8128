@@ -12,7 +12,7 @@ import {
   type NonceStore,
   signRequest,
   verifyRequest
-} from "./index.js"
+} from "."
 
 const publicClient = createPublicClient({
   transport: http("http://localhost:8787")

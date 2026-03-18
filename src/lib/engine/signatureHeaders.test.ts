@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { selectSignatureFromHeaders } from "./signatureHeaders.js"
+import { selectSignatureFromHeaders } from "./signatureHeaders"
 
 function makeHeaders(label: string, keyid: string, sigB64 = "AAAA") {
   const sigInput = `${label}=("@authority");created=100;expires=200;keyid="${keyid}"`

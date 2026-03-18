@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { existsSync, unlinkSync } from "node:fs"
 import { readFile } from "node:fs/promises"
-import { handleResponse, logVerbose } from "./output.js"
+import { handleResponse, logVerbose } from "./output"
 
 describe("output handling", () => {
   const testOutputFile = "/tmp/test-output.txt"

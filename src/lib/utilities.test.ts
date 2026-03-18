@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Erc8128Error } from "./types.js"
+import { Erc8128Error } from "./types"
 import {
   base64Decode,
   base64Encode,
@@ -13,7 +13,7 @@ import {
   toRequest,
   unixNow,
   utf8Encode
-} from "./utilities.js"
+} from "./utilities"
 
 describe("toRequest", () => {
   test("creates Request from URL string", () => {

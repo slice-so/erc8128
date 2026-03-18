@@ -1,12 +1,12 @@
-import { createSignatureBaseMinimal } from "./engine/createSignatureBase.js"
-import type { SelectedSignature } from "./engine/signatureHeaders.js"
+import { createSignatureBaseMinimal } from "./engine/createSignatureBase"
+import type { SelectedSignature } from "./engine/signatureHeaders"
 import {
   includesAllComponents,
   isRequestBoundForThisRequest
-} from "./policies/isRequestBound.js"
-import type { NonceStore, VerifyResult } from "./types.js"
+} from "./policies/isRequestBound"
+import type { NonceStore, VerifyResult } from "./types"
 
-const DEFAULT_MAX_VALIDITY_SEC = 300
+export const DEFAULT_MAX_VALIDITY_SEC = 300
 
 export type VerifyCandidate<Key = unknown> = {
   candidate: SelectedSignature

@@ -4,20 +4,41 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "prebuild": "cd .. && bun run build.ts",
+    "predev": "cd .. && bun run build.ts",
     "dev": "astro build && wrangler dev",
     "build": "astro build",
     "preview": "wrangler dev",
-    "astro": "astro"
+    "astro": "astro",
+    "db:generate": "bunx drizzle-kit generate --config=drizzle.config.ts",
+    "db:migrate": "bunx drizzle-kit migrate --config=drizzle.config.ts",
+    "db:cleanup": "wrangler dev --test-scheduled",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
+    "@astrojs/react": "^4.4.2",
+    "@slicekit/better-auth": "^1.5.2-erc8128.17",
     "@slicekit/erc8128": "workspace:*",
+    "@tanstack/react-query": "^5.90.21",
     "astro": "^5.17.1",
-    "viem": "catalog:"
+    "connectkit": "^1.9.1",
+    "drizzle-orm": "catalog:",
+    "hono": "^4.12.5",
+    "pg": "^8.20.0",
+    "porto": "^0.2.37",
+    "postgres": "~3.4.7",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "viem": "catalog:",
+    "wagmi": "^3.5.0"
   },
   "devDependencies": {
-    "@astrojs/cloudflare": "^12.6.7",
     "@tailwindcss/vite": "~4.1.18",
     "@types/node": "~24.3.1",
+    "@types/pg": "~8.15.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "~0.31.4",
     "satori": "^0.12.0",
     "tailwindcss": "~4.1.18",
     "wrangler": "catalog:"

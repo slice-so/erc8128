@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { parseArgs } from "./args.js"
+import { parseArgs } from "./args"
 
 function parseTestArgs(argv: string[]) {
   return parseArgs(["node", "erc8128", "curl", ...argv], {

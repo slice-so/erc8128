@@ -1,0 +1,86 @@
+---
+import PlaygroundIsland from "./playground/PlaygroundIsland"
+---
+
+<PlaygroundIsland client:load />
+
+<style is:global>
+  .playground-field {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: transparent;
+    padding: 0.65rem 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.86rem;
+    color: white;
+    transition: border-color 180ms ease;
+  }
+
+  .playground-field:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.8);
+  }
+
+  .playground-field-disabled {
+    opacity: 0.55;
+    cursor: default;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .playground-field-disabled:focus {
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .component-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+
+  .component-checkbox {
+    accent-color: white;
+  }
+
+  .ttl-input {
+    width: 4rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    padding: 0.25rem 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: white;
+    text-align: center;
+  }
+
+  .ttl-input:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .ttl-input::-webkit-outer-spin-button,
+  .ttl-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  .result-badge {
+    padding: 0.15rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 1px solid;
+  }
+
+  @keyframes appwallet-progress {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(220%);
+    }
+  }
+</style>
