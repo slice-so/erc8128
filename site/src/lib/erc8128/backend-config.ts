@@ -1,94 +1,161 @@
-/**
- * Better-auth instance factory for the playground worker.
- *
- * The Better Auth instance itself remains request-scoped because sharing it in
- * Workers caused runtime issues.
- */
-
-import { AsyncLocalStorage } from "node:async_hooks"
-import { type BetterAuthOptions, betterAuth } from "@slicekit/better-auth"
-import { drizzleAdapter } from "@slicekit/better-auth/adapters/drizzle"
 import {
-  cleanupExpiredErc8128Storage,
-  type Erc8128ServerApi,
-  erc8128,
-  getErc8128Api
-} from "@slicekit/better-auth/plugins/erc8128"
-import type {
-  RoutePolicy,
-  VerifyMessageFn,
-  VerifyPolicy
+  type BindingMode,
+  type DiscoveryDocument,
+  formatDiscoveryDocument,
+  matchRoutePolicy,
+  type NonceStore,
+  parseKeyId,
+  type RoutePolicy,
+  type RoutePolicyConfig,
+  type SignatureParams,
+  selectSignatureFromHeaders,
+  type VerifyMessageFn,
+  type VerifyResult,
+  verifyRequest
 } from "@slicekit/erc8128"
-import { drizzle } from "drizzle-orm/node-postgres"
-import { Client } from "pg"
-import * as authSchema from "../../../src/auth-schema"
 import {
-  createRedisSecondaryStorage,
-  type RequestScopedSecondaryStorage
-} from "./secondary-storage-redis"
+  and,
+  desc,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  like,
+  lte,
+  max,
+  or,
+  sql
+} from "drizzle-orm"
+import { drizzle } from "drizzle-orm/postgres-js"
+import postgres from "postgres"
+import * as schema from "../../auth-schema"
 import type { StorageMode } from "./storage-header"
 
 export type CacheStrategy = "secondary-storage" | "database"
 
-export interface AuthInstance {
-  handler: (request: Request) => Promise<Response>
-  erc8128: Erc8128ServerApi
-  cacheStrategy: CacheStrategy
-  close: () => Promise<void>
-  verifyRequest: (
-    request: Request,
-    policy?: VerifyPolicy
-  ) => Promise<{
-    result: Awaited<ReturnType<Erc8128ServerApi["verifyRequest"]>>
-    cachedVerification: boolean
-  }>
-  protect: (request: Request) => Promise<{
-    result: Awaited<ReturnType<Erc8128ServerApi["protect"]>>
-    cachedVerification: boolean
-  }>
+export type CachedVerification = {
+  address: `0x${string}`
+  chainId: number
+  label: string
+  components: string[]
+  params: SignatureParams
+  replayable: true
+  binding: BindingMode
 }
 
-type AuthDatabase = NonNullable<BetterAuthOptions["database"]>
-type AuthSecondaryStorage = NonNullable<BetterAuthOptions["secondaryStorage"]>
-type CleanupAdapter = ReturnType<ReturnType<typeof drizzleAdapter>>
-type AsyncCallTracker = ReturnType<typeof createAsyncCallTracker>
-
-export interface AuthRuntimeConfig {
-  cacheStrategy: CacheStrategy
-  database?: AuthDatabase
-  cleanupAdapter?: CleanupAdapter
-  secondaryStorage?: AuthSecondaryStorage
-  closeDatabase?: () => Promise<void>
-  closeSecondaryStorage?: () => Promise<void>
+export interface VerificationCacheStore {
+  get(signatureHeader: string): Promise<CachedVerification | null>
+  set(
+    signatureHeader: string,
+    value: CachedVerification,
+    ttlSec: number
+  ): Promise<void>
+  delete(signatureHeader: string): Promise<void>
 }
 
-export interface AuthBindings {
+export interface InvalidationStore {
+  getNotBefore(keyId: string): Promise<number | null>
+}
+
+export interface VerificationRuntimeConfig {
+  cacheStrategy: CacheStrategy
+  nonceStore: NonceStore
+  verificationCache: VerificationCacheStore
+  invalidationStore: InvalidationStore
+  close?: () => Promise<void>
+}
+
+export interface VerificationBindings {
   hyperdrive?: string
   databaseUrl?: string
   redisUrl?: string
 }
 
-const REDIS_KEY_PREFIX = "erc8128-site:better-auth:"
-const VERIFY_ROUTE_POLICIES: RoutePolicy[] = [
-  {
-    methods: ["GET", "POST", "PUT"],
-    replayable: true,
-    classBoundPolicies: ["@authority"]
-  },
-  {
-    methods: ["DELETE"],
-    replayable: false
-  }
-]
-const verifyCallContext = new AsyncLocalStorage<{
-  verifyMessageCalled: boolean
-}>()
+export interface VerifyRequestResultEnvelope {
+  result: VerifyResult
+  responseHeaders: Headers
+  cachedVerification: boolean
+}
+
+export interface VerificationRuntime {
+  cacheStrategy: CacheStrategy
+  getConfig: () => DiscoveryDocument
+  verifyRequest: (request: Request) => Promise<VerifyRequestResultEnvelope>
+  close: () => Promise<void>
+}
+
+interface RequestScopedSecondaryStorage {
+  get(key: string): Promise<string | null>
+  set(key: string, value: string, ttlSec?: number): Promise<void>
+  delete(key: string): Promise<void>
+  setIfNotExists?(key: string, value: string, ttlSec?: number): Promise<boolean>
+  close(): Promise<void>
+}
+
+export const VERIFY_ROUTE_POLICIES: RoutePolicyConfig = {
+  "/verify": [
+    {
+      methods: ["GET", "POST", "PUT"],
+      replayable: true,
+      classBoundPolicies: ["@authority"]
+    },
+    {
+      methods: ["DELETE"],
+      replayable: false
+    }
+  ] satisfies RoutePolicy[]
+}
+
+const REDIS_KEY_PREFIX = "erc8128-site:erc8128:"
+const NONCE_KEY_PREFIX = "erc8128:nonce:"
+const CACHE_KEY_PREFIX = "erc8128:cache:"
+const KEY_INVALIDATION_PREFIX = "erc8128:inv:keyid:"
+let redisStorageModulePromise:
+  | Promise<typeof import("./secondary-storage-redis")>
+  | undefined
 
 function normalizeBaseURL(baseURL: string) {
   return new URL(baseURL).toString().replace(/\/$/, "")
 }
 
-function resolvePostgresConnectionString(bindings: AuthBindings): string {
+function parseJson<T>(value: string | null): T | null {
+  if (!value) {
+    return null
+  }
+
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return null
+  }
+}
+
+function isReplayableSignature(signature: { params: { nonce?: string } }) {
+  return !signature.params.nonce || signature.params.nonce.length === 0
+}
+
+function shouldCheckVerificationCache(request: Request) {
+  const signatureInputHeader = request.headers.get("signature-input")
+  const signatureHeader = request.headers.get("signature")
+  if (!signatureInputHeader || !signatureHeader) {
+    return false
+  }
+
+  const selected = selectSignatureFromHeaders({
+    signatureInputHeader,
+    signatureHeader,
+    policy: {}
+  })
+  if (!selected.ok) {
+    return false
+  }
+
+  return selected.selected.some(isReplayableSignature)
+}
+
+function resolvePostgresConnectionString(
+  bindings: VerificationBindings
+): string {
   const hyperdriveConnectionString = bindings.hyperdrive?.trim()
   if (hyperdriveConnectionString) {
     return hyperdriveConnectionString
@@ -104,7 +171,7 @@ function resolvePostgresConnectionString(bindings: AuthBindings): string {
   )
 }
 
-function resolveRedisUrl(bindings: AuthBindings): string {
+function resolveRedisUrl(bindings: VerificationBindings): string {
   const redisUrl = bindings.redisUrl?.trim()
   if (redisUrl) {
     return redisUrl
@@ -113,251 +180,412 @@ function resolveRedisUrl(bindings: AuthBindings): string {
   throw new Error("[erc8128/site] Redis storage requires REDIS_URL")
 }
 
-function createErc8128Plugin(verifyMessage: VerifyMessageFn) {
-  return erc8128({
-    storeInDatabase: false,
-    verifyMessage,
-    routePolicy: {
-      "/verify": VERIFY_ROUTE_POLICIES
-    }
-  })
-}
+async function createRedisStorage(
+  bindings: VerificationBindings
+): Promise<RequestScopedSecondaryStorage> {
+  redisStorageModulePromise ??= import("./secondary-storage-redis")
+  const { createRedisSecondaryStorage } = await redisStorageModulePromise
 
-function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
-  return (
-    value != null &&
-    (typeof value === "object" || typeof value === "function") &&
-    typeof (value as { then?: unknown }).then === "function"
-  )
-}
-
-function createAsyncCallTracker() {
-  const pending = new Set<Promise<unknown>>()
-
-  return {
-    track<T>(value: T): T {
-      if (!isPromiseLike(value)) {
-        return value
-      }
-
-      const promise = Promise.resolve(value)
-      pending.add(promise)
-      void promise.finally(() => {
-        pending.delete(promise)
-      })
-      return value
-    },
-
-    async waitForIdle() {
-      if (pending.size === 0) {
-        return
-      }
-
-      await Promise.allSettled([...pending])
-    }
-  }
-}
-
-function trackAdapter<T extends object>(
-  adapter: T,
-  tracker: AsyncCallTracker
-): T {
-  return new Proxy(adapter, {
-    get(target, property, receiver) {
-      const value = Reflect.get(target, property, receiver)
-      if (typeof value !== "function") {
-        return value
-      }
-
-      return (...args: unknown[]) => tracker.track(value.apply(target, args))
-    }
-  })
-}
-
-function createTrackedDatabaseFactory(
-  database: AuthDatabase,
-  tracker: AsyncCallTracker
-): AuthDatabase {
-  return ((options: BetterAuthOptions) =>
-    trackAdapter(database(options), tracker)) as AuthDatabase
-}
-
-async function createPostgresRuntime(
-  connectionString: string
-): Promise<
-  Pick<AuthRuntimeConfig, "database" | "cleanupAdapter" | "closeDatabase">
-> {
-  const client = new Client({ connectionString })
-  await client.connect()
-  const tracker = createAsyncCallTracker()
-
-  const database = createTrackedDatabaseFactory(
-    drizzleAdapter(
-      drizzle(client, {
-        casing: "snake_case"
-      }),
-      {
-        provider: "pg",
-        schema: authSchema
-      }
-    ),
-    tracker
-  )
-
-  return {
-    database,
-    cleanupAdapter: database({
-      plugins: [createErc8128Plugin(async () => false)]
-    } as BetterAuthOptions),
-    closeDatabase: async () => {
-      await tracker.waitForIdle()
-      await client.end().catch(() => undefined)
-    }
-  }
-}
-
-function createRequestScopedRedisSecondaryStorage(
-  bindings: AuthBindings
-): RequestScopedSecondaryStorage {
-  const connectionString = resolveRedisUrl(bindings)
   return createRedisSecondaryStorage({
-    connectionString,
+    connectionString: resolveRedisUrl(bindings),
     keyPrefix: REDIS_KEY_PREFIX
   })
 }
 
-async function resolveRuntimeConfig(
-  mode: StorageMode,
-  bindings: AuthBindings
-): Promise<AuthRuntimeConfig> {
-  if (mode === "postgres") {
-    const postgresRuntime = await createPostgresRuntime(
-      resolvePostgresConnectionString(bindings)
-    )
+export function getDiscoveryDocument(baseURL: string): DiscoveryDocument {
+  const normalizedBaseURL = normalizeBaseURL(baseURL)
 
-    return {
-      cacheStrategy: "database",
-      ...postgresRuntime
+  return formatDiscoveryDocument({
+    verificationEndpoint: new URL("/verify", normalizedBaseURL).toString(),
+    routePolicy: VERIFY_ROUTE_POLICIES
+  })
+}
+
+function createRedisNonceStore(
+  storage: RequestScopedSecondaryStorage
+): NonceStore {
+  return {
+    async consume(key, ttlSec) {
+      if (typeof storage.setIfNotExists === "function") {
+        return storage.setIfNotExists(`${NONCE_KEY_PREFIX}${key}`, "1", ttlSec)
+      }
+
+      const identifier = `${NONCE_KEY_PREFIX}${key}`
+      const existing = await storage.get(identifier)
+      if (existing) {
+        return false
+      }
+
+      await storage.set(identifier, "1", ttlSec)
+      return true
+    }
+  }
+}
+
+function createRedisVerificationCache(
+  storage: RequestScopedSecondaryStorage
+): VerificationCacheStore {
+  return {
+    async get(signatureHeader) {
+      return parseJson<CachedVerification>(
+        await storage.get(`${CACHE_KEY_PREFIX}${signatureHeader}`)
+      )
+    },
+
+    async set(signatureHeader, value, ttlSec) {
+      await storage.set(
+        `${CACHE_KEY_PREFIX}${signatureHeader}`,
+        JSON.stringify(value),
+        ttlSec
+      )
+    },
+
+    async delete(signatureHeader) {
+      await storage.delete(`${CACHE_KEY_PREFIX}${signatureHeader}`)
+    }
+  }
+}
+
+function createRedisInvalidationStore(
+  storage: RequestScopedSecondaryStorage
+): InvalidationStore {
+  return {
+    async getNotBefore(keyId) {
+      const record = parseJson<{ notBefore?: number }>(
+        await storage.get(`${KEY_INVALIDATION_PREFIX}${keyId.toLowerCase()}`)
+      )
+      return typeof record?.notBefore === "number" ? record.notBefore : null
+    }
+  }
+}
+
+function createDrizzleClient(connectionString: string) {
+  const pgClient = postgres(connectionString, {
+    // Hyperdrive handles the underlying pooling, so request-scoped clients are
+    // cheap. Keep the client connection cap within Workers' external connection
+    // limits and skip type fetching to avoid an extra round-trip.
+    max: 5,
+    fetch_types: false
+  })
+  const db = drizzle(pgClient, { schema })
+  return { db, close: () => pgClient.end().catch(() => undefined) }
+}
+
+async function createPostgresRuntime(
+  connectionString: string
+): Promise<VerificationRuntimeConfig> {
+  const { db, close } = createDrizzleClient(connectionString)
+
+  const nonceStore: NonceStore = {
+    async consume(key, ttlSec) {
+      const expiresAt = new Date(Date.now() + ttlSec * 1000)
+      const result = await db
+        .insert(schema.erc8128Nonce)
+        .values({
+          id: crypto.randomUUID(),
+          nonceKey: `${NONCE_KEY_PREFIX}${key}`,
+          expiresAt
+        })
+        .returning({ id: schema.erc8128Nonce.id })
+
+      return result.length === 1
     }
   }
 
-  const secondaryStorage = createRequestScopedRedisSecondaryStorage(bindings)
+  const verificationCache: VerificationCacheStore = {
+    async get(signatureHeader) {
+      const identifier = `${CACHE_KEY_PREFIX}${signatureHeader}`
+      const result = await db
+        .select({ value: schema.verification.value })
+        .from(schema.verification)
+        .where(
+          and(
+            eq(schema.verification.identifier, identifier),
+            gt(schema.verification.expiresAt, sql`NOW()`)
+          )
+        )
+        .orderBy(
+          desc(schema.verification.expiresAt),
+          desc(schema.verification.updatedAt)
+        )
+        .limit(1)
+
+      return parseJson<CachedVerification>(result[0]?.value ?? null)
+    },
+
+    async set(signatureHeader, value, ttlSec) {
+      const identifier = `${CACHE_KEY_PREFIX}${signatureHeader}`
+      const expiresAt = new Date(Date.now() + ttlSec * 1000)
+
+      await db
+        .delete(schema.verification)
+        .where(eq(schema.verification.identifier, identifier))
+
+      await db.insert(schema.verification).values({
+        id: crypto.randomUUID(),
+        identifier,
+        value: JSON.stringify(value),
+        expiresAt
+      })
+    },
+
+    async delete(signatureHeader) {
+      await db
+        .delete(schema.verification)
+        .where(
+          eq(
+            schema.verification.identifier,
+            `${CACHE_KEY_PREFIX}${signatureHeader}`
+          )
+        )
+    }
+  }
+
+  const invalidationStore: InvalidationStore = {
+    async getNotBefore(keyId) {
+      const parsedKeyId = parseKeyId(keyId)
+      if (!parsedKeyId) {
+        return null
+      }
+
+      const result = await db
+        .select({ notBefore: max(schema.erc8128Invalidation.notBefore) })
+        .from(schema.erc8128Invalidation)
+        .where(
+          and(
+            eq(
+              schema.erc8128Invalidation.address,
+              parsedKeyId.address.toLowerCase()
+            ),
+            eq(schema.erc8128Invalidation.chainId, parsedKeyId.chainId),
+            isNull(schema.erc8128Invalidation.signatureHash),
+            isNotNull(schema.erc8128Invalidation.notBefore),
+            or(
+              isNull(schema.erc8128Invalidation.expiresAt),
+              gt(schema.erc8128Invalidation.expiresAt, sql`NOW()`)
+            )
+          )
+        )
+
+      const value = result[0]?.notBefore
+      return typeof value === "number" ? value : null
+    }
+  }
+
+  return {
+    cacheStrategy: "database",
+    nonceStore,
+    verificationCache,
+    invalidationStore,
+    close
+  }
+}
+
+async function createRedisRuntime(
+  bindings: VerificationBindings
+): Promise<VerificationRuntimeConfig> {
+  const storage = await createRedisStorage(bindings)
 
   return {
     cacheStrategy: "secondary-storage",
-    secondaryStorage,
-    closeSecondaryStorage: () => secondaryStorage.close()
+    nonceStore: createRedisNonceStore(storage),
+    verificationCache: createRedisVerificationCache(storage),
+    invalidationStore: createRedisInvalidationStore(storage),
+    close: () => storage.close()
   }
 }
 
-export function createAuthInstance(
-  runtimeConfig: AuthRuntimeConfig,
+async function resolveRuntimeConfig(
+  mode: StorageMode,
+  bindings: VerificationBindings
+): Promise<VerificationRuntimeConfig> {
+  if (mode === "postgres") {
+    return createPostgresRuntime(resolvePostgresConnectionString(bindings))
+  }
+
+  return createRedisRuntime(bindings)
+}
+
+export function createVerificationRuntime(
+  runtimeConfig: VerificationRuntimeConfig,
   baseURL: string,
   verifyMessage: VerifyMessageFn
-): AuthInstance {
-  const auth = createBetterAuth(runtimeConfig, baseURL, async (args) => {
-    const context = verifyCallContext.getStore()
-    if (context) {
-      context.verifyMessageCalled = true
-    }
-
-    return verifyMessage(args)
-  })
+): VerificationRuntime {
+  const normalizedBaseURL = normalizeBaseURL(baseURL)
 
   return {
-    handler: (request: Request) => auth.handler(request),
-    erc8128: getErc8128Api(auth),
     cacheStrategy: runtimeConfig.cacheStrategy,
-    close: async () => {
-      await Promise.allSettled([
-        runtimeConfig.closeSecondaryStorage?.(),
-        runtimeConfig.closeDatabase?.()
-      ])
-    },
-    verifyRequest: async (request: Request, policy?: VerifyPolicy) =>
-      verifyCallContext.run({ verifyMessageCalled: false }, async () => {
-        const result = await getErc8128Api(auth).verifyRequest(request, {
-          policy
-        })
+    getConfig: () => getDiscoveryDocument(normalizedBaseURL),
+    verifyRequest: async (request: Request) => {
+      console.log(1)
+      const pathname = new URL(request.url).pathname
+      const routePolicy = matchRoutePolicy(
+        request.method,
+        pathname,
+        VERIFY_ROUTE_POLICIES
+      )
+      const responseHeaders = new Headers()
 
-        const context = verifyCallContext.getStore()
-        const cachedVerification =
-          result.ok &&
-          !!result.verification.replayable &&
-          context != null &&
-          !context.verifyMessageCalled
-
+      if (!routePolicy) {
         return {
-          result,
-          cachedVerification
+          result: {
+            ok: false,
+            reason: "not_request_bound",
+            detail: `No ERC-8128 policy is configured for ${request.method.toUpperCase()} ${pathname}`
+          },
+          responseHeaders,
+          cachedVerification: false
         }
-      }),
-    protect: async (request: Request) =>
-      verifyCallContext.run({ verifyMessageCalled: false }, async () => {
-        const result = await getErc8128Api(auth).protect(request)
+      }
 
-        const context = verifyCallContext.getStore()
-        const cachedVerification =
-          result.ok &&
-          !!result.verification?.replayable &&
-          context != null &&
-          !context.verifyMessageCalled
+      const signatureHeader = request.headers.get("signature")
+      console.log(2)
 
-        return {
-          result,
-          cachedVerification
+      if (
+        routePolicy.replayable &&
+        signatureHeader &&
+        shouldCheckVerificationCache(request)
+      ) {
+        const cached =
+          await runtimeConfig.verificationCache.get(signatureHeader)
+        console.log(3)
+
+        if (cached) {
+          const notBefore = await runtimeConfig.invalidationStore.getNotBefore(
+            cached.params.keyid
+          )
+          console.log(4)
+
+          if (notBefore == null || cached.params.created >= notBefore) {
+            return {
+              result: {
+                ok: true,
+                ...cached
+              },
+              responseHeaders,
+              cachedVerification: true
+            }
+          }
+
+          await runtimeConfig.verificationCache.delete(signatureHeader)
+          console.log(5)
+        }
+      }
+
+      console.log(6)
+      const result = await verifyRequest({
+        request,
+        verifyMessage,
+        nonceStore: runtimeConfig.nonceStore,
+        policy: {
+          ...routePolicy,
+          replayableNotBefore: (keyId) =>
+            runtimeConfig.invalidationStore.getNotBefore(keyId)
+        },
+        setHeaders: (name, value) => {
+          responseHeaders.set(name, value)
         }
       })
+      console.log(7)
+
+      if (result.ok && result.replayable && signatureHeader) {
+        const ttlSec = result.params.expires - Math.floor(Date.now() / 1000)
+        if (ttlSec > 0) {
+          await runtimeConfig.verificationCache.set(
+            signatureHeader,
+            {
+              address: result.address,
+              chainId: result.chainId,
+              label: result.label,
+              components: result.components,
+              params: result.params,
+              replayable: true,
+              binding: result.binding
+            },
+            ttlSec
+          )
+        }
+      }
+      console.log(8)
+
+      return {
+        result,
+        responseHeaders,
+        cachedVerification: false
+      }
+    },
+    close: async () => {
+      await runtimeConfig.close?.()
+    }
   }
 }
 
-export async function getAuthInstance(
+export async function getVerificationRuntime(
   mode: StorageMode,
   baseURL: string,
-  bindings: AuthBindings,
+  bindings: VerificationBindings,
   verifyMessage: VerifyMessageFn
-): Promise<AuthInstance> {
-  return createAuthInstance(
+): Promise<VerificationRuntime> {
+  return createVerificationRuntime(
     await resolveRuntimeConfig(mode, bindings),
     baseURL,
     verifyMessage
   )
 }
 
-function createBetterAuth(
-  runtimeConfig: AuthRuntimeConfig,
-  baseURL: string,
-  verifyMessage: VerifyMessageFn
-) {
-  return betterAuth({
-    baseURL: normalizeBaseURL(baseURL),
-    ...(runtimeConfig.database ? { database: runtimeConfig.database } : {}),
-    ...(runtimeConfig.secondaryStorage
-      ? { secondaryStorage: runtimeConfig.secondaryStorage }
-      : {}),
-    plugins: [createErc8128Plugin(verifyMessage)],
-    secret: "ff68f964f62c4b669fb2c89507250fa22d8b452ae97a2ab0b5ff038e7cec1875",
-    session: {
-      cookieCache: {
-        refreshCache: false
-      }
-    }
-  })
-}
-
-export async function cleanupExpiredAuthStorage(
-  bindings: AuthBindings,
+export async function cleanupExpiredVerificationStorage(
+  bindings: VerificationBindings,
   now = new Date()
-): Promise<Awaited<ReturnType<typeof cleanupExpiredErc8128Storage>>> {
-  const runtime = await createPostgresRuntime(
+) {
+  const { db, close } = createDrizzleClient(
     resolvePostgresConnectionString(bindings)
   )
+
   try {
-    return await cleanupExpiredErc8128Storage({
-      adapter: runtime.cleanupAdapter ?? runtime.database,
-      now
-    })
+    const [
+      verificationRows,
+      legacyNonceRows,
+      legacyCacheRows,
+      invalidationRows
+    ] = await Promise.all([
+      db
+        .delete(schema.verification)
+        .where(
+          and(
+            lte(schema.verification.expiresAt, now),
+            or(
+              like(schema.verification.identifier, `${NONCE_KEY_PREFIX}%`),
+              like(schema.verification.identifier, `${CACHE_KEY_PREFIX}%`)
+            )
+          )
+        )
+        .returning({ id: schema.verification.id }),
+      db
+        .delete(schema.erc8128Nonce)
+        .where(lte(schema.erc8128Nonce.expiresAt, now))
+        .returning({ id: schema.erc8128Nonce.id }),
+      db
+        .delete(schema.erc8128VerificationCache)
+        .where(lte(schema.erc8128VerificationCache.expiresAt, now))
+        .returning({ id: schema.erc8128VerificationCache.id }),
+      db
+        .delete(schema.erc8128Invalidation)
+        .where(
+          and(
+            isNotNull(schema.erc8128Invalidation.expiresAt),
+            lte(schema.erc8128Invalidation.expiresAt, now)
+          )
+        )
+        .returning({ id: schema.erc8128Invalidation.id })
+    ])
+
+    return {
+      verificationRowsDeleted: verificationRows.length,
+      legacyNonceRowsDeleted: legacyNonceRows.length,
+      legacyCacheRowsDeleted: legacyCacheRows.length,
+      invalidationRowsDeleted: invalidationRows.length
+    }
   } finally {
-    await runtime.closeDatabase?.()
+    await close()
   }
 }

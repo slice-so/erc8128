@@ -17,14 +17,12 @@
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
-    "@slicekit/better-auth": "^1.5.2-erc8128.17",
     "@slicekit/erc8128": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "astro": "^5.17.1",
     "connectkit": "^1.9.1",
     "drizzle-orm": "catalog:",
     "hono": "^4.12.5",
-    "pg": "^8.20.0",
     "porto": "^0.2.37",
     "postgres": "~3.4.7",
     "react": "^19.2.4",
@@ -35,7 +33,6 @@
   "devDependencies": {
     "@tailwindcss/vite": "~4.1.18",
     "@types/node": "~24.3.1",
-    "@types/pg": "~8.15.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "~0.31.4",

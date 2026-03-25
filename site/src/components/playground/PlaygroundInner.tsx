@@ -11,7 +11,7 @@ import {
 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { mainnet } from "viem/chains"
-import { useAccount, useChainId } from "wagmi"
+import { useChainId, useConnection } from "wagmi"
 import { ExpandablePre } from "./ExpandablePre"
 import { SessionKeyBadge } from "./SessionKeyBadge"
 
@@ -115,6 +115,7 @@ type SentRequestSnapshot = {
 
 const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
 const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
+const PLAYGROUND_VERIFY_MESSAGE_MODE = "eoa" as const
 const PLAYGROUND_ORIGIN =
   import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
 
@@ -132,6 +133,7 @@ function getRequestOrigin() {
   return PLAYGROUND_ORIGIN
 }
 
+// TODO: fix this condition, it doesn't catch smart wallet
 function readStoredAppWalletPrivateKey(): `0x${string}` | null {
   if (typeof window === "undefined") return null
 
@@ -181,11 +183,12 @@ async function parseResponsePayload(
 
 export function PlaygroundInner() {
   // const composeTapTimesRef = useRef<number[]>([])
-  const { address, isConnected, connector } = useAccount()
+  const { address, isConnected, connector } = useConnection()
   const chainId = useChainId()
   const { setOpen: openConnectModal } = useModal()
   const [appWallet, setAppWallet] = useState<AppWalletState | null>(null)
   const [autoSigningPending, setAutoSigningPending] = useState(false)
+  console.log(connector)
 
   // Form state
   const [method, setMethod] = useState("POST")
@@ -433,6 +436,9 @@ export function PlaygroundInner() {
       lines.push(`<span style="color:#86efac">"@method": ${method}</span>`)
     if (selectedComponents.has("@path"))
       lines.push(`<span style="color:#86efac">"@path": ${signingPath}</span>`)
+    lines.push(
+      `<span style="color:#f9a8d4">"mode": ${PLAYGROUND_VERIFY_MESSAGE_MODE}</span>`
+    )
 
     if (includeContentDigest) {
       lines.push(
@@ -446,6 +452,7 @@ export function PlaygroundInner() {
     const allComponents = ["@authority"]
     if (selectedComponents.has("@method")) allComponents.push("@method")
     if (selectedComponents.has("@path")) allComponents.push("@path")
+    allComponents.push("mode")
     if (includeContentDigest) allComponents.push("content-digest")
 
     const now = Math.floor(Date.now() / 1000)
@@ -489,9 +496,14 @@ export function PlaygroundInner() {
     const requestOrigin = getRequestOrigin()
     const signUrl = new URL(signingPath, signingOrigin).toString()
     const fetchUrl = new URL(normalizedPath, requestOrigin).toString()
-    const components = Array.from(selectedComponents)
-      .filter((c) => c !== "nonce")
-      .filter((c) => !(c === "content-digest" && !hasBody))
+    const components = [
+      ...Array.from(selectedComponents)
+        .filter((c) => c !== "nonce")
+        .filter((c) => !(c === "content-digest" && !hasBody))
+    ]
+    if (!components.includes("mode")) {
+      components.push("mode")
+    }
     const includeNonce = selectedComponents.has("nonce")
     const storedPrivateKey = readStoredAppWalletPrivateKey()
     const sessionAccount = storedPrivateKey
@@ -536,6 +548,7 @@ export function PlaygroundInner() {
 
     try {
       const requestHeaders: Record<string, string> = {}
+      requestHeaders.mode = PLAYGROUND_VERIFY_MESSAGE_MODE
       if (hasBody) {
         requestHeaders["content-type"] = "application/json"
       }

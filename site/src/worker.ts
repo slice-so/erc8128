@@ -5,9 +5,10 @@ import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
 import {
-  type AuthInstance,
-  cleanupExpiredAuthStorage,
-  getAuthInstance
+  cleanupExpiredVerificationStorage,
+  getDiscoveryDocument,
+  getVerificationRuntime,
+  type VerificationRuntime
 } from "./lib/erc8128/backend-config"
 import {
   parseStorageMode,
@@ -18,23 +19,18 @@ import {
   buildVerifyResultResponse
 } from "./lib/erc8128/verify-response"
 
-// ── Shared infra ─────────────────────────────────────
-
 type Env = {
   Variables: {
     storageMode: StorageMode
-    authInstance: AuthInstance
+    verificationRuntime: VerificationRuntime
   }
 }
 
-function getRpcUrl(alchemyKey?: string) {
-  const key = alchemyKey?.trim()
-  return key ? `https://eth-mainnet.g.alchemy.com/v2/${key}` : undefined
-}
+const alchemyRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY}`
 
 const publicClient = createPublicClient({
   chain: mainnet,
-  transport: http(getRpcUrl(env.SECRET_ALCHEMY_KEY))
+  transport: http(alchemyRpcUrl)
 })
 
 function jsonWithHeaders(
@@ -52,100 +48,91 @@ function jsonWithHeaders(
   return res
 }
 
-// ── App ──────────────────────────────────────────────
-
 const app = new Hono<Env>()
 
-app
-  .use(
-    cors({
-      origin: "*",
-      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["*"],
-      maxAge: 86400
-    })
-  )
-  .use(async (c, next) => {
-    const storageMode = parseStorageMode(c.req.raw.headers)
+app.use(
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: ["*"],
+    maxAge: 86400
+  })
+)
 
-    const authInstance = await getAuthInstance(
-      storageMode,
-      new URL(c.req.url).origin,
-      {
-        hyperdrive: env.HYPERDRIVE.connectionString,
-        redisUrl: env.REDIS_URL
-      },
-      publicClient.verifyMessage
-    )
-    c.set("storageMode", storageMode)
-    c.set("authInstance", authInstance)
-    try {
-      await next()
-    } finally {
-      if (storageMode === "postgres") {
-        await authInstance.close()
-      } else {
-        try {
-          c.executionCtx.waitUntil(authInstance.close())
-        } catch {
-          await authInstance.close()
-        }
+app.get("/.well-known/erc8128", (c) => {
+  return c.json(getDiscoveryDocument(new URL(c.req.url).origin))
+})
+
+app.use("/verify", async (c, next) => {
+  const storageMode = parseStorageMode(c.req.raw.headers)
+
+  const verificationRuntime = await getVerificationRuntime(
+    storageMode,
+    new URL(c.req.url).origin,
+    {
+      hyperdrive: env.HYPERDRIVE.connectionString,
+      databaseUrl: env.DATABASE_URL,
+      redisUrl: env.REDIS_URL
+    },
+    publicClient.verifyMessage
+  )
+
+  c.set("storageMode", storageMode)
+  c.set("verificationRuntime", verificationRuntime)
+
+  try {
+    await next()
+  } finally {
+    if (storageMode === "postgres") {
+      await verificationRuntime.close()
+    } else {
+      try {
+        c.executionCtx.waitUntil(verificationRuntime.close())
+      } catch {
+        await verificationRuntime.close()
       }
     }
-  })
+  }
+})
 
-  // Preserve the public discovery URL while delegating document generation
-  // to the erc8128 better-auth plugin.
-  .get("/.well-known/erc8128", async (c) => {
-    const config = await c.var.authInstance.erc8128.getConfig(c.req.raw)
-    return c.json(config)
-  })
+app.on(["GET", "POST", "PUT", "DELETE"], "/verify", async (c) => {
+  const { storageMode, verificationRuntime } = c.var
+  const t0 = performance.now()
 
-  // Signature verification for the public playground route. Better-auth owns
-  // verification and storage; Hono keeps owning the route.
-  .all("/verify", async (c) => {
-    const { storageMode, authInstance } = c.var
+  try {
+    const {
+      result: verifyResult,
+      responseHeaders,
+      cachedVerification
+    } = await verificationRuntime.verifyRequest(c.req.raw)
 
-    const t0 = performance.now()
+    const verifyMs = Math.round((performance.now() - t0) * 10) / 10
+    const response = buildVerifyResultResponse({
+      verifyResult,
+      responseHeaders,
+      metadata: {
+        verifyMs,
+        storageMode,
+        cacheStrategy: verificationRuntime.cacheStrategy,
+        cachedVerification
+      }
+    })
 
-    try {
-      const { result: verifyResult, cachedVerification } =
-        await authInstance.verifyRequest(c.req.raw)
+    const res = jsonWithHeaders(c, response)
+    res.headers.set("cache-control", "no-store")
+    return res
+  } catch (error) {
+    const verifyMs = Math.round((performance.now() - t0) * 10) / 10
+    const response = buildVerifyExceptionResponse({
+      error,
+      verifyMs
+    })
 
-      const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-      const response = await buildVerifyResultResponse({
-        verifyResult,
-        metadata: {
-          verifyMs,
-          storageMode,
-          cacheStrategy: authInstance.cacheStrategy,
-          cachedVerification
-        }
-      })
-
-      const res = jsonWithHeaders(c, response)
-      res.headers.set("cache-control", "no-store")
-      return res
-    } catch (error) {
-      const verifyMs = Math.round((performance.now() - t0) * 10) / 10
-      const response = buildVerifyExceptionResponse({
-        error,
-        verifyMs
-      })
-
-      const res = jsonWithHeaders(c, response)
-      res.headers.set("cache-control", "no-store")
-      return res
-    }
-  })
-
-  // Pass all /api/auth/* requests to better-auth so plugin-registered
-  // endpoints (discovery document, verify, invalidate) work natively.
-  .on(
-    ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    "/api/auth/*",
-    (c) => c.var.authInstance.handler(c.req.raw)
-  )
+    const res = jsonWithHeaders(c, response)
+    res.headers.set("cache-control", "no-store")
+    return res
+  }
+})
 
 export default {
   fetch: app.fetch,
@@ -155,9 +142,10 @@ export default {
     ctx: ExecutionContext
   ) {
     ctx.waitUntil(
-      cleanupExpiredAuthStorage(
+      cleanupExpiredVerificationStorage(
         {
-          hyperdrive: env.HYPERDRIVE.connectionString
+          hyperdrive: env.HYPERDRIVE.connectionString,
+          databaseUrl: env.DATABASE_URL
         },
         new Date(controller.scheduledTime)
       ).then((result) => {

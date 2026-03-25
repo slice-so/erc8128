@@ -219,9 +219,9 @@ async function openConnection(
 export function createRedisSecondaryStorage(
   options: string | RedisSecondaryStorageOptions
 ): RequestScopedSecondaryStorage {
-  const { connectionString, keyPrefix = "better-auth:" } =
+  const { connectionString, keyPrefix = "erc8128:" } =
     typeof options === "string"
-      ? { connectionString: options, keyPrefix: "better-auth:" }
+      ? { connectionString: options, keyPrefix: "erc8128:" }
       : options
 
   const config = parseRedisUrl(connectionString)

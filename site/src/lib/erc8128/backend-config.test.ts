@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { memoryAdapter } from "@slicekit/better-auth/adapters/memory"
-import { type RoutePolicy, signRequest } from "@slicekit/erc8128"
+import { signRequest } from "@slicekit/erc8128"
 import { verifyMessage } from "viem"
 import { type Address, privateKeyToAccount } from "viem/accounts"
 import {
-  type AuthBindings,
-  type AuthRuntimeConfig,
-  createAuthInstance,
-  getAuthInstance
+  type CachedVerification,
+  createVerificationRuntime,
+  type VerificationRuntimeConfig
 } from "./backend-config"
 
 const TEST_SIGNER = {
@@ -30,84 +28,99 @@ const REAL_SIGNER = {
     REAL_SIGNER_ACCOUNT.signMessage({ message: { raw: message } })
 }
 
-function createMemoryDb() {
-  return {
-    user: [] as Record<string, unknown>[],
-    session: [] as Record<string, unknown>[],
-    account: [] as Record<string, unknown>[],
-    verification: [] as Record<string, unknown>[],
-    walletAddress: [] as Record<string, unknown>[],
-    erc8128Nonce: [] as Record<string, unknown>[],
-    erc8128Invalidation: [] as Record<string, unknown>[]
-  }
-}
-
-function createDatabaseRuntimeConfig(): AuthRuntimeConfig {
-  return {
-    cacheStrategy: "database",
-    database: memoryAdapter(createMemoryDb())
-  }
-}
-
-const TEST_BINDINGS: AuthBindings = {
-  databaseUrl: "postgresql://user:password@127.0.0.1:5432/erc8128_test"
-}
-
-describe("playground better-auth integration", () => {
-  test("returns fresh auth instances for the same mode and base URL", async () => {
-    const verify = async () => true
-
-    const first = await getAuthInstance(
-      "postgres",
-      "https://erc8128.org",
-      TEST_BINDINGS,
-      verify
-    )
-    const second = await getAuthInstance(
-      "postgres",
-      "https://erc8128.org/",
-      TEST_BINDINGS,
-      verify
-    )
-
-    expect(first).not.toBe(second)
-  })
-
-  test("closes request-scoped resources with the auth instance", async () => {
-    let closedDatabase = false
-    let closedSecondaryStorage = false
-    const secondaryStorage = {
-      get: async () => null,
-      set: async () => undefined,
-      delete: async () => undefined,
-      setIfNotExists: async () => true
+function createRuntimeConfig(
+  options: {
+    cacheStrategy?: VerificationRuntimeConfig["cacheStrategy"]
+    onClose?: () => Promise<void> | void
+    invalidatedAfter?: number
+    onCacheGet?: (signatureHeader: string) => Promise<void> | void
+  } = {}
+): VerificationRuntimeConfig {
+  const nonceExpiries = new Map<string, number>()
+  const cache = new Map<
+    string,
+    {
+      value: CachedVerification
+      expiresAt: number
     }
+  >()
 
-    const auth = createAuthInstance(
-      {
-        cacheStrategy: "secondary-storage",
-        database: memoryAdapter(createMemoryDb()),
-        secondaryStorage,
-        closeDatabase: async () => {
-          closedDatabase = true
-        },
-        closeSecondaryStorage: async () => {
-          closedSecondaryStorage = true
+  return {
+    cacheStrategy: options.cacheStrategy ?? "database",
+    nonceStore: {
+      async consume(key, ttlSec) {
+        const now = Date.now()
+        for (const [candidate, expiry] of nonceExpiries) {
+          if (expiry <= now) {
+            nonceExpiries.delete(candidate)
+          }
         }
+
+        const current = nonceExpiries.get(key)
+        if (current && current > now) {
+          return false
+        }
+
+        nonceExpiries.set(key, now + ttlSec * 1000)
+        return true
+      }
+    },
+    verificationCache: {
+      async get(signatureHeader) {
+        await options.onCacheGet?.(signatureHeader)
+        const record = cache.get(signatureHeader)
+        if (!record || record.expiresAt <= Date.now()) {
+          cache.delete(signatureHeader)
+          return null
+        }
+
+        return record.value
       },
+
+      async set(signatureHeader, value, ttlSec) {
+        cache.set(signatureHeader, {
+          value,
+          expiresAt: Date.now() + ttlSec * 1000
+        })
+      },
+
+      async delete(signatureHeader) {
+        cache.delete(signatureHeader)
+      }
+    },
+    invalidationStore: {
+      async getNotBefore() {
+        return options.invalidatedAfter ?? null
+      }
+    },
+    close: async () => {
+      await options.onClose?.()
+    }
+  }
+}
+
+describe("playground erc8128 runtime", () => {
+  test("closes request-scoped resources with the runtime", async () => {
+    let closed = false
+
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig({
+        onClose: () => {
+          closed = true
+        }
+      }),
       "https://erc8128.org",
       async () => true
     )
 
-    await auth.close()
+    await runtime.close()
 
-    expect(closedDatabase).toBe(true)
-    expect(closedSecondaryStorage).toBe(true)
+    expect(closed).toBe(true)
   })
 
   test("accepts DELETE /verify as request-bound non-replayable", async () => {
-    const auth = createAuthInstance(
-      createDatabaseRuntimeConfig(),
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
       "https://erc8128.org",
       async () => true
     )
@@ -128,16 +141,15 @@ describe("playground better-auth integration", () => {
       }
     )
 
-    const result = await auth.erc8128.protect(request)
+    const result = await runtime.verifyRequest(request)
 
-    expect(result.ok).toBe(true)
-    if (!result.ok) {
-      throw new Error("Expected request protection to succeed")
+    expect(result.cachedVerification).toBe(false)
+    expect(result.result.ok).toBe(true)
+    if (!result.result.ok) {
+      throw new Error("Expected request verification to succeed")
     }
 
-    expect(result.source).toBe("signature")
-    expect(result.protected).toBe(true)
-    expect(result.verification).toMatchObject({
+    expect(result.result).toMatchObject({
       address: TEST_SIGNER_VERIFIED_ADDRESS,
       binding: "request-bound",
       replayable: false
@@ -145,8 +157,8 @@ describe("playground better-auth integration", () => {
   })
 
   test("accepts replayable class-bound POST /verify", async () => {
-    const auth = createAuthInstance(
-      createDatabaseRuntimeConfig(),
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
       "https://erc8128.org",
       async () => true
     )
@@ -166,29 +178,64 @@ describe("playground better-auth integration", () => {
       }
     )
 
-    const result = await auth.erc8128.protect(request)
+    const result = await runtime.verifyRequest(request)
 
-    expect(result.ok).toBe(true)
-    if (!result.ok) {
-      throw new Error("Expected request protection to succeed")
+    expect(result.result.ok).toBe(true)
+    if (!result.result.ok) {
+      throw new Error("Expected request verification to succeed")
     }
 
-    expect(result.source).toBe("signature")
-    expect(result.protected).toBe(true)
-    expect(result.verification).toMatchObject({
+    expect(result.result).toMatchObject({
       address: TEST_SIGNER_VERIFIED_ADDRESS,
       binding: "class-bound",
       replayable: true
     })
   })
 
-  test("verifyRequest validates /verify signatures without creating wallet users", async () => {
-    const db = createMemoryDb()
-    const auth = createAuthInstance(
+  test("returns cachedVerification for repeated replayable requests", async () => {
+    let verifyCalls = 0
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
+      "https://erc8128.org",
+      async () => {
+        verifyCalls += 1
+        return true
+      }
+    )
+
+    const request = await signRequest(
+      "https://erc8128.org/verify",
       {
-        cacheStrategy: "database",
-        database: memoryAdapter(db)
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ok: true })
       },
+      TEST_SIGNER,
+      {
+        binding: "class-bound",
+        replay: "replayable",
+        components: ["@authority"]
+      }
+    )
+
+    const first = await runtime.verifyRequest(request.clone())
+    const second = await runtime.verifyRequest(request)
+
+    expect(first.result.ok).toBe(true)
+    expect(first.cachedVerification).toBe(false)
+    expect(second.result.ok).toBe(true)
+    expect(second.cachedVerification).toBe(true)
+    expect(verifyCalls).toBe(1)
+  })
+
+  test("skips verification cache for nonce-bearing POST /verify", async () => {
+    let cacheGetCalls = 0
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig({
+        onCacheGet: () => {
+          cacheGetCalls += 1
+        }
+      }),
       "https://erc8128.org",
       async () => true
     )
@@ -196,48 +243,7 @@ describe("playground better-auth integration", () => {
     const request = await signRequest(
       "https://erc8128.org/verify",
       {
-        method: "DELETE",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ storeId: 1, productId: 42, quantity: 2 })
-      },
-      TEST_SIGNER,
-      {
-        binding: "request-bound",
-        replay: "non-replayable",
-        nonce: `nonce-${Date.now()}`,
-        components: ["content-digest"]
-      }
-    )
-
-    const verifyPolicy: RoutePolicy = {
-      methods: ["DELETE"],
-      replayable: false
-    }
-
-    const { result } = await auth.verifyRequest(request, verifyPolicy)
-
-    expect(result.ok).toBe(true)
-    expect(db.user).toHaveLength(0)
-    expect(db.walletAddress).toHaveLength(0)
-    expect(db.account).toHaveLength(0)
-  })
-
-  test("verifyRequest forwards explicit policies to better-auth", async () => {
-    const auth = createAuthInstance(
-      createDatabaseRuntimeConfig(),
-      "https://erc8128.org",
-      async () => true
-    )
-
-    const verifyPolicy: RoutePolicy = {
-      methods: ["DELETE"],
-      replayable: false
-    }
-
-    const request = await signRequest(
-      "https://erc8128.org/custom-verify",
-      {
-        method: "DELETE",
+        method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ok: true })
       },
@@ -250,39 +256,15 @@ describe("playground better-auth integration", () => {
       }
     )
 
-    const { result } = await auth.verifyRequest(request, verifyPolicy)
+    const result = await runtime.verifyRequest(request)
 
-    expect(result.ok).toBe(true)
-  })
-
-  test("rejects unsigned requests on protected routes", async () => {
-    const auth = createAuthInstance(
-      createDatabaseRuntimeConfig(),
-      "https://erc8128.org",
-      async () => true
-    )
-
-    const result = await auth.erc8128.protect(
-      new Request("https://erc8128.org/verify", {
-        method: "GET"
-      })
-    )
-
-    expect(result.ok).toBe(false)
-    if (result.ok) {
-      throw new Error("Expected request protection to fail")
-    }
-
-    expect(result.response.status).toBe(401)
-    expect(await result.response.json()).toMatchObject({
-      error: "erc8128_verification_failed",
-      reason: "missing_signature"
-    })
+    expect(result.result.ok).toBe(true)
+    expect(cacheGetCalls).toBe(0)
   })
 
   test("rejects requests signed for a different path", async () => {
-    const auth = createAuthInstance(
-      createDatabaseRuntimeConfig(),
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
       "https://erc8128.org",
       verifyMessage
     )
@@ -309,16 +291,14 @@ describe("playground better-auth integration", () => {
       body: JSON.stringify({ storeId: 1, productId: 42, quantity: 2 })
     })
 
-    const result = await auth.erc8128.protect(request)
+    const result = await runtime.verifyRequest(request)
 
-    expect(result.ok).toBe(false)
-    if (result.ok) {
-      throw new Error("Expected request protection to fail")
+    expect(result.result.ok).toBe(false)
+    if (result.result.ok) {
+      throw new Error("Expected request verification to fail")
     }
 
-    expect(result.response.status).toBe(401)
-    expect(await result.response.json()).toMatchObject({
-      error: "erc8128_verification_failed",
+    expect(result.result).toMatchObject({
       reason: "bad_signature"
     })
   })
