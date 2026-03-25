@@ -36,6 +36,21 @@ type VerifyMessageOutcome = {
   failure: VerifyResult | null
 }
 
+function deriveMode(args: {
+  request: Request
+  components: string[]
+}): "eoa" | undefined {
+  const component = args.components.find(
+    (candidate) => candidate.toLowerCase() === "mode"
+  )
+  if (!component) {
+    return undefined
+  }
+
+  const value = args.request.headers.get(component)
+  return value === "eoa" ? "eoa" : undefined
+}
+
 async function runVerifyMessageCheck(args: {
   replayable: boolean
   verifyMessageCheck: () => ReturnType<
@@ -293,7 +308,8 @@ export async function verifyRequest(
     const verifyMessageArgs = {
       address,
       message: { raw: bytesToHex(M) },
-      signature: sigHex
+      signature: sigHex,
+      mode: deriveMode({ request, components })
     }
 
     // Verification may fall through to later signatures, so record the

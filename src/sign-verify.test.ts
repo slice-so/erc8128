@@ -184,6 +184,92 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(res.ok).toBe(true)
   })
 
+  test("accepts a signed mode=eoa component", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+
+    const req = new Request("https://example.com/mode", {
+      method: "GET",
+      headers: {
+        mode: "eoa"
+      }
+    })
+
+    const signed = await signRequest(req, signer, {
+      created,
+      expires,
+      nonce: "nonce-verify-mode",
+      components: ["mode"]
+    })
+
+    const nonceStore = makeNonceStore()
+    const res = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { nonceStore }
+    )
+
+    expect(res.ok).toBe(true)
+  })
+
+  test("accepts a signed mode value other than eoa", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+
+    const req = new Request("https://example.com/mode-non-eoa", {
+      method: "GET",
+      headers: {
+        mode: "compact-eip191"
+      }
+    })
+
+    const signed = await signRequest(req, signer, {
+      created,
+      expires,
+      nonce: "nonce-verify-mode-non-eoa",
+      components: ["mode"]
+    })
+
+    const nonceStore = makeNonceStore()
+    const res = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { nonceStore }
+    )
+
+    expect(res.ok).toBe(true)
+  })
+
+  test("accepts an unsigned mode header", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+
+    const req = new Request("https://example.com/mode-unsigned", {
+      method: "GET",
+      headers: {
+        mode: "eoa"
+      }
+    })
+
+    const signed = await signRequest(req, signer, {
+      created,
+      expires,
+      nonce: "nonce-verify-mode-unsigned"
+    })
+
+    const nonceStore = makeNonceStore()
+    const res = await verifyWithPolicy(
+      signed,
+      { now: () => created },
+      { nonceStore }
+    )
+
+    expect(res.ok).toBe(true)
+  })
+
   test("default signing options set label/nonce and created/expires window", async () => {
     const signer = makeSigner()
 
@@ -319,6 +405,58 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       },
       { verifyMessage }
     )
+    expect(resAllowed.ok).toBe(true)
+  })
+
+  test("replayable POST still requires invalidation even when replayable is allowed", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const verifyMessage = makeVerifyMessage()
+
+    const signed = await signRequest(
+      "https://example.com/replayable-post",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ok: true })
+      },
+      signer,
+      {
+        binding: "class-bound",
+        components: ["@authority"],
+        created,
+        expires,
+        replay: "replayable"
+      }
+    )
+
+    const resMissingInvalidation = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        classBoundPolicies: ["@authority"]
+      },
+      { verifyMessage }
+    )
+
+    expect(resMissingInvalidation).toEqual({
+      ok: false,
+      reason: "replayable_invalidation_required"
+    })
+
+    const resAllowed = await verifyWithPolicy(
+      signed,
+      {
+        now: () => created,
+        replayable: true,
+        classBoundPolicies: ["@authority"],
+        replayableNotBefore: () => null
+      },
+      { verifyMessage }
+    )
+
     expect(resAllowed.ok).toBe(true)
   })
 
