@@ -2,7 +2,8 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "outputs": []
+      "outputs": [],
+      "env": ["ETH_PRIVATE_KEY", "ETH_KEYSTORE_PASSWORD"]
     },
     "generate": {
       "inputs": ["src/**/*.json", "scripts/**/*.ts"]
@@ -10,7 +11,16 @@
     "build": {
       "dependsOn": [],
       "inputs": ["src/**/*.ts", "build.ts"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": [
+        "PUBLIC_ALCHEMY_KEY",
+        "SITE",
+        "ETH_PRIVATE_KEY",
+        "ETH_KEYSTORE_PASSWORD",
+        "DEBUG",
+        "WRANGLER_HYPERDRIVE_LOCAL_CONNECTION_STRING",
+        "DATABASE_URL"
+      ]
     }
   }
 }

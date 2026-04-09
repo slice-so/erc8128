@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind v4 theme tokens */
 @theme {
   --color-bg: var(--bg);
   --color-fg: var(--fg);
