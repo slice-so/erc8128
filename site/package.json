@@ -17,8 +17,11 @@
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
+    "@coinbase/wallet-sdk": "^4.3.6",
     "@slicekit/erc8128": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
+    "@wagmi/connectors": "^8.0.2",
+    "@walletconnect/ethereum-provider": "^2.21.1",
     "astro": "^5.17.1",
     "connectkit": "^1.9.1",
     "drizzle-orm": "catalog:",
@@ -28,7 +31,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "viem": "catalog:",
-    "wagmi": "^3.5.0"
+    "wagmi": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/vite": "~4.1.18",
