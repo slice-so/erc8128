@@ -5,6 +5,7 @@ import satori from "satori"
 
 export const prerender = true
 
+// TODO: Fix dynamic loading font (why?) and offline failing
 async function loadFont(family: string, weight: number): Promise<ArrayBuffer> {
   const url = `https://fonts.googleapis.com/css2?family=${family}:wght@${weight}`
   const css = await fetch(url, {
