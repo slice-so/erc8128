@@ -48,7 +48,13 @@ export function utf8Encode(s: string): Uint8Array {
 }
 
 export function randomBytes(n: number): Uint8Array {
-  const cryptoObj = globalThis.crypto
+  const cryptoObj = (
+    globalThis as typeof globalThis & {
+      crypto?: {
+        getRandomValues?: (array: Uint8Array) => Uint8Array
+      }
+    }
+  ).crypto
   if (!cryptoObj?.getRandomValues)
     throw new Erc8128Error(
       "CRYPTO_UNAVAILABLE",
