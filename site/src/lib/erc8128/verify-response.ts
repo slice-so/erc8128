@@ -1,19 +1,16 @@
 import type { VerifyResult } from "@slicekit/erc8128"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import type { CacheStrategy } from "./backend-config"
-import type { StorageMode } from "./storage-header"
+import type {
+  CacheStrategy,
+  StorageMode,
+  VerificationHttpResponse
+} from "../../types"
 
 type VerificationMetadata = {
   verifyMs: number
   storageMode: StorageMode
   cacheStrategy: CacheStrategy
   cachedVerification: boolean
-}
-
-export type VerificationHttpResponse = {
-  status: ContentfulStatusCode
-  payload: Record<string, unknown>
-  headers: Headers
 }
 
 function withCachedVerification(metadata: VerificationMetadata) {
@@ -84,7 +81,7 @@ export function buildVerifyResultResponse(args: {
 }
 
 export function buildVerifyExceptionResponse(args: {
-  error: unknown
+  error: Error | string | null | undefined
   verifyMs: number
 }): VerificationHttpResponse {
   const { error, verifyMs } = args

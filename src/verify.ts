@@ -8,15 +8,19 @@ import {
   normalizeClassBoundPolicies,
   normalizeComponentsList
 } from "./lib/policies/normalizePolicies"
-import type { Address, VerifyRequestArgs, VerifyResult } from "./lib/types"
 import { base64Decode, bytesToHex, sanitizeUrl, unixNow } from "./lib/utilities"
 import {
   buildAttempts,
   buildSignatureBase,
   runNonceChecks,
-  runTimeChecks,
-  type VerifyCandidate
+  runTimeChecks
 } from "./lib/verifyUtils"
+import type {
+  Address,
+  VerifyCandidate,
+  VerifyRequestArgs,
+  VerifyResult
+} from "./types"
 
 const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
 

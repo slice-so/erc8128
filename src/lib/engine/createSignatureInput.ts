@@ -2,14 +2,8 @@
 // Parsing: Signature-Input / Signature
 //////////////////////////////
 
-import { Erc8128Error, type SignatureParams } from "../types"
-
-export type ParsedSignatureInputMember = {
-  label: string
-  components: string[]
-  params: SignatureParams
-  signatureParamsValue: string // raw member value after "label=" (trimmed)
-}
+import type { ParsedSignatureInputMember, SignatureParams } from "../../types"
+import { Erc8128Error } from "../Erc8128Error"
 
 export function parseSignatureInputDictionary(
   headerValue: string

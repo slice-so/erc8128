@@ -2,11 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { signRequest } from "@slicekit/erc8128"
 import { verifyMessage } from "viem"
 import { type Address, privateKeyToAccount } from "viem/accounts"
-import {
-  type CachedVerification,
-  createVerificationRuntime,
-  type VerificationRuntimeConfig
-} from "./backend-config"
+import type { CachedVerification, VerificationRuntimeConfig } from "../../types"
+import { createVerificationRuntime } from "./backend-config"
 
 const TEST_SIGNER = {
   address: "0x000000000000000000000000000000000000dEaD" as Address,

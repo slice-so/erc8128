@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import type { ServerConfig } from "../types"
 import { resolvePosture } from "./resolvePosture"
-import type { ServerConfig } from "./types"
 
 const baseConfig: ServerConfig = {
   max_validity_sec: 300,

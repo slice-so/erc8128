@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import type { RoutePolicyConfig } from "../types"
 import { matchRoutePolicy } from "./matchRoutePolicy"
-import type { RoutePolicyConfig } from "./types"
 
 describe("matchRoutePolicy", () => {
   const policies: RoutePolicyConfig = {

@@ -2,8 +2,8 @@
 // keyid
 //////////////////////////////
 
-import type { Address } from "./types"
-import { Erc8128Error } from "./types"
+import type { Address } from "../types"
+import { Erc8128Error } from "./Erc8128Error"
 
 export function formatKeyId(chainId: number, address: Address): string {
   if (!Number.isInteger(chainId))

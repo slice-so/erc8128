@@ -1,22 +1,9 @@
-import { Erc8128Error, type VerifyPolicy, type VerifyResult } from "../types"
+import type { SelectedSignature, VerifyPolicy, VerifyResult } from "../../types"
+import { Erc8128Error } from "../Erc8128Error"
 import {
   parseSignatureDictionary,
   parseSignatureInputDictionary
 } from "./createSignatureInput"
-
-export type SelectedSignature = {
-  label: string
-  components: string[]
-  params: {
-    keyid: string
-    created: number
-    expires: number
-    nonce?: string
-    tag?: string
-  }
-  signatureParamsValue: string
-  sigB64: string
-}
 
 /**
  * Parse `Signature-Input` + `Signature` headers and select candidate signatures to verify.

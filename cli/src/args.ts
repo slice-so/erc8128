@@ -3,40 +3,32 @@ import { homedir } from "node:os"
 import path from "node:path"
 import type { BindingMode, ReplayMode } from "@slicekit/erc8128"
 import { Command } from "commander"
+import type { CliOptions } from "./types"
 
-export interface CliOptions {
-  // HTTP options
-  method: string
-  headers: string[]
+const CLI_VERSION = resolveCliVersion()
+
+type CurlCommandOptions = {
+  request: string
+  header: string[]
   data?: string
   output?: string
-  include: boolean
-  verbose: boolean
-  json: boolean
-  fail: boolean
-  dryRun: boolean
-
-  // Wallet options
+  include?: boolean
+  verbose?: boolean
+  json?: boolean
+  fail?: boolean
+  dryRun?: boolean
   privateKey?: string
   keyfile?: string
   keyid?: string
-  keyIdAddress?: string
   keystore?: string
   password?: string
-  interactive: boolean
-
-  // ERC-8128 options
-  chainId: number
+  interactive?: boolean
+  chainId?: number
   binding: BindingMode
   replay: ReplayMode
   ttl: number
   components: string[]
-
-  // Positional
-  url: string
 }
-
-const CLI_VERSION = resolveCliVersion()
 
 export function parseArgs(
   argv: string[] = process.argv,
@@ -132,43 +124,40 @@ export function parseArgs(
       collect,
       [...(config.components ?? [])]
     )
-    .action((url: string, options: Record<string, unknown>) => {
+    .action((url: string, options: CurlCommandOptions) => {
       const keyIdInfo =
         typeof options.keyid === "string"
           ? parseKeyId(options.keyid)
           : undefined
       const chainId = resolveChainId(options.chainId, keyIdInfo)
-      const components = normalizeComponents(options.components as string[])
+      const components = normalizeComponents(options.components)
       const normalizedUrl = normalizeUrl(url)
 
-      if (
-        (options.binding as BindingMode) === "class-bound" &&
-        components.length === 0
-      ) {
+      if (options.binding === "class-bound" && components.length === 0) {
         throw new Error("components are required for class-bound signatures.")
       }
 
       parsed = {
         method: String(options.request).toUpperCase(),
-        headers: options.header as string[],
-        data: options.data as string | undefined,
-        output: options.output as string | undefined,
+        headers: options.header,
+        data: options.data,
+        output: options.output,
         include: Boolean(options.include),
         verbose: Boolean(options.verbose),
         json: Boolean(options.json),
         fail: Boolean(options.fail),
         dryRun: Boolean(options.dryRun),
-        privateKey: options.privateKey as string | undefined,
-        keyfile: options.keyfile as string | undefined,
-        keyid: options.keyid as string | undefined,
+        privateKey: options.privateKey,
+        keyfile: options.keyfile,
+        keyid: options.keyid,
         keyIdAddress: keyIdInfo?.address,
-        keystore: options.keystore as string | undefined,
-        password: options.password as string | undefined,
+        keystore: options.keystore,
+        password: options.password,
         interactive: Boolean(options.interactive),
         chainId,
-        binding: options.binding as BindingMode,
-        replay: options.replay as ReplayMode,
-        ttl: options.ttl as number,
+        binding: options.binding,
+        replay: options.replay,
+        ttl: options.ttl,
         components,
         url: normalizedUrl
       }
@@ -197,7 +186,7 @@ function parseIntOption(value: string): number {
 }
 
 function resolveChainId(
-  chainId: unknown,
+  chainId: number | undefined,
   keyIdInfo?: { chainId: number }
 ): number {
   if (typeof chainId === "number" && keyIdInfo) {
@@ -273,7 +262,7 @@ function resolveCliVersion(): string {
   try {
     const packageJsonPath = new URL("../package.json", import.meta.url)
     const raw = readFileSync(packageJsonPath, "utf-8")
-    const parsed = JSON.parse(raw) as { version?: unknown }
+    const parsed = JSON.parse(raw) as { version?: string }
     if (typeof parsed.version === "string" && parsed.version.length > 0) {
       return parsed.version
     }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { createSignerClient, parseSignatureInputHeader } from "."
-import type { Address, Hex, ServerConfig } from "./lib/types"
+import type { Address, Hex, ServerConfig } from "./types"
 
 function makeSigner() {
   return {

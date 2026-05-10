@@ -1,3 +1,11 @@
+import type {
+  AcceptSignatureRequestShape,
+  AcceptSignatureSignOptions,
+  ParsedAcceptSignatureMember,
+  ReplayMode,
+  SelectAcceptSignatureRetryOptionsArgs
+} from "../types"
+import { Erc8128Error } from "./Erc8128Error"
 import {
   assertLabel,
   parseInnerListWithBareParams,
@@ -5,36 +13,7 @@ import {
 } from "./engine/createSignatureInput"
 import { quoteSfString } from "./engine/serializations"
 import { requiredRequestBoundComponents } from "./policies/isRequestBound"
-import type { BindingMode, ReplayMode } from "./types"
-import { Erc8128Error } from "./types"
 import { sanitizeUrl } from "./utilities"
-
-export type AcceptSignatureRequestShape =
-  | Request
-  | {
-      hasQuery: boolean
-      hasBody: boolean
-    }
-
-export type AcceptSignatureSignOptions = {
-  binding: BindingMode
-  replay: ReplayMode
-  components: string[]
-}
-
-export type ParsedAcceptSignatureMember = {
-  label: string
-  components: string[]
-  requiredParams: string[]
-  acceptSignatureValue: string
-  signOptions?: AcceptSignatureSignOptions
-}
-
-export type SelectAcceptSignatureRetryOptionsArgs = {
-  members: Pick<ParsedAcceptSignatureMember, "components" | "requiredParams">[]
-  requestShape: AcceptSignatureRequestShape
-  attemptedOptions?: Array<Partial<AcceptSignatureSignOptions> | undefined>
-}
 
 function serializeAcceptSignatureValue(
   components: string[],

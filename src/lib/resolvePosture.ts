@@ -1,16 +1,10 @@
-import { matchRoutePolicy } from "./matchRoutePolicy"
 import type {
-  BindingMode,
   ReplayMode,
+  ResolvedPosture,
   ServerConfig,
   SignOptions
-} from "./types"
-
-export type ResolvedPosture = {
-  binding: BindingMode | undefined
-  replay: ReplayMode
-  components: string[] | undefined
-}
+} from "../types"
+import { matchRoutePolicy } from "./matchRoutePolicy"
 
 /**
  * Resolve the signing posture for a given request based on client preferences

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { Erc8128Error } from "./Erc8128Error"
 import { formatKeyId, parseKeyId } from "./keyId"
-import { Erc8128Error } from "./types"
 
 describe("formatKeyId", () => {
   test("formats a valid keyid", () => {

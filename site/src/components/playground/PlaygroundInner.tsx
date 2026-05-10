@@ -1108,7 +1108,7 @@ export function PlaygroundInner() {
                           (userEnsName ||
                             (address
                               ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                              : "unknown account"))}
+                              : "unrecognized account"))}
                       </span>
                     </>
                   ) : (

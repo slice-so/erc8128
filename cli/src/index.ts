@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises"
 import { signedFetch, signRequest } from "@slicekit/erc8128"
-import { type CliOptions, parseArgs } from "./args"
+import { parseArgs } from "./args"
 import { handleResponse, logVerbose } from "./output"
+import type { CliOptions } from "./types"
 import { createSigner } from "./wallet"
 
 async function main(): Promise<void> {
@@ -103,7 +104,7 @@ async function main(): Promise<void> {
         console.error(error.stack)
       }
     } else {
-      console.error("An unknown error occurred")
+      console.error("An unexpected error occurred")
     }
     process.exit(1)
   }

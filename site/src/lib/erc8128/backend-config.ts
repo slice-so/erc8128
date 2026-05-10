@@ -1,5 +1,4 @@
 import {
-  type BindingMode,
   type DiscoveryDocument,
   formatDiscoveryDocument,
   matchRoutePolicy,
@@ -7,10 +6,8 @@ import {
   parseKeyId,
   type RoutePolicy,
   type RoutePolicyConfig,
-  type SignatureParams,
   selectSignatureFromHeaders,
   type VerifyMessageFn,
-  type VerifyResult,
   verifyRequest
 } from "@slicekit/erc8128"
 import {
@@ -29,68 +26,16 @@ import {
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 import * as schema from "../../auth-schema"
-import type { StorageMode } from "./storage-header"
-
-export type CacheStrategy = "secondary-storage" | "database"
-
-export type CachedVerification = {
-  address: `0x${string}`
-  chainId: number
-  label: string
-  components: string[]
-  params: SignatureParams
-  replayable: true
-  binding: BindingMode
-}
-
-export interface VerificationCacheStore {
-  get(signatureHeader: string): Promise<CachedVerification | null>
-  set(
-    signatureHeader: string,
-    value: CachedVerification,
-    ttlSec: number
-  ): Promise<void>
-  delete(signatureHeader: string): Promise<void>
-}
-
-export interface InvalidationStore {
-  getNotBefore(keyId: string): Promise<number | null>
-}
-
-export interface VerificationRuntimeConfig {
-  cacheStrategy: CacheStrategy
-  nonceStore: NonceStore
-  verificationCache: VerificationCacheStore
-  invalidationStore: InvalidationStore
-  close?: () => Promise<void>
-}
-
-export interface VerificationBindings {
-  hyperdrive?: string
-  databaseUrl?: string
-  redisUrl?: string
-}
-
-export interface VerifyRequestResultEnvelope {
-  result: VerifyResult
-  responseHeaders: Headers
-  cachedVerification: boolean
-}
-
-export interface VerificationRuntime {
-  cacheStrategy: CacheStrategy
-  getConfig: () => DiscoveryDocument
-  verifyRequest: (request: Request) => Promise<VerifyRequestResultEnvelope>
-  close: () => Promise<void>
-}
-
-interface RequestScopedSecondaryStorage {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string, ttlSec?: number): Promise<void>
-  delete(key: string): Promise<void>
-  setIfNotExists?(key: string, value: string, ttlSec?: number): Promise<boolean>
-  close(): Promise<void>
-}
+import type {
+  CachedVerification,
+  InvalidationStore,
+  RequestScopedSecondaryStorage,
+  StorageMode,
+  VerificationBindings,
+  VerificationCacheStore,
+  VerificationRuntime,
+  VerificationRuntimeConfig
+} from "../../types"
 
 export const VERIFY_ROUTE_POLICIES: RoutePolicyConfig = {
   "/verify": [

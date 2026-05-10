@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises"
 
-export interface OutputOptions {
+interface OutputOptions {
   include: boolean
   output?: string
   verbose: boolean

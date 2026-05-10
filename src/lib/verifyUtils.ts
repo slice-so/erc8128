@@ -1,29 +1,17 @@
+import type {
+  Attempt,
+  NoncePlan,
+  NonceStore,
+  VerifyCandidate,
+  VerifyResult
+} from "../types"
 import { createSignatureBaseMinimal } from "./engine/createSignatureBase"
-import type { SelectedSignature } from "./engine/signatureHeaders"
 import {
   includesAllComponents,
   isRequestBoundForThisRequest
 } from "./policies/isRequestBound"
-import type { NonceStore, VerifyResult } from "./types"
 
 export const DEFAULT_MAX_VALIDITY_SEC = 300
-
-export type VerifyCandidate<Key = unknown> = {
-  candidate: SelectedSignature
-  key: Key
-}
-
-export type Attempt<Key = unknown> = {
-  candidate: VerifyCandidate<Key>
-  kind: "request-bound" | "class-bound"
-  policyLength: number
-}
-
-export type NoncePlan = {
-  replayKey: string | null
-  replayStore: NonceStore | null
-  replayTtlSeconds: number
-}
 
 export function buildAttempts<Key>(
   candidates: VerifyCandidate<Key>[],

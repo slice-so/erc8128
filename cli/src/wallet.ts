@@ -12,13 +12,22 @@ import type { Hex, PrivateKeyAccount } from "viem"
 import { hexToBytes, keccak256 } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
-export interface WalletOptions {
+interface WalletOptions {
   privateKey?: string
   keyfile?: string
   keystore?: string
   password?: string
   interactive?: boolean
   chainId: number
+}
+
+type JsonPrimitive = string | number | boolean | null
+type JsonValue = JsonPrimitive | JsonValue[] | JsonRecord
+type JsonRecord = { [key: string]: JsonValue | undefined }
+type KeystoreCryptoSection = JsonRecord
+type MutedReadlineInterface = ReturnType<typeof createInterface> & {
+  stdoutMuted?: boolean
+  _writeToOutput?: (value: string) => void
 }
 
 export async function createSigner(
@@ -88,11 +97,10 @@ async function createSignerFromKeystore(
 ): Promise<EthHttpSigner> {
   try {
     const keystoreJson = await readFile(keystorePath, "utf-8")
-    const keystore = JSON.parse(keystoreJson) as {
-      version?: unknown
-      crypto?: Record<string, unknown>
-      Crypto?: Record<string, unknown>
-    }
+    const keystore = getObject(
+      JSON.parse(keystoreJson) as JsonValue,
+      "keystore"
+    )
     if (keystore.version !== 3) {
       throw new Error(
         `Unsupported keystore version: ${String(keystore.version)}. Expected version 3.`
@@ -112,19 +120,16 @@ async function createSignerFromKeystore(
   }
 }
 
-function getKeystoreCryptoSection(keystore: {
-  crypto?: Record<string, unknown>
-  Crypto?: Record<string, unknown>
-}): Record<string, unknown> {
+function getKeystoreCryptoSection(keystore: JsonRecord): KeystoreCryptoSection {
   const cryptoSection = keystore.crypto ?? keystore.Crypto
-  if (!cryptoSection || typeof cryptoSection !== "object") {
+  if (!isJsonRecord(cryptoSection)) {
     throw new Error("Invalid keystore: missing crypto section.")
   }
   return cryptoSection
 }
 
 function decryptKeystorePrivateKey(
-  cryptoSection: Record<string, unknown>,
+  cryptoSection: KeystoreCryptoSection,
   password: string
 ): `0x${string}` {
   const cipher = getString(cryptoSection.cipher, "cipher")
@@ -173,7 +178,7 @@ function decryptKeystorePrivateKey(
 function deriveKeystoreKey(
   password: string,
   kdf: string,
-  kdfparams: Record<string, unknown>
+  kdfparams: JsonRecord
 ): Buffer {
   const dklen = getNumber(kdfparams.dklen, "kdfparams.dklen")
   const salt = hexToBuffer(getString(kdfparams.salt, "kdfparams.salt"))
@@ -229,21 +234,25 @@ function privateKeyBytesToHex(privateKeyBytes: Buffer): string {
   return privateKeyBytes.toString("hex")
 }
 
-function getObject(value: unknown, key: string): Record<string, unknown> {
-  if (!value || typeof value !== "object") {
-    throw new Error(`Invalid keystore: missing ${key}.`)
-  }
-  return value as Record<string, unknown>
+function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 
-function getString(value: unknown, key: string): string {
+function getObject(value: JsonValue | undefined, key: string): JsonRecord {
+  if (!isJsonRecord(value)) {
+    throw new Error(`Invalid keystore: missing ${key}.`)
+  }
+  return value
+}
+
+function getString(value: JsonValue | undefined, key: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Invalid keystore: missing ${key}.`)
   }
   return value
 }
 
-function getNumber(value: unknown, key: string): number {
+function getNumber(value: JsonValue | undefined, key: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`Invalid keystore: missing ${key}.`)
   }
@@ -269,10 +278,7 @@ async function promptPassword(): Promise<string> {
   }
 
   const rl = createInterface({ input, output, terminal: true })
-  const mutableRl = rl as unknown as {
-    stdoutMuted?: boolean
-    _writeToOutput?: (value: string) => void
-  }
+  const mutableRl = rl as MutedReadlineInterface
   mutableRl.stdoutMuted = true
   mutableRl._writeToOutput = (value: string) => {
     if (!mutableRl.stdoutMuted) {

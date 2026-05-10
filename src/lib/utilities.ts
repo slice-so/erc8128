@@ -1,6 +1,6 @@
 import { sha256 as nobleSha256 } from "@noble/hashes/sha2"
-import type { EthHttpSigner, Hex } from "./types"
-import { Erc8128Error } from "./types"
+import type { EthHttpSigner, Hex } from "../types"
+import { Erc8128Error } from "./Erc8128Error"
 
 const BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -20,7 +20,20 @@ export function toRequest(input: RequestInfo, init?: RequestInit): Request {
   return new Request(input, init)
 }
 
-export function isEthHttpSigner(value: unknown): value is EthHttpSigner {
+type SignerCandidate =
+  | Partial<EthHttpSigner>
+  | object
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+
+export function isEthHttpSigner(
+  value: SignerCandidate
+): value is EthHttpSigner {
   return (
     typeof value === "object" &&
     value !== null &&

@@ -6,7 +6,7 @@ import {
   parseAcceptSignatureHeader,
   selectAcceptSignatureRetryOptions
 } from "./acceptSignature"
-import { Erc8128Error } from "./types"
+import { Erc8128Error } from "./Erc8128Error"
 
 describe("parseAcceptSignatureHeader", () => {
   test("parses verifier-built Accept-Signature headers", () => {

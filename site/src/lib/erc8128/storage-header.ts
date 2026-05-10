@@ -1,4 +1,4 @@
-export type StorageMode = "redis" | "postgres"
+import type { StorageMode } from "../../types"
 
 export const STORAGE_HEADER = "x-erc8128-storage"
 

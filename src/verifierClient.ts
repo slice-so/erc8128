@@ -1,18 +1,5 @@
-import type {
-  CreateVerifierClientArgs,
-  VerifierClientVerifyRequestArgs,
-  VerifyPolicy,
-  VerifyResult
-} from "./lib/types"
+import type { CreateVerifierClientArgs, VerifierClient } from "./types"
 import { verifyRequest } from "./verify"
-
-export type VerifierClientOptions = VerifyPolicy
-
-export type VerifierClient = {
-  verifyRequest: (
-    args: VerifierClientVerifyRequestArgs
-  ) => Promise<VerifyResult>
-}
 
 export function createVerifierClient(
   args: CreateVerifierClientArgs

@@ -1,0 +1,17 @@
+export class Erc8128Error extends Error {
+  constructor(
+    public code:
+      | "CRYPTO_UNAVAILABLE"
+      | "INVALID_OPTIONS"
+      | "UNSUPPORTED_REQUEST"
+      | "BODY_READ_FAILED"
+      | "DIGEST_REQUIRED"
+      | "BAD_DERIVED_VALUE"
+      | "BAD_HEADER_VALUE"
+      | "PARSE_ERROR",
+    message: string
+  ) {
+    super(message)
+    this.name = "Erc8128Error"
+  }
+}

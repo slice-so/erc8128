@@ -7,17 +7,18 @@ import { mainnet } from "viem/chains"
 import {
   cleanupExpiredVerificationStorage,
   getDiscoveryDocument,
-  getVerificationRuntime,
-  type VerificationRuntime
+  getVerificationRuntime
 } from "./lib/erc8128/backend-config"
-import {
-  parseStorageMode,
-  type StorageMode
-} from "./lib/erc8128/storage-header"
+import { parseStorageMode } from "./lib/erc8128/storage-header"
 import {
   buildVerifyExceptionResponse,
   buildVerifyResultResponse
 } from "./lib/erc8128/verify-response"
+import type {
+  StorageMode,
+  VerificationHttpResponse,
+  VerificationRuntime
+} from "./types"
 
 type Env = {
   Variables: {
@@ -33,14 +34,7 @@ const publicClient = createPublicClient({
   transport: http(alchemyRpcUrl)
 })
 
-function jsonWithHeaders(
-  c: Context<Env>,
-  response: {
-    payload: Record<string, unknown>
-    status: ContentfulStatusCode
-    headers: Headers
-  }
-) {
+function jsonWithHeaders(c: Context<Env>, response: VerificationHttpResponse) {
   const res = c.json(response.payload, response.status)
   for (const [key, value] of response.headers.entries()) {
     res.headers.set(key, value)
@@ -124,7 +118,7 @@ app.on(["GET", "POST", "PUT", "DELETE"], "/verify", async (c) => {
   } catch (error) {
     const verifyMs = Math.round((performance.now() - t0) * 10) / 10
     const response = buildVerifyExceptionResponse({
-      error,
+      error: error instanceof Error || typeof error === "string" ? error : null,
       verifyMs
     })
 

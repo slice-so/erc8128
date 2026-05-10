@@ -1,4 +1,4 @@
-import { Erc8128Error } from "../types"
+import { Erc8128Error } from "../Erc8128Error"
 import { sanitizeUrl, utf8Encode } from "../utilities"
 import { quoteSfString } from "./serializations"
 

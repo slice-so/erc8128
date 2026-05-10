@@ -1,4 +1,6 @@
 /* eslint-disable no-control-regex */
+
+import { Erc8128Error } from "./lib/Erc8128Error"
 import { setContentDigestHeader } from "./lib/engine/contentDigest"
 import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
 import {
@@ -12,12 +14,6 @@ import {
 import { formatKeyId } from "./lib/keyId"
 import { resolveNonce } from "./lib/nonce"
 import {
-  Erc8128Error,
-  type EthHttpSigner,
-  type SignatureParams,
-  type SignOptions
-} from "./lib/types"
-import {
   base64Encode,
   hexToBytes,
   isEthHttpSigner,
@@ -25,6 +21,7 @@ import {
   toRequest,
   unixNow
 } from "./lib/utilities"
+import type { EthHttpSigner, SignatureParams, SignOptions } from "./types"
 
 /**
  *   Minimal ERC-8128 signing

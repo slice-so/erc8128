@@ -1,4 +1,5 @@
-import { type ContentDigestMode, Erc8128Error } from "../types"
+import type { ContentDigestMode } from "../../types"
+import { Erc8128Error } from "../Erc8128Error"
 import { base64Encode, readBodyBytes, sha256 } from "../utilities"
 
 /**

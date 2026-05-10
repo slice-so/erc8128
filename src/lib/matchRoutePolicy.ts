@@ -1,4 +1,4 @@
-import type { RoutePolicy, RoutePolicyConfig } from "./types"
+import type { RoutePolicy, RoutePolicyConfig } from "../types"
 
 /**
  * Match a request's method + pathname against path-keyed route policies.
