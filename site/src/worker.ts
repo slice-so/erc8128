@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers"
 import { type Context, Hono } from "hono"
 import { cors } from "hono/cors"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { createPublicClient, http } from "viem"
 import { mainnet } from "viem/chains"
 import {
