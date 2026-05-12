@@ -34,10 +34,10 @@
     "./dist"
   ],
   "dependencies": {
-    "@noble/hashes": "^1.8.0"
+    "@noble/hashes": "^2.2.0"
   },
   "devDependencies": {
-    "@noble/secp256k1": "^1.7.2",
+    "@noble/secp256k1": "^3.1.0",
     "@slice/typescript-config": "workspace:*",
     "viem": "catalog:"
   },
