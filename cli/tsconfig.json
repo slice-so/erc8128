@@ -2,8 +2,7 @@
   "extends": "@slice/typescript-config/base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "types": ["bun-types", "node"],
     "baseUrl": ".",
