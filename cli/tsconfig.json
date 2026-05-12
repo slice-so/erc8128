@@ -4,7 +4,7 @@
     "outDir": "./dist",
     "lib": ["ES2025", "DOM", "DOM.Iterable"],
     "noEmit": true,
-    "types": ["bun-types", "node"],
+    "types": ["bun-types"],
     "baseUrl": ".",
     "paths": {
       "@slicekit/erc8128": ["../src/index.ts"]

@@ -362,7 +362,6 @@ export function createVerificationRuntime(
     cacheStrategy: runtimeConfig.cacheStrategy,
     getConfig: () => getDiscoveryDocument(normalizedBaseURL),
     verifyRequest: async (request: Request) => {
-      console.log(1)
       const pathname = new URL(request.url).pathname
       const routePolicy = matchRoutePolicy(
         request.method,
@@ -384,7 +383,6 @@ export function createVerificationRuntime(
       }
 
       const signatureHeader = request.headers.get("signature")
-      console.log(2)
 
       if (
         routePolicy.replayable &&
@@ -393,13 +391,11 @@ export function createVerificationRuntime(
       ) {
         const cached =
           await runtimeConfig.verificationCache.get(signatureHeader)
-        console.log(3)
 
         if (cached) {
           const notBefore = await runtimeConfig.invalidationStore.getNotBefore(
             cached.params.keyid
           )
-          console.log(4)
 
           if (notBefore == null || cached.params.created >= notBefore) {
             return {
@@ -413,11 +409,9 @@ export function createVerificationRuntime(
           }
 
           await runtimeConfig.verificationCache.delete(signatureHeader)
-          console.log(5)
         }
       }
 
-      console.log(6)
       const result = await verifyRequest({
         request,
         verifyMessage,
@@ -431,7 +425,6 @@ export function createVerificationRuntime(
           responseHeaders.set(name, value)
         }
       })
-      console.log(7)
 
       if (result.ok && result.replayable && signatureHeader) {
         const ttlSec = result.params.expires - Math.floor(Date.now() / 1000)
@@ -451,7 +444,6 @@ export function createVerificationRuntime(
           )
         }
       }
-      console.log(8)
 
       return {
         result,
