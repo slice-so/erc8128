@@ -4,11 +4,6 @@ import { dependencies, peerDependencies } from "./package.json"
 const DtsPath = new URL("./dist/esm/index.d.ts", import.meta.url)
 
 await buildPackage({
-  dtsConfig: {
-    output: {
-      noBanner: true
-    }
-  },
   external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
   sourcemap: "none"
 })
