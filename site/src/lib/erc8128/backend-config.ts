@@ -79,7 +79,9 @@ function isReplayableSignature(signature: { params: { nonce?: string } }) {
   return !signature.params.nonce || signature.params.nonce.length === 0
 }
 
-function shouldCheckVerificationCache(request: Request) {
+function shouldCheckVerificationCache<CfHostMetadata, Cf>(
+  request: Request<CfHostMetadata, Cf>
+) {
   const signatureInputHeader = request.headers.get("signature-input")
   const signatureHeader = request.headers.get("signature")
   if (!signatureInputHeader || !signatureHeader) {
@@ -361,7 +363,9 @@ export function createVerificationRuntime(
   return {
     cacheStrategy: runtimeConfig.cacheStrategy,
     getConfig: () => getDiscoveryDocument(normalizedBaseURL),
-    verifyRequest: async (request: Request) => {
+    verifyRequest: async <CfHostMetadata, Cf>(
+      request: Request<CfHostMetadata, Cf>
+    ) => {
       const pathname = new URL(request.url).pathname
       const routePolicy = matchRoutePolicy(
         request.method,
@@ -413,7 +417,7 @@ export function createVerificationRuntime(
       }
 
       const result = await verifyRequest({
-        request,
+        request: request as Request,
         verifyMessage,
         nonceStore: runtimeConfig.nonceStore,
         policy: {

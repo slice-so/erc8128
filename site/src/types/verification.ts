@@ -56,7 +56,9 @@ export interface VerifyRequestResultEnvelope {
 export interface VerificationRuntime {
   cacheStrategy: CacheStrategy
   getConfig: () => DiscoveryDocument
-  verifyRequest: (request: Request) => Promise<VerifyRequestResultEnvelope>
+  verifyRequest: <CfHostMetadata, Cf>(
+    request: Request<CfHostMetadata, Cf>
+  ) => Promise<VerifyRequestResultEnvelope>
   close: () => Promise<void>
 }
 
