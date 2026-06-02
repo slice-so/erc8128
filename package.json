@@ -7,7 +7,7 @@
     "lint": "biome lint --write",
     "check": "biome check --write",
     "build": "bun run build.ts",
-    "test": "bun test"
+    "test": "bun test ./src"
   },
   "publishConfig": {
     "access": "public"
