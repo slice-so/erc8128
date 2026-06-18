@@ -14,7 +14,7 @@ pattern = "erc8128.org"
 custom_domain = true
 
 # Secrets (set via `wrangler secret put`):
-# SECRET_ALCHEMY_KEY
+# ERC8128_SECRET_ALCHEMY_ID
 # REDIS_URL
 # DATABASE_URL  # local/dev fallback when Hyperdrive is not bound
 

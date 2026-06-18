@@ -9,8 +9,8 @@ declare namespace Cloudflare {
 		HYPERDRIVE: Hyperdrive;
 		BETTER_AUTH_URL: string;
 		BETTER_AUTH_SECRET: string;
-		SECRET_ALCHEMY_KEY: string;
-		PUBLIC_ALCHEMY_KEY: string;
+		ERC8128_SECRET_ALCHEMY_ID: string;
+		PUBLIC_ERC8128_ALCHEMY_ID: string;
 		REDIS_URL: string;
 		DATABASE_URL: string;
 		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: string;

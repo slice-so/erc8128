@@ -7,7 +7,7 @@ import { mainnet } from "wagmi/chains"
 import { coinbaseWallet, walletConnect } from "wagmi/connectors"
 
 const walletConnectProjectId = "07e58e0aa68cd2e122963d7405172add"
-const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.PUBLIC_ALCHEMY_KEY ?? ""}`
+const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.PUBLIC_ERC8128_ALCHEMY_ID ?? ""}`
 
 const config = createConfig({
   chains: [mainnet],

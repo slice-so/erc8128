@@ -52,7 +52,7 @@ async function sha256Base64(text: string) {
 const ensClient = createPublicClient({
   chain: mainnet,
   transport: http(
-    `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.PUBLIC_ALCHEMY_KEY || ""}`
+    `https://eth-mainnet.g.alchemy.com/v2/${import.meta.env.PUBLIC_ERC8128_ALCHEMY_ID || ""}`
   )
 })
 const ensCache = new Map<string, string | null>()

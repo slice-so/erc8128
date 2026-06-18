@@ -26,7 +26,7 @@ type Env = {
   }
 }
 
-const alchemyRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.SECRET_ALCHEMY_KEY}`
+const alchemyRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${env.ERC8128_SECRET_ALCHEMY_ID}`
 
 const publicClient = createPublicClient({
   chain: mainnet,

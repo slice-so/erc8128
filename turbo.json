@@ -13,7 +13,7 @@
       "inputs": ["src/**/*.ts", "build.ts"],
       "outputs": ["dist/**"],
       "env": [
-        "PUBLIC_ALCHEMY_KEY",
+        "PUBLIC_ERC8128_ALCHEMY_ID",
         "SITE",
         "ETH_PRIVATE_KEY",
         "ETH_KEYSTORE_PASSWORD",
