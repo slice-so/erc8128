@@ -8,7 +8,13 @@ import {
   normalizeClassBoundPolicies,
   normalizeComponentsList
 } from "./lib/policies/normalizePolicies"
-import { base64Decode, bytesToHex, sanitizeUrl, unixNow } from "./lib/utilities"
+import {
+  base64Decode,
+  bytesToHex,
+  readBodyBytes,
+  sanitizeUrl,
+  unixNow
+} from "./lib/utilities"
 import {
   buildAttempts,
   buildSignatureBase,
@@ -154,7 +160,9 @@ export async function verifyRequest(
 
   const url = sanitizeUrl(request.url)
   const hasQuery = url.search.length > 0
-  const hasBody = request.body != null
+  const bodyBytes =
+    request.body === null ? new Uint8Array() : await readBodyBytes(request)
+  const hasBody = bodyBytes.byteLength > 0
 
   const requestBoundExtras = normalizeComponentsList(
     resolvedPolicy.additionalRequestBoundComponents
@@ -281,7 +289,7 @@ export async function verifyRequest(
         lastFailure = { ok: false, reason: "digest_required" }
         continue
       }
-      const ok = await verifyContentDigest(request)
+      const ok = await verifyContentDigest(request, bodyBytes)
       if (!ok) {
         lastFailure = { ok: false, reason: "digest_mismatch" }
         continue

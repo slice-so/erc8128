@@ -13,7 +13,8 @@ import { base64Encode, readBodyBytes, sha256 } from "../utilities"
  */
 export async function setContentDigestHeader(
   request: Request,
-  mode: ContentDigestMode
+  mode: ContentDigestMode,
+  bodyBytes?: Uint8Array
 ): Promise<Request> {
   const headers = new Headers(request.headers)
   const existing = headers.get("content-digest")
@@ -32,14 +33,17 @@ export async function setContentDigestHeader(
   }
   if (existing && mode === "auto") return request
 
-  const bodyBytes = await readBodyBytes(request)
-  const digest = await sha256(bodyBytes)
+  const resolvedBodyBytes = bodyBytes ?? (await readBodyBytes(request))
+  const digest = await sha256(resolvedBodyBytes)
   const digestB64 = base64Encode(digest)
   headers.set("content-digest", `sha-256=:${digestB64}:`)
   return new Request(request, { headers })
 }
 
-export async function verifyContentDigest(request: Request): Promise<boolean> {
+export async function verifyContentDigest(
+  request: Request,
+  bodyBytes?: Uint8Array
+): Promise<boolean> {
   const v = request.headers.get("content-digest")
   if (!v) return false
 
@@ -47,8 +51,8 @@ export async function verifyContentDigest(request: Request): Promise<boolean> {
   if (!parsed) return false
   if (parsed.alg !== "sha-256") return false // minimal support
 
-  const bodyBytes = await readBodyBytes(request)
-  const digest = await sha256(bodyBytes)
+  const resolvedBodyBytes = bodyBytes ?? (await readBodyBytes(request))
+  const digest = await sha256(resolvedBodyBytes)
   const digestB64 = base64Encode(digest)
   return timingSafeEqualAscii(parsed.b64, digestB64)
 }

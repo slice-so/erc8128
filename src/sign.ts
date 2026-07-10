@@ -17,6 +17,7 @@ import {
   base64Encode,
   hexToBytes,
   isEthHttpSigner,
+  readBodyBytes,
   sanitizeUrl,
   toRequest,
   unixNow
@@ -91,7 +92,9 @@ export async function signRequest(
 
   const url = sanitizeUrl(request.url)
   const hasQuery = url.search.length > 0
-  const hasBody = request.body != null
+  const bodyBytes =
+    request.body === null ? new Uint8Array() : await readBodyBytes(request)
+  const hasBody = bodyBytes.byteLength > 0
 
   let components = resolveComponents({
     binding,
@@ -104,11 +107,19 @@ export async function signRequest(
 
   // Set content-digest header if required by components
   if (components.includes("content-digest")) {
-    signedRequest = await setContentDigestHeader(signedRequest, digestMode)
+    signedRequest = await setContentDigestHeader(
+      signedRequest,
+      digestMode,
+      bodyBytes
+    )
   } else if (binding === "request-bound" && hasBody) {
     // Auto-add content-digest for request-bound with body
     components = [...components, "content-digest"]
-    signedRequest = await setContentDigestHeader(signedRequest, digestMode)
+    signedRequest = await setContentDigestHeader(
+      signedRequest,
+      digestMode,
+      bodyBytes
+    )
   }
 
   const params: SignatureParams = {

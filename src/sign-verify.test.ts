@@ -145,6 +145,71 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
     expect(sigInput).toContain('"content-digest"')
   })
 
+  test("accepts a bodyless signature when the receiver exposes an empty body stream", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const signed = await signRequest(
+      "https://example.com/bodyless",
+      { method: "POST" },
+      signer,
+      { created, expires, nonce: "nonce-bodyless" }
+    )
+
+    expect(signed.headers.get("content-digest")).toBeNull()
+    expect(signed.headers.get("Signature-Input")).not.toContain(
+      '"content-digest"'
+    )
+
+    const received = new Request(signed.url, {
+      body: "",
+      headers: signed.headers,
+      method: signed.method
+    })
+    expect(received.body).not.toBeNull()
+
+    const result = await verifyWithPolicy(received, { now: () => created })
+    expect(result.ok).toBe(true)
+  })
+
+  test("rejects content appended to a bodyless signed request", async () => {
+    const signer = makeSigner()
+    const created = 1_700_000_000
+    const expires = created + 60
+    const signed = await signRequest(
+      "https://example.com/bodyless",
+      { method: "POST" },
+      signer,
+      { created, expires, nonce: "nonce-appended-body" }
+    )
+    const received = new Request(signed.url, {
+      body: "appended",
+      headers: signed.headers,
+      method: signed.method
+    })
+
+    const result = await verifyWithPolicy(received, { now: () => created })
+    expect(result).toEqual({ ok: false, reason: "not_request_bound" })
+  })
+
+  test("treats an explicit zero-byte signing body as bodyless", async () => {
+    const signed = await signRequest(
+      "https://example.com/empty-body",
+      { body: "", method: "POST" },
+      makeSigner(),
+      {
+        created: 1_700_000_000,
+        expires: 1_700_000_060,
+        nonce: "nonce-empty-body"
+      }
+    )
+
+    expect(signed.headers.get("content-digest")).toBeNull()
+    expect(signed.headers.get("Signature-Input")).not.toContain(
+      '"content-digest"'
+    )
+  })
+
   test("request-bound signatures can include extra header components", async () => {
     const signer = makeSigner()
     const created = 1_700_000_000
