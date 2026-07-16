@@ -688,10 +688,11 @@ describe("ERC-8128 client - route-level effects", () => {
     })
 
     // Client explicitly requests replayable, but route restricts it
-    const req = await client.signRequest(`${ORIGIN}/api/sensitive`, {
-      method: "POST",
-      replay: "replayable"
-    })
+    const req = await client.signRequest(
+      `${ORIGIN}/api/sensitive`,
+      { method: "POST" },
+      { replay: "replayable" }
+    )
     expect(parseSignatureInput(req).hasNonce).toBe(true)
   })
 
