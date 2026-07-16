@@ -3,6 +3,7 @@
   "version": "0.3.3",
   "description": "Minimal ERC-8128 implementation for signing and verifying HTTP requests with Ethereum accounts",
   "scripts": {
+    "type-check": "tsc -p tsconfig.json --noEmit",
     "format": "biome format --write",
     "lint": "biome lint --write",
     "check": "biome check --write",
