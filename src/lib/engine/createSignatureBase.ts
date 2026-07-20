@@ -1,6 +1,74 @@
 import { Erc8128Error } from "../Erc8128Error"
 import { sanitizeUrl, utf8Encode } from "../utilities"
 import { quoteSfString } from "./serializations"
+import { parseSignatureInputHeader } from "./createSignatureInput"
+import { serializeSignatureParamsInnerList } from "./serializations"
+import type { SignatureParams } from "../../types"
+
+export function parseSignatureBase(base: string): {
+  entries: ReadonlyArray<{ name: string; value: string }>
+  params: SignatureParams
+} | null {
+  if (
+    base.length === 0 ||
+    base.includes("\r") ||
+    base.endsWith("\n") ||
+    /[^\x0A\x20-\x7E]/.test(base)
+  ) {
+    return null
+  }
+  const lines = base.split("\n")
+  if (lines.length < 2) return null
+  const parsedLines: { name: string; value: string }[] = []
+  for (const line of lines) {
+    const match = /^("(?:[^"\\]|\\["\\])*"): (.*)$/.exec(line)
+    if (match === null) return null
+    const quotedName = match[1]
+    const value = match[2]
+    if (quotedName === undefined || value === undefined) return null
+    let name = ""
+    for (let index = 1; index < quotedName.length - 1; index += 1) {
+      const character = quotedName[index]
+      if (character === "\\") {
+        index += 1
+        const escaped = quotedName[index]
+        if (escaped !== "\\" && escaped !== '"') return null
+        name += escaped
+      } else {
+        name += character
+      }
+    }
+    if (quoteSfString(name) !== quotedName || name.length === 0) return null
+    parsedLines.push({ name, value })
+  }
+  const signatureParams = parsedLines.at(-1)
+  if (signatureParams?.name !== "@signature-params") return null
+  const entries = parsedLines.slice(0, -1)
+  if (
+    new Set(entries.map(({ name }) => name)).size !== entries.length
+  ) {
+    return null
+  }
+  try {
+    const [member] = parseSignatureInputHeader(
+      `eth=${signatureParams.value}`
+    )
+    if (
+      member === undefined ||
+      member.components.length !== entries.length ||
+      member.components.some(
+        (component, index) => component !== entries[index]?.name
+      ) ||
+      serializeSignatureParamsInnerList(member.components, member.params) !==
+        signatureParams.value
+    ) {
+      return null
+    }
+    return { entries, params: member.params }
+  } catch {
+    return null
+  }
+}
 
 export function createSignatureBaseMinimal(args: {
   request: Request

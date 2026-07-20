@@ -1,15 +1,20 @@
 import { buildPackage } from "../../build"
 import { dependencies, peerDependencies } from "./package.json"
 
-const DtsPath = new URL("./dist/esm/index.d.ts", import.meta.url)
+const DtsPaths = [
+  new URL("./dist/esm/index.d.ts", import.meta.url),
+  new URL("./dist/esm/sessions/index.d.ts", import.meta.url)
+]
 
 await buildPackage({
+  entrypoints: ["./src/index.ts", "./src/sessions/index.ts"],
   external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
   sourcemap: "none"
 })
 
-const dtsFile = Bun.file(DtsPath)
-if (await dtsFile.exists()) {
+for (const dtsPath of DtsPaths) {
+  const dtsFile = Bun.file(dtsPath)
+  if (!(await dtsFile.exists())) continue
   const declarationText = await dtsFile.text()
   const compactDeclarationText = declarationText
     .replace(/\/\*\*[\s\S]*?\*\/\n?/g, "")
@@ -18,6 +23,6 @@ if (await dtsFile.exists()) {
     .concat("\n")
 
   if (compactDeclarationText !== declarationText) {
-    await Bun.write(DtsPath, compactDeclarationText)
+    await Bun.write(dtsPath, compactDeclarationText)
   }
 }

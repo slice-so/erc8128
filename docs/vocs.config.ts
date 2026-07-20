@@ -38,6 +38,12 @@ export default defineConfig({
       ]
     },
     {
+      text: "Sessions / Sign-In",
+      items: [
+        { text: "Profile", link: "/sessions/profile" }
+      ]
+    },
+    {
       text: "API Reference",
       items: [
         { text: "signRequest", link: "/api/signRequest" },

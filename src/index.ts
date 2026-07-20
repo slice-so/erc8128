@@ -5,6 +5,7 @@ export {
 } from "./lib/acceptSignature"
 export { formatDiscoveryDocument } from "./lib/discoveryDocument"
 export { Erc8128Error } from "./lib/Erc8128Error"
+export { parseSignatureBase } from "./lib/engine/createSignatureBase"
 export {
   parseSignatureHeader,
   parseSignatureInputHeader

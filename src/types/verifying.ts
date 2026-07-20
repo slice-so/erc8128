@@ -10,6 +10,7 @@ import type {
 export type VerifyMessageArgs = {
   address: Address
   message: { raw: Hex }
+  mode?: "eoa"
   signature: Hex
 }
 

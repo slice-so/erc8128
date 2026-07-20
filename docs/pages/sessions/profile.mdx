@@ -1,0 +1,33 @@
+# Sessions and Sign-In Profile
+
+This companion profile defines two ways to authenticate an application with ERC-8128. It does not use SIWE.
+
+## Session mode
+
+The wallet signs the canonical 15-line `Sign in with Slice` grant exposed by `@slicekit/erc8128/sessions`. A grant binds the application origin, audience, wallet account, session signer, signer scheme, chain, byte-sorted scopes, issuance, expiry, and a nonce.
+
+- Scope tokens match `^[a-z0-9][a-z0-9_.:-]{0,63}$`. A grant contains at most 16 unique scopes.
+- The maximum grant lifetime is 30 days and verifier clock skew is 60 seconds by default.
+- The nonce store is mandatory. Grant verification consumes the nonce atomically, so a captured grant cannot be replayed.
+- The audience and application origin are exact canonical origins and are independently displayed for consent.
+- Deleting the session signer from the application registry revokes the session. Re-presenting a previously consumed grant cannot restore it.
+- EOA session signers are supported directly. ERC-1271 and deployless ERC-6492 account verification can be injected by the application.
+
+After grant completion, requests are ordinary non-replayable ERC-8128 requests signed by the registered session signer. The backend resolves the request `keyid` through its session registry; no Slice service is in this verification path.
+
+## Direct-login v1
+
+Direct login signs the request itself and is intended for short-lived, one-time authentication endpoints. The following rules are mandatory:
+
+- Covered components are limited to `@method`, `@authority`, `@path`, `@query`, and `content-digest`.
+- `@method`, `@authority`, `@path`, and `@query` are always covered. `@query` is required even when its canonical value is empty.
+- Body-bearing methods also cover `content-digest`.
+- A non-empty nonce is required and is consumed atomically by the backend.
+- `created` may be at most 60 seconds in the future, `expires` must be in the future, and the validity window is at most 10 minutes.
+- The signed authority is same-site with the opener and uses HTTPS, except for localhost development.
+
+Because `@path` excludes the URL query, a ceremony must never infer query coverage from the signature base. It checks the explicit `@query` entry.
+
+## One-time semantics
+
+Time bounds alone do not make either profile one-time. The backend must atomically consume the grant nonce and every request nonce. A missing or unavailable nonce store fails closed.
