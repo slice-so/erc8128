@@ -1,10 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { formatKeyId } from "../lib/keyId"
 import { signRequest } from "../sign"
-import {
-  createEoaHttpSigner,
-  createSessionSignerKeypair
-} from "./eoaVerify"
+import { createEoaHttpSigner, createSessionSignerKeypair } from "./eoaVerify"
 import {
   createSessionGrantMessage,
   parseSessionGrantMessage,
@@ -29,11 +26,11 @@ describe("ERC-8128 session grants", () => {
       expiresAt: now + 60,
       issuedAt: now,
       nonce: "abcdefghijklmnop",
-      scopes: ["write:orders", "read:orders"],
+      scopes: ["z", "a:b", "write:orders", "read:orders"],
       sessionSigner: session.address
     })
     expect(message.split("\n")).toHaveLength(15)
-    expect(message).toContain("Scopes: read:orders write:orders")
+    expect(message).toContain("Scopes: a:b read:orders write:orders z")
     const parsed = parseSessionGrantMessage(message)
     expect(parsed).not.toBeNull()
     expect(
@@ -44,7 +41,7 @@ describe("ERC-8128 session grants", () => {
           audience: "https://api.example",
           chainId: 8453,
           now,
-          scopes: ["read:orders", "write:orders"]
+          scopes: ["a:b", "read:orders", "write:orders", "z"]
         })
     ).toBe(true)
   })
@@ -52,7 +49,10 @@ describe("ERC-8128 session grants", () => {
   it("verifies an EOA account grant once and rejects replay", async () => {
     const account = createSessionSignerKeypair()
     const session = createSessionSignerKeypair()
-    const signer = createEoaHttpSigner({ chainId: 8453, privateKey: account.privateKey })
+    const signer = createEoaHttpSigner({
+      chainId: 8453,
+      privateKey: account.privateKey
+    })
     const message = createSessionGrantMessage({
       account: account.address,
       appOrigin: "https://app.example",
@@ -64,7 +64,9 @@ describe("ERC-8128 session grants", () => {
       scopes: [],
       sessionSigner: session.address
     })
-    const signature = await signer.signMessage(new TextEncoder().encode(message))
+    const signature = await signer.signMessage(
+      new TextEncoder().encode(message)
+    )
     const parameters = {
       expected: {
         account: account.address,
@@ -93,13 +95,19 @@ describe("ERC-8128 session grants", () => {
       nonce: "abcdefghijklmnop",
       sessionSigner: account.address
     }
-    expect(() => createSessionGrantMessage({ ...base, scopes: ["UPPER"] })).toThrow()
-    expect(() => createSessionGrantMessage({ ...base, scopes: ["read", "read"] })).toThrow()
-    expect(() => createSessionGrantMessage({
-      ...base,
-      nonce: "a".repeat(4_000),
-      scopes: []
-    })).toThrow()
+    expect(() =>
+      createSessionGrantMessage({ ...base, scopes: ["UPPER"] })
+    ).toThrow()
+    expect(() =>
+      createSessionGrantMessage({ ...base, scopes: ["read", "read"] })
+    ).toThrow()
+    expect(() =>
+      createSessionGrantMessage({
+        ...base,
+        nonce: "a".repeat(4_000),
+        scopes: []
+      })
+    ).toThrow()
   })
 })
 
@@ -107,7 +115,10 @@ describe("ERC-8128 session request verifier", () => {
   it("uses a registered signer and fails after registry revocation", async () => {
     const account = createSessionSignerKeypair()
     const session = createSessionSignerKeypair()
-    const signer = createEoaHttpSigner({ chainId: 8453, privateKey: session.privateKey })
+    const signer = createEoaHttpSigner({
+      chainId: 8453,
+      privateKey: session.privateKey
+    })
     const registry = createMemorySessionRegistry()
     const keyId = formatKeyId(8453, session.address)
     await registry.set(keyId, {
@@ -134,15 +145,28 @@ describe("ERC-8128 session request verifier", () => {
     })
     expect((await verifier.verify(request)).ok).toBe(true)
     await registry.delete(keyId)
-    expect(await verifier.verify(request)).toEqual({ ok: false, reason: "no_session" })
+    expect(await verifier.verify(request)).toEqual({
+      ok: false,
+      reason: "no_session"
+    })
   })
 })
 
 describe("session payload sealing", () => {
   it("round-trips the v1 format and rejects a different secret", async () => {
-    const sealed = await sealPayload({ payload: { value: 1 }, secret: "secret" })
+    const sealed = await sealPayload({
+      payload: { value: 1 },
+      secret: "secret"
+    })
     expect(sealed.startsWith("v1.")).toBe(true)
-    expect(await openSealedPayload<{ value: number }>({ secret: "secret", value: sealed })).toEqual({ value: 1 })
-    expect(await openSealedPayload({ secret: "wrong", value: sealed })).toBeNull()
+    expect(
+      await openSealedPayload<{ value: number }>({
+        secret: "secret",
+        value: sealed
+      })
+    ).toEqual({ value: 1 })
+    expect(
+      await openSealedPayload({ secret: "wrong", value: sealed })
+    ).toBeNull()
   })
 })

@@ -1,3 +1,4 @@
+import { keccak_256 } from "@noble/hashes/sha3.js"
 import {
   getPublicKey,
   Point,
@@ -5,7 +6,7 @@ import {
   signAsync,
   utils
 } from "@noble/secp256k1"
-import { keccak_256 } from "@noble/hashes/sha3.js"
+import { hexToBytes, utf8Encode } from "../lib/utilities"
 import type {
   Address,
   EoaHttpSigner,
@@ -13,13 +14,14 @@ import type {
   SessionSignerKeypair,
   VerifyMessageArgs
 } from "../types"
-import { hexToBytes, utf8Encode } from "../lib/utilities"
 
 const bytesToHex = (bytes: Uint8Array): Hex =>
   `0x${[...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`
 
 const concat = (...values: readonly Uint8Array[]) => {
-  const output = new Uint8Array(values.reduce((total, value) => total + value.length, 0))
+  const output = new Uint8Array(
+    values.reduce((total, value) => total + value.length, 0)
+  )
   let offset = 0
   for (const value of values) {
     output.set(value, offset)
@@ -62,8 +64,9 @@ export const verifyEoaMessage = ({
       { prehash: false }
     )
     return (
-      publicKeyAddress(Point.fromBytes(publicKey).toBytes(false)).toLowerCase() ===
-      address.toLowerCase()
+      publicKeyAddress(
+        Point.fromBytes(publicKey).toBytes(false)
+      ).toLowerCase() === address.toLowerCase()
     )
   } catch {
     return false
@@ -95,10 +98,14 @@ export const createEoaHttpSigner = ({
     chainId,
     privateKey,
     signMessage: async (message) => {
-      const recovered = await signAsync(personalMessageHash(message), privateKeyBytes, {
-        format: "recovered",
-        prehash: false
-      })
+      const recovered = await signAsync(
+        personalMessageHash(message),
+        privateKeyBytes,
+        {
+          format: "recovered",
+          prehash: false
+        }
+      )
       const signature = new Uint8Array(65)
       signature.set(recovered.slice(1), 0)
       signature[64] = (recovered[0] ?? 0) + 27

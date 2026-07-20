@@ -1,8 +1,8 @@
-import { verifyRequest } from "../verify"
 import type {
   CreateSessionRequestVerifierParameters,
   SessionRequestVerificationResult
 } from "../types"
+import { verifyRequest } from "../verify"
 import { verifyEoaMessage } from "./eoaVerify"
 
 export const createSessionRequestVerifier = ({
@@ -12,7 +12,9 @@ export const createSessionRequestVerifier = ({
   registry,
   verifyMessage = verifyEoaMessage
 }: CreateSessionRequestVerifierParameters) => ({
-  verify: async (request: Request): Promise<SessionRequestVerificationResult> => {
+  verify: async (
+    request: Request
+  ): Promise<SessionRequestVerificationResult> => {
     if (new URL(request.url).origin !== new URL(audience).origin) {
       return { ok: false, reason: "no_session" }
     }

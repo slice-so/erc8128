@@ -47,13 +47,17 @@ describe("parseSignatureBase", () => {
   it("rejects duplicates, noncanonical params, escaping, and trailing data", () => {
     const cases = [
       base.replace('"@authority":', '"@method":'),
-      base.replace(";expires=1800000060", ";created=1800000001;expires=1800000060"),
+      base.replace(
+        ";expires=1800000060",
+        ";created=1800000001;expires=1800000060"
+      ),
       base.replace(";keyid=", ";extra=1;keyid="),
       base.replace('"@method"', '"\\@method"'),
       `${base}\n`,
       `${base} trailing`,
       base.replace("\n", "\r\n")
     ]
-    for (const candidate of cases) expect(parseSignatureBase(candidate)).toBeNull()
+    for (const candidate of cases)
+      expect(parseSignatureBase(candidate)).toBeNull()
   })
 })

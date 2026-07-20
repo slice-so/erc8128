@@ -29,7 +29,9 @@ const getSealingKey = async ({
 }) => {
   if (!secret.trim()) throw new Error("Sealing secret is required.")
   const keyBytes = await crypto.subtle.digest("SHA-256", encoder.encode(secret))
-  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [usage])
+  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [
+    usage
+  ])
 }
 
 export const sealPayload = async <Payload>({

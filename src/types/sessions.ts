@@ -1,7 +1,7 @@
 import type { Address, Hex } from "./core"
-import type { NonceStore, VerifyMessageFn, VerifyResult } from "./verifying"
 import type { VerifyPolicy } from "./policy"
 import type { EthHttpSigner } from "./signing"
+import type { NonceStore, VerifyMessageFn, VerifyResult } from "./verifying"
 
 export type SessionGrant = {
   account: Address

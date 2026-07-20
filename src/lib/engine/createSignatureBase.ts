@@ -1,9 +1,11 @@
+import type { SignatureParams } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import { sanitizeUrl, utf8Encode } from "../utilities"
-import { quoteSfString } from "./serializations"
 import { parseSignatureInputHeader } from "./createSignatureInput"
-import { serializeSignatureParamsInnerList } from "./serializations"
-import type { SignatureParams } from "../../types"
+import {
+  quoteSfString,
+  serializeSignatureParamsInnerList
+} from "./serializations"
 
 export function parseSignatureBase(base: string): {
   entries: ReadonlyArray<{ name: string; value: string }>
@@ -13,6 +15,7 @@ export function parseSignatureBase(base: string): {
     base.length === 0 ||
     base.includes("\r") ||
     base.endsWith("\n") ||
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: RFC 9421 permits LF delimiters but no other controls.
     /[^\x0A\x20-\x7E]/.test(base)
   ) {
     return null
@@ -44,15 +47,11 @@ export function parseSignatureBase(base: string): {
   const signatureParams = parsedLines.at(-1)
   if (signatureParams?.name !== "@signature-params") return null
   const entries = parsedLines.slice(0, -1)
-  if (
-    new Set(entries.map(({ name }) => name)).size !== entries.length
-  ) {
+  if (new Set(entries.map(({ name }) => name)).size !== entries.length) {
     return null
   }
   try {
-    const [member] = parseSignatureInputHeader(
-      `eth=${signatureParams.value}`
-    )
+    const [member] = parseSignatureInputHeader(`eth=${signatureParams.value}`)
     if (
       member === undefined ||
       member.components.length !== entries.length ||

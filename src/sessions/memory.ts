@@ -1,4 +1,8 @@
-import type { NonceStore, SessionRegistry, SessionRegistryRecord } from "../types"
+import type {
+  NonceStore,
+  SessionRegistry,
+  SessionRegistryRecord
+} from "../types"
 
 export const createMemoryNonceStore = (): NonceStore => {
   const expiries = new Map<string, number>()
