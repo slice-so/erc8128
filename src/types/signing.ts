@@ -73,6 +73,13 @@ export type ParsedSignatureInputMember = {
  * posture — and server configs are not consulted.
  */
 export type SignerClientOptions = Omit<SignOptions, "replay"> & {
+  /**
+   * Immutable authorization constraints. Per-call options and discovered
+   * route policies can tighten, but never weaken, this policy.
+   */
+  authorizationPolicy?: import("./policy").AuthorizationPolicy
+  /** Unix timestamp after which the authorization itself is invalid. */
+  authorizationExpiresAt?: number
   fetch?: typeof fetch
   /**
    * Per-origin server configurations from `/.well-known/erc8128`.

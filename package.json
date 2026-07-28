@@ -29,16 +29,6 @@
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
-    },
-    "./sessions": {
-      "development": {
-        "types": "./src/sessions/index.ts",
-        "import": "./src/sessions/index.ts",
-        "default": "./src/sessions/index.ts"
-      },
-      "types": "./dist/esm/sessions/index.d.ts",
-      "import": "./dist/esm/sessions/index.js",
-      "default": "./dist/esm/sessions/index.js"
     }
   },
   "files": [

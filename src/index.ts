@@ -3,7 +3,10 @@ export {
   parseAcceptSignatureHeader,
   selectAcceptSignatureRetryOptions
 } from "./lib/acceptSignature"
-export { formatDiscoveryDocument } from "./lib/discoveryDocument"
+export {
+  formatDiscoveryDocument,
+  parseDiscoveryDocument
+} from "./lib/discoveryDocument"
 export { Erc8128Error } from "./lib/Erc8128Error"
 export { parseSignatureBase } from "./lib/engine/createSignatureBase"
 export {
@@ -13,12 +16,23 @@ export {
 export { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders"
 export { formatKeyId, parseKeyId } from "./lib/keyId"
 export { matchRoutePolicy } from "./lib/matchRoutePolicy"
+export {
+  bindingModeValues,
+  contentDigestModeValues,
+  isBindingMode,
+  isContentDigestMode,
+  isCoveredComponent,
+  isReplayMode,
+  replayModeValues
+} from "./lib/policyValues"
+export { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
 export { resolvePosture } from "./lib/resolvePosture"
 export { signedFetch, signRequest } from "./sign"
 export { createSignerClient } from "./signerClient"
 export type {
   AcceptSignatureRequestShape,
   AcceptSignatureSignOptions,
+  AuthorizationPolicy,
   BindingMode,
   ContentDigestMode,
   CreateVerifierClientArgs,
@@ -30,6 +44,8 @@ export type {
   ParsedAcceptSignatureMember,
   ParsedSignatureInputMember,
   ReplayMode,
+  ResolveAuthorizedPostureParameters,
+  ResolvedAuthorizedPosture,
   ResolvedPosture,
   RoutePolicy,
   RoutePolicyConfig,
@@ -44,6 +60,8 @@ export type {
   VerifierClient,
   VerifierClientVerifyRequestArgs,
   VerifyFailReason,
+  VerifyMessageArgs,
+  VerifyMessageFn,
   VerifyPolicy,
   VerifyRequestArgs,
   VerifyResult

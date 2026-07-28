@@ -1,13 +1,10 @@
 import { buildPackage } from "../../build"
 import { dependencies, peerDependencies } from "./package.json"
 
-const DtsPaths = [
-  new URL("./dist/esm/index.d.ts", import.meta.url),
-  new URL("./dist/esm/sessions/index.d.ts", import.meta.url)
-]
+const DtsPaths = [new URL("./dist/esm/index.d.ts", import.meta.url)]
 
 await buildPackage({
-  entrypoints: ["./src/index.ts", "./src/sessions/index.ts"],
+  entrypoints: ["./src/index.ts"],
   external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
   sourcemap: "none"
 })

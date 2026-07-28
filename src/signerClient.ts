@@ -1,3 +1,5 @@
+import { matchRoutePolicy } from "./lib/matchRoutePolicy"
+import { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
 import { resolvePosture } from "./lib/resolvePosture"
 import { sanitizeUrl } from "./lib/utilities"
 import { signedFetch, signRequest } from "./sign"
@@ -71,6 +73,8 @@ export function createSignerClient(
   defaults?: SignerClientOptions
 ): SignerClient {
   const {
+    authorizationExpiresAt,
+    authorizationPolicy,
     serverConfigs: initialServerConfigs,
     preferReplayable = false,
     ...baseSignOpts
@@ -100,18 +104,46 @@ export function createSignerClient(
     }
 
     const { origin, method, pathname } = extractRequestInfo(input, init)
-    const posture = resolvePosture(
-      method,
-      pathname,
-      serverConfigs.get(origin),
-      mergedOptions
-    )
+    const serverConfig = serverConfigs.get(origin)
+    if (authorizationPolicy === undefined) {
+      const posture = resolvePosture(
+        method,
+        pathname,
+        serverConfig,
+        mergedOptions
+      )
+      return {
+        ...mergedOptions,
+        binding: posture.binding,
+        replay: posture.replay,
+        components: posture.components
+      }
+    }
 
+    const posture = resolveAuthorizedPosture({
+      authorizationPolicy,
+      invalidationAvailable: serverConfig?.invalidation_endpoint !== undefined,
+      ...(authorizationExpiresAt === undefined
+        ? {}
+        : {
+            remainingAuthorizationSeconds:
+              authorizationExpiresAt - Math.floor(Date.now() / 1_000)
+          }),
+      requestOptions: mergedOptions,
+      routeMaxValiditySeconds: serverConfig?.max_validity_sec,
+      routePolicy: matchRoutePolicy(
+        method,
+        pathname,
+        serverConfig?.route_policies
+      )
+    })
     return {
       ...mergedOptions,
       binding: posture.binding,
+      components: posture.components,
+      contentDigest: posture.contentDigest,
       replay: posture.replay,
-      components: posture.components
+      ttlSeconds: posture.ttlSeconds
     }
   }
 

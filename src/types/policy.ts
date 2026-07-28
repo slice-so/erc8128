@@ -1,4 +1,10 @@
 import type { Hex } from "./core"
+import type {
+  BindingMode,
+  ContentDigestMode,
+  ReplayMode,
+  SignOptions
+} from "./signing"
 
 export type RoutePolicy = {
   /** Restrict this policy to specific HTTP methods. If omitted, it applies to all methods. */
@@ -9,6 +15,9 @@ export type RoutePolicy = {
 
   /** Extra components required in addition to default request-bound set. */
   additionalRequestBoundComponents?: string[]
+
+  /** Content-digest behavior required by this route. */
+  contentDigest?: ContentDigestMode
 
   /**
    * Class-bound component policies.
@@ -61,8 +70,39 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
 }
 
 export type ServerConfig = {
+  invalidation_endpoint?: string
   max_validity_sec: number
   route_policies?: RoutePolicyConfig
 }
 
 export type ClassBoundPolicy = string[]
+
+/**
+ * Immutable signing constraints imposed by an authorization grant.
+ *
+ * Client and request preferences are resolved inside this boundary and can
+ * only tighten it.
+ */
+export type AuthorizationPolicy = {
+  binding: BindingMode
+  components: readonly string[]
+  preferReplayable: boolean
+  ttlSeconds: number
+}
+
+export type ResolveAuthorizedPostureParameters = {
+  authorizationPolicy: AuthorizationPolicy
+  invalidationAvailable?: boolean
+  remainingAuthorizationSeconds?: number
+  requestOptions?: SignOptions
+  routeMaxValiditySeconds?: number
+  routePolicy?: RoutePolicy
+}
+
+export type ResolvedAuthorizedPosture = {
+  binding: BindingMode
+  components: string[]
+  contentDigest: ContentDigestMode
+  replay: ReplayMode
+  ttlSeconds: number
+}

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { formatDiscoveryDocument } from "./discoveryDocument"
+import {
+  formatDiscoveryDocument,
+  parseDiscoveryDocument
+} from "./discoveryDocument"
 
 describe("formatDiscoveryDocument", () => {
   test("returns minimal document with defaults", () => {
@@ -60,6 +63,7 @@ describe("formatDiscoveryDocument", () => {
 
   test("preserves the default key in route_policies", () => {
     const doc = formatDiscoveryDocument({
+      invalidationEndpoint: "https://api.example.com/erc8128/invalidate",
       routePolicy: {
         default: { replayable: true },
         "/api/public": { replayable: true }
@@ -73,6 +77,7 @@ describe("formatDiscoveryDocument", () => {
 
   test("filters out false values from route_policies", () => {
     const doc = formatDiscoveryDocument({
+      invalidationEndpoint: "https://api.example.com/erc8128/invalidate",
       routePolicy: {
         "/api/public": { replayable: true },
         "/api/disabled": false
@@ -81,6 +86,31 @@ describe("formatDiscoveryDocument", () => {
     expect(doc.route_policies).toEqual({
       "/api/public": { replayable: true }
     })
+  })
+
+  test("rejects replayable policy without a valid invalidation endpoint", () => {
+    expect(() =>
+      formatDiscoveryDocument({
+        routePolicy: { "/api/public": { replayable: true } }
+      })
+    ).toThrow("invalidation endpoint")
+    expect(() =>
+      formatDiscoveryDocument({
+        invalidationEndpoint: "http://api.example.com/invalidate",
+        routePolicy: { "/api/public": { replayable: true } }
+      })
+    ).toThrow("invalidation endpoint")
+  })
+
+  test("rejects invalid verification endpoints and validity windows", () => {
+    expect(() =>
+      formatDiscoveryDocument({
+        verificationEndpoint: "http://api.example.com/verify"
+      })
+    ).toThrow("configuration")
+    expect(() => formatDiscoveryDocument({ maxValiditySec: 0 })).toThrow(
+      "configuration"
+    )
   })
 
   test("omits route_policies when all entries are filtered out", () => {
@@ -138,5 +168,49 @@ describe("formatDiscoveryDocument", () => {
         }
       ]
     })
+  })
+})
+
+describe("parseDiscoveryDocument", () => {
+  test("validates the complete discovery document", () => {
+    expect(
+      parseDiscoveryDocument(
+        JSON.stringify({
+          invalidation_endpoint: "https://api.example.com/invalidate",
+          max_validity_sec: 120,
+          route_policies: {
+            "/orders": {
+              methods: ["POST"],
+              replayable: true
+            }
+          }
+        })
+      )
+    ).toEqual({
+      invalidation_endpoint: "https://api.example.com/invalidate",
+      max_validity_sec: 120,
+      route_policies: {
+        "/orders": {
+          methods: ["POST"],
+          replayable: true
+        }
+      }
+    })
+  })
+
+  test("rejects replayable routes without invalidation and unknown fields", () => {
+    expect(
+      parseDiscoveryDocument(
+        JSON.stringify({
+          max_validity_sec: 120,
+          route_policies: { default: { replayable: true } }
+        })
+      )
+    ).toBeNull()
+    expect(
+      parseDiscoveryDocument(
+        JSON.stringify({ max_validity_sec: 120, permissive: true })
+      )
+    ).toBeNull()
   })
 })
