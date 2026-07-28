@@ -297,7 +297,13 @@ export async function verifyRequest(
     }
 
     // Build signature base M using the (raw) signatureParamsValue from header
-    const M = buildSignatureBase({ request, components, signatureParamsValue })
+    let M: Uint8Array
+    try {
+      M = buildSignatureBase({ request, components, signatureParamsValue })
+    } catch {
+      lastFailure = { ok: false, reason: "bad_signature" }
+      continue
+    }
 
     // Decode signature bytes
     const sigBytes = base64Decode(sigB64)

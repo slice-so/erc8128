@@ -120,14 +120,14 @@ export function createSignerClient(
       }
     }
 
+    const now = Math.floor(Date.now() / 1_000)
     const posture = resolveAuthorizedPosture({
       authorizationPolicy,
       invalidationAvailable: serverConfig?.invalidation_endpoint !== undefined,
       ...(authorizationExpiresAt === undefined
         ? {}
         : {
-            remainingAuthorizationSeconds:
-              authorizationExpiresAt - Math.floor(Date.now() / 1_000)
+            remainingAuthorizationSeconds: authorizationExpiresAt - now
           }),
       requestOptions: mergedOptions,
       routeMaxValiditySeconds: serverConfig?.max_validity_sec,
@@ -137,11 +137,19 @@ export function createSignerClient(
         serverConfig?.route_policies
       )
     })
+    const created = mergedOptions.created ?? now
+    const expires = Math.min(
+      mergedOptions.expires ?? created + posture.ttlSeconds,
+      created + posture.ttlSeconds,
+      authorizationExpiresAt ?? Number.POSITIVE_INFINITY
+    )
     return {
       ...mergedOptions,
       binding: posture.binding,
       components: posture.components,
       contentDigest: posture.contentDigest,
+      created,
+      expires,
       replay: posture.replay,
       ttlSeconds: posture.ttlSeconds
     }
