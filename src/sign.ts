@@ -126,6 +126,7 @@ export async function signRequest(
     created,
     expires,
     keyid,
+    ...(resolvedOpts.tag ? { tag: resolvedOpts.tag } : {}),
     ...(nonce ? { nonce } : {})
   }
 

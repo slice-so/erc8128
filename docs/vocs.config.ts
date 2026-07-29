@@ -34,6 +34,10 @@ export default defineConfig({
         {
           text: "Smart Contract Accounts",
           link: "/guides/smart-contract-accounts"
+        },
+        {
+          text: "Delegated Principals",
+          link: "/guides/delegated-principals"
         }
       ]
     },

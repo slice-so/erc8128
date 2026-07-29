@@ -9,6 +9,7 @@ import type {
 
 export type VerifyMessageArgs = {
   address: Address
+  chainId: number
   message: { raw: Hex }
   mode?: "eoa"
   signature: Hex
@@ -52,6 +53,7 @@ export type VerifyResult =
 export type VerifyFailReason =
   | "missing_headers"
   | "label_not_found"
+  | "tag_not_found"
   | "bad_signature_input"
   | "bad_signature"
   | "bad_keyid"
@@ -113,4 +115,12 @@ export type ResolvedPosture = {
   binding: BindingMode | undefined
   replay: ReplayMode
   components: string[] | undefined
+}
+
+export type RedisNonceStoreClient = {
+  setIfNotExists: (key: string, ttlSeconds: number) => Promise<boolean>
+}
+
+export type UniqueInsertNonceStoreClient = {
+  insertUnique: (key: string, expiresAt: Date) => Promise<boolean>
 }

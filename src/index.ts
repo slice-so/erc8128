@@ -29,6 +29,11 @@ export { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
 export { resolvePosture } from "./lib/resolvePosture"
 export { signedFetch, signRequest } from "./sign"
 export { createSignerClient } from "./signerClient"
+export {
+  BoundedMemoryNonceStore,
+  createRedisNonceStore,
+  createUniqueInsertNonceStore
+} from "./stores"
 export type {
   AcceptSignatureRequestShape,
   AcceptSignatureSignOptions,
@@ -43,6 +48,7 @@ export type {
   NonceStore,
   ParsedAcceptSignatureMember,
   ParsedSignatureInputMember,
+  RedisNonceStoreClient,
   ReplayMode,
   ResolveAuthorizedPostureParameters,
   ResolvedAuthorizedPosture,
@@ -57,6 +63,7 @@ export type {
   SignerClient,
   SignerClientOptions,
   SignOptions,
+  UniqueInsertNonceStoreClient,
   VerifierClient,
   VerifierClientVerifyRequestArgs,
   VerifyFailReason,

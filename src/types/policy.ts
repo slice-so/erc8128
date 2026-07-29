@@ -37,6 +37,13 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
   label?: string
   strictLabel?: boolean // default false
+  /** Require the exact RFC 9421 signature role. Untagged candidates never match. */
+  requiredTag?: string
+  /**
+   * If one of these request fields is present, every eligible signature must
+   * cover it. Absence is allowed.
+   */
+  requiredCoveredComponentsWhenPresent?: string[]
 
   /**
    * Optional replayable invalidation policy.

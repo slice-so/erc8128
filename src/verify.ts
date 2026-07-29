@@ -211,12 +211,26 @@ export async function verifyRequest(
     })
     .filter((entry): entry is VerifyCandidate<ParsedKeyId> => entry != null)
   if (validCandidates.length === 0) return { ok: false, reason: "bad_keyid" }
+  const taggedCandidates =
+    resolvedPolicy.requiredTag === undefined
+      ? validCandidates
+      : validCandidates.filter(
+          ({ candidate }) => candidate.params.tag === resolvedPolicy.requiredTag
+        )
+  if (taggedCandidates.length === 0) {
+    return { ok: false, reason: "tag_not_found" }
+  }
 
-  const { attempts, sawClassBound } = buildAttempts(validCandidates, {
+  const requiredWhenPresent = normalizeComponentsList(
+    resolvedPolicy.requiredCoveredComponentsWhenPresent
+  ).filter((component) => request.headers.has(component))
+
+  const { attempts, sawClassBound } = buildAttempts(taggedCandidates, {
     hasQuery,
     hasBody,
     requestBoundExtras,
     requestBoundRequired,
+    requiredWhenPresent,
     classBoundPolicies
   })
 
@@ -265,7 +279,8 @@ export async function verifyRequest(
       now,
       nonceStore: resolvedPolicy.nonceStore,
       nonceKey: resolvedPolicy.nonceKey,
-      maxNonceWindowSec: resolvedPolicy.maxNonceWindowSec
+      maxNonceWindowSec: resolvedPolicy.maxNonceWindowSec,
+      clockSkewSec: skew
     })
     if (nonceFailure) {
       lastFailure = nonceFailure
@@ -325,6 +340,7 @@ export async function verifyRequest(
 
     const verifyMessageArgs = {
       address,
+      chainId,
       message: { raw: bytesToHex(M) },
       signature: sigHex,
       mode: deriveMode({ request, components })

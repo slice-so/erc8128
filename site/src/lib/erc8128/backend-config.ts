@@ -1,4 +1,6 @@
 import {
+  createRedisNonceStore as createAtomicRedisNonceStore,
+  createUniqueInsertNonceStore,
   type DiscoveryDocument,
   formatDiscoveryDocument,
   matchRoutePolicy,
@@ -151,22 +153,14 @@ export function getDiscoveryDocument(baseURL: string): DiscoveryDocument {
 function createRedisNonceStore(
   storage: RequestScopedSecondaryStorage
 ): NonceStore {
-  return {
-    async consume(key, ttlSec) {
-      if (typeof storage.setIfNotExists === "function") {
-        return storage.setIfNotExists(`${NONCE_KEY_PREFIX}${key}`, "1", ttlSec)
-      }
-
-      const identifier = `${NONCE_KEY_PREFIX}${key}`
-      const existing = await storage.get(identifier)
-      if (existing) {
-        return false
-      }
-
-      await storage.set(identifier, "1", ttlSec)
-      return true
-    }
+  const setIfNotExists = storage.setIfNotExists
+  if (setIfNotExists === undefined) {
+    throw new Error("Redis nonce storage must support atomic set-if-absent.")
   }
+  return createAtomicRedisNonceStore({
+    setIfNotExists: (key, ttlSeconds) =>
+      setIfNotExists(`${NONCE_KEY_PREFIX}${key}`, "1", ttlSeconds)
+  })
 }
 
 function createRedisVerificationCache(
@@ -223,9 +217,8 @@ async function createPostgresRuntime(
 ): Promise<VerificationRuntimeConfig> {
   const { db, close } = createDrizzleClient(connectionString)
 
-  const nonceStore: NonceStore = {
-    async consume(key, ttlSec) {
-      const expiresAt = new Date(Date.now() + ttlSec * 1000)
+  const nonceStore = createUniqueInsertNonceStore({
+    async insertUnique(key, expiresAt) {
       const result = await db
         .insert(schema.erc8128Nonce)
         .values({
@@ -233,11 +226,12 @@ async function createPostgresRuntime(
           nonceKey: `${NONCE_KEY_PREFIX}${key}`,
           expiresAt
         })
+        .onConflictDoNothing({ target: schema.erc8128Nonce.nonceKey })
         .returning({ id: schema.erc8128Nonce.id })
 
       return result.length === 1
     }
-  }
+  })
 
   const verificationCache: VerificationCacheStore = {
     async get(signatureHeader) {

@@ -1,0 +1,57 @@
+# Delegated principals
+
+ERC-8128 authenticates the account identified by `keyid`. Applications can
+optionally layer a delegated-principal profile on top: a request signer sends a
+root-signed grant in an application header, and the relying service treats the
+grant's root account as the principal only after validating the complete
+proof.
+
+This is an application profile, not a proposed `Signature-Delegation`
+extension. RFC 9421 already permits applications to cover any HTTP field and
+expects them to impose their own coverage requirements. A shared standard
+extension would only be useful after independent profiles converge.
+
+## Presence implies coverage
+
+Configure the verifier so an optional delegation header must be covered
+whenever it is present:
+
+```ts
+const result = await verifyRequest({
+  request,
+  nonceStore,
+  verifyMessage,
+  policy: {
+    requiredCoveredComponentsWhenPresent: ["example-authorization"]
+  }
+})
+```
+
+An absent header leaves ordinary signer-as-principal verification unchanged.
+A present but uncovered header is rejected during candidate classification,
+before signature verification and nonce consumption. Applications must never
+downgrade an invalid envelope to the plain signer principal.
+
+## Profile checks
+
+After ERC-8128 verification succeeds, a relying service should:
+
+1. Parse a canonical, size-bounded grant and root signature envelope.
+2. Bind the grant's signer and chain to the verified `keyid`.
+3. Verify the root signature with a chain-pinned client, including smart
+   account and counterfactual-account verification where supported.
+4. Enforce grant issuance, expiry, request lifetime, audience, application
+   identity, replay, binding, and covered-component constraints.
+5. Resolve revocation from an out-of-band authority before upgrading the
+   principal.
+
+Nonce consumption remains local and atomic under `${keyid}:${nonce}`. The
+delegation authority should not become a replay store.
+
+## Slice ID case study
+
+Slice ID uses `Slice-ID-Authorization` for an optional root-signed grant. Its
+Registry is the sole lifecycle authority, while relying services cache
+successful complete proofs and short-lived active status responses. A valid
+envelope upgrades the principal from the request signer to the grant's root
+account; an invalid envelope rejects the request.

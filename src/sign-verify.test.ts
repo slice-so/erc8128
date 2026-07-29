@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { createPublicClient, http } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { Erc8128Error, signRequest, verifyRequest } from "."
-import type { Address, Hex, VerifyPolicy } from "./types"
+import type { Address, Hex, NonceStore, VerifyPolicy } from "./types"
 
 const publicClient = createPublicClient({
   transport: http("http://localhost:8787")
@@ -60,7 +60,7 @@ function verifyWithPolicy(
   policy: VerifyPolicy = {},
   deps?: {
     verifyMessage?: ReturnType<typeof makeVerifyMessage>
-    nonceStore?: ReturnType<typeof makeNonceStore>
+    nonceStore?: NonceStore
   }
 ) {
   const verifyMessage = deps?.verifyMessage ?? makeVerifyMessage()
@@ -1198,5 +1198,99 @@ describe("ERC-8128 signRequest/verifyRequest", () => {
       { nonceStore: makeNonceStore() }
     )
     expect(res).toEqual({ ok: false, reason: "bad_time" })
+  })
+
+  test("rejects a present uncovered application field before crypto or nonce consumption", async () => {
+    const created = 1_700_000_000
+    const unsignedFieldRequest = new Request("https://example.com/delegated", {
+      headers: { "slice-id-authorization": "candidate-envelope" }
+    })
+    const signed = await signRequest(unsignedFieldRequest, makeSigner(), {
+      created,
+      expires: created + 60,
+      nonce: "nonce-uncovered"
+    })
+    let verifications = 0
+    let consumptions = 0
+    const result = await verifyRequest({
+      request: signed,
+      nonceStore: {
+        consume: async () => {
+          consumptions += 1
+          return true
+        }
+      },
+      policy: {
+        now: () => created,
+        requiredCoveredComponentsWhenPresent: ["slice-id-authorization"]
+      },
+      verifyMessage: async () => {
+        verifications += 1
+        return true
+      }
+    })
+
+    expect(result).toEqual({ ok: false, reason: "not_request_bound" })
+    expect(verifications).toBe(0)
+    expect(consumptions).toBe(0)
+  })
+
+  test("allows an absent optional field and requires an exact signature tag", async () => {
+    const created = 1_700_000_000
+    const signed = await signRequest(
+      "https://example.com/tagged",
+      makeSigner(),
+      {
+        created,
+        expires: created + 60,
+        nonce: "nonce-tagged",
+        tag: "slice-id-session"
+      }
+    )
+    const accepted = await verifyWithPolicy(signed, {
+      now: () => created,
+      requiredCoveredComponentsWhenPresent: ["slice-id-authorization"],
+      requiredTag: "slice-id-session"
+    })
+    expect(accepted.ok).toBe(true)
+
+    const rejected = await verifyWithPolicy(signed, {
+      now: () => created,
+      requiredTag: "slice-id-app"
+    })
+    expect(rejected).toEqual({ ok: false, reason: "tag_not_found" })
+  })
+
+  test("retains a consumed nonce through the accepted clock-skew window", async () => {
+    const created = 1_700_000_000
+    const expires = created + 10
+    const signed = await signRequest("https://example.com/skew", makeSigner(), {
+      created,
+      expires,
+      nonce: "nonce-skew"
+    })
+    const seen = new Set<string>()
+    const ttls: number[] = []
+    const nonceStore = {
+      consume: async (key: string, ttlSeconds: number) => {
+        ttls.push(ttlSeconds)
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      }
+    }
+    const policy = {
+      clockSkewSec: 10,
+      now: () => expires + 5
+    }
+
+    expect((await verifyWithPolicy(signed, policy, { nonceStore })).ok).toBe(
+      true
+    )
+    expect(ttls).toEqual([5])
+    expect(await verifyWithPolicy(signed, policy, { nonceStore })).toEqual({
+      ok: false,
+      reason: "replay"
+    })
   })
 })

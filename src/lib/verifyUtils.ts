@@ -20,6 +20,7 @@ export function buildAttempts<Key>(
     hasBody: boolean
     requestBoundExtras: string[]
     requestBoundRequired: string[]
+    requiredWhenPresent: string[]
     classBoundPolicies: string[][]
   }
 ): { attempts: Attempt<Key>[]; sawClassBound: boolean } {
@@ -28,6 +29,7 @@ export function buildAttempts<Key>(
     hasBody,
     requestBoundExtras,
     requestBoundRequired,
+    requiredWhenPresent,
     classBoundPolicies
   } = options
   const attempts: Attempt<Key>[] = []
@@ -35,6 +37,9 @@ export function buildAttempts<Key>(
 
   for (const entry of candidates) {
     const { candidate } = entry
+    if (!includesAllComponents(requiredWhenPresent, candidate.components)) {
+      continue
+    }
     const isRequestBound = isRequestBoundForThisRequest(
       candidate.components,
       { hasQuery, hasBody },
@@ -109,6 +114,7 @@ export function runNonceChecks(options: {
   nonceStore: NonceStore | undefined
   nonceKey: ((keyid: string, nonce: string) => string) | undefined
   maxNonceWindowSec: number | null | undefined
+  clockSkewSec: number
 }): { failure: VerifyResult | null; plan: NoncePlan } {
   const {
     allowReplayable,
@@ -116,7 +122,8 @@ export function runNonceChecks(options: {
     now,
     nonceStore,
     nonceKey,
-    maxNonceWindowSec
+    maxNonceWindowSec,
+    clockSkewSec
   } = options
 
   const hasNonce = typeof params.nonce === "string" && params.nonce.length > 0
@@ -169,7 +176,10 @@ export function runNonceChecks(options: {
       plan: {
         replayKey: keyFn(params.keyid, nonce),
         replayStore: nonceStore,
-        replayTtlSeconds: Math.max(0, (params.expires ?? now) - now)
+        replayTtlSeconds: Math.max(
+          1,
+          (params.expires ?? now) + clockSkewSec - now
+        )
       }
     }
   }

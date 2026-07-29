@@ -7,6 +7,8 @@ export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
 
 export type SignOptions = {
   label?: string // default: "eth"
+  /** RFC 9421 signature role, independent from the dictionary label. */
+  tag?: string
   binding?: BindingMode // default: "request-bound"
   replay?: ReplayMode // default: "non-replayable"
 
