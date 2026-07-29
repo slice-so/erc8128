@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, spyOn, test } from "bun:test"
 import {
   BoundedMemoryNonceStore,
   createRedisNonceStore,
@@ -13,6 +13,27 @@ describe("ERC-8128 nonce stores", () => {
     expect(await store.consume("second", 60)).toBe(true)
     expect(await store.consume("third", 60)).toBe(true)
     expect(await store.consume("first", 60)).toBe(true)
+  })
+
+  test("sweeps every expired nonce before evicting live entries", async () => {
+    let now = 1_000
+    const nowSpy = spyOn(Date, "now").mockImplementation(() => now)
+    try {
+      const store = new BoundedMemoryNonceStore(4)
+      await store.consume("expired-first", 1)
+      await store.consume("live-first", 60)
+      await store.consume("expired-second", 1)
+      await store.consume("live-second", 60)
+
+      now = 3_000
+      await store.consume("new-first", 60)
+      await store.consume("new-second", 60)
+
+      expect(await store.consume("live-first", 60)).toBe(false)
+      expect(await store.consume("live-second", 60)).toBe(false)
+    } finally {
+      nowSpy.mockRestore()
+    }
   })
 
   test("adapts Redis-shaped atomic set-if-absent storage", async () => {

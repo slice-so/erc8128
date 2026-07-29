@@ -25,10 +25,12 @@ export class BoundedMemoryNonceStore implements NonceStore {
 
   private prune(now: number) {
     for (const [key, expiresAt] of this.entries) {
-      if (expiresAt <= now || this.entries.size >= this.maximumEntries) {
-        this.entries.delete(key)
-      }
-      if (this.entries.size < this.maximumEntries) break
+      if (expiresAt <= now) this.entries.delete(key)
+    }
+    while (this.entries.size >= this.maximumEntries) {
+      const oldest = this.entries.keys().next().value
+      if (oldest === undefined) break
+      this.entries.delete(oldest)
     }
   }
 }
