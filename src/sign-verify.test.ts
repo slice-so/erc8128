@@ -184,4 +184,73 @@ describe("ERC-8128 direct signing and verification", () => {
       reason: "signature_verification_unavailable"
     })
   })
+
+  test("rejects an otherwise signed candidate without the mandatory tag", async () => {
+    const signed = await signRequest("https://api.example/me", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "mandatory-tag-test"
+    })
+    const headers = new Headers(signed.headers)
+    headers.set(
+      "signature-input",
+      (headers.get("signature-input") ?? "").replace(';tag="erc8128"', "")
+    )
+
+    expect(
+      await verifyRequest({
+        request: new Request(signed, { headers }),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: () => now },
+        verifyMessage: universalVerify
+      })
+    ).toEqual({ ok: false, reason: "tag_not_found" })
+  })
+
+  test("skips a failing candidate and consumes only the valid candidate nonce", async () => {
+    const bad = await signRequest("https://api.example/mixed", signer, {
+      created: now,
+      expires: now + 60,
+      label: "bad",
+      nonce: "mixed-bad-nonce-1"
+    })
+    const good = await signRequest("https://api.example/mixed", signer, {
+      created: now,
+      expires: now + 60,
+      label: "good",
+      nonce: "mixed-good-nonce"
+    })
+    const badSignature = bad.headers.get("signature") ?? ""
+    const corruptedBadSignature = badSignature.replace(
+      /:([A-Za-z0-9+/])/,
+      (_match, first: string) => `:${first === "A" ? "B" : "A"}`
+    )
+    const headers = new Headers(good.headers)
+    headers.set(
+      "signature-input",
+      `${bad.headers.get("signature-input")}, ${good.headers.get("signature-input")}`
+    )
+    headers.set(
+      "signature",
+      `${corruptedBadSignature}, ${good.headers.get("signature")}`
+    )
+    let nonceConsumes = 0
+
+    const result = await verifyRequest({
+      request: new Request(good, { headers }),
+      nonceStore: {
+        consume: async () => {
+          nonceConsumes += 1
+          return true
+        }
+      },
+      policy: { now: () => now, principal: "direct" },
+      verifyMessage: universalVerify
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.reason)
+    expect(result.label).toBe("good")
+    expect(nonceConsumes).toBe(1)
+  })
 })

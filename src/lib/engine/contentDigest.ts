@@ -52,10 +52,7 @@ export async function verifyContentDigest(
   const parsed = parseContentDigest(v)
   if (!parsed) return false
   const resolvedBodyBytes = bodyBytes ?? (await readBodyBytes(request))
-  const expected = new Map<string, string>([
-    ["sha-256", base64Encode(await sha256(resolvedBodyBytes))],
-    ["sha-512", base64Encode(nobleSha512(resolvedBodyBytes))]
-  ])
+  const expected = new Map<string, string>()
   let recognized = 0
   for (const member of parsed) {
     if (
@@ -65,8 +62,16 @@ export async function verifyContentDigest(
     ) {
       return false
     }
-    const expectedValue = expected.get(member.alg)
-    if (expectedValue === undefined) continue
+    if (member.alg !== "sha-256" && member.alg !== "sha-512") continue
+    let expectedValue = expected.get(member.alg)
+    if (expectedValue === undefined) {
+      expectedValue = base64Encode(
+        member.alg === "sha-256"
+          ? await sha256(resolvedBodyBytes)
+          : nobleSha512(resolvedBodyBytes)
+      )
+      expected.set(member.alg, expectedValue)
+    }
     recognized += 1
     if (!timingSafeEqualAscii(member.b64, expectedValue)) return false
   }
