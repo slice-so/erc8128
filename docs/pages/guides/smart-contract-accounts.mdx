@@ -57,14 +57,21 @@ const delegateSigner: EthHttpSigner = {
 
 ## Verifying SCA Signatures
 
-The `verifyMessage` function you pass to `verifyRequest` must support ERC-1271:
+The `verifyMessage` function you pass to `verifyRequest` must support ERC-1271.
+Use the package helper to keep ERC-6492 first, prevent ECDSA fallback for
+code-bearing accounts, and enforce canonical EOA signatures:
 
 ### With viem
 
 viem's `verifyMessage` automatically handles both EOA signatures (ecrecover) and ERC-1271 contract signatures:
 
 ```typescript
-import { createPublicClient, http } from 'viem'
+import {
+  createUniversalAccountVerifier,
+  ERC1271_ABI,
+  verifyRequest,
+} from '@slicekit/erc8128'
+import { createPublicClient, encodeFunctionData, http } from 'viem'
 import { mainnet } from 'viem/chains'
 
 const publicClient = createPublicClient({
@@ -72,15 +79,39 @@ const publicClient = createPublicClient({
   transport: http(),
 })
 
-// Use directly in policy — works for both EOA and SCA
+const verifyMessage = createUniversalAccountVerifier({
+  getCode: ({ address }) => publicClient.getCode({ address }),
+  verifySmartAccount: async ({
+    accountType,
+    address,
+    digest,
+    message,
+    signature,
+  }) => {
+    if (accountType === 'counterfactual') {
+      return publicClient.verifyMessage({ address, message, signature })
+    }
+    const { data } = await publicClient.call({
+      to: address,
+      data: encodeFunctionData({
+        abi: ERC1271_ABI,
+        functionName: 'isValidSignature',
+        args: [digest, signature],
+      }),
+    })
+    return data?.slice(0, 10) === '0x1626ba7e'
+  },
+})
+
 const result = await verifyRequest({
   request,
-  verifyMessage: publicClient.verifyMessage,
+  verifyMessage,
   nonceStore
 })
 ```
 
-No extra configuration is needed. When the signer address is a contract, viem automatically calls `isValidSignature` on it instead of using ecrecover.
+The smart-account callback handles ERC-6492 and ERC-1271. Code-free accounts
+use the package's strict local EOA recovery instead.
 
 ## Common SCA Patterns
 

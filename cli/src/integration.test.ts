@@ -1,7 +1,5 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test"
 import { signedFetch, signRequest, verifyRequest } from "@slicekit/erc8128"
-import type { Address, Hex } from "viem"
-import { createPublicClient, http } from "viem"
 import { createSigner } from "./wallet"
 
 // Test private key (well-known test key, DO NOT USE IN PRODUCTION)
@@ -46,7 +44,7 @@ describe("integration tests", () => {
       expect(signatureInput).toMatch(/^eth=\(.+\);/)
       expect(signatureInput).toContain("created=")
       expect(signatureInput).toContain("expires=")
-      expect(signatureInput).toContain('keyid="erc8128:')
+      expect(signatureInput).toContain('keyid="eip155:')
 
       // Verify Signature format (base64 in colons)
       expect(signature).toMatch(/^eth=:[A-Za-z0-9+/]+={0,2}:$/)
@@ -92,21 +90,8 @@ describe("integration tests", () => {
       const signedReq = await signRequest(request, signer, {
         created,
         expires,
-        nonce: "test-nonce-1"
+        nonce: "test-nonce-123456"
       })
-
-      // Create verification dependencies
-      const publicClient = createPublicClient({
-        transport: http("http://localhost:8787")
-      })
-
-      const verifyMessage = async (args: {
-        address: Address
-        message: { raw: Hex }
-        signature: Hex
-      }) => {
-        return publicClient.verifyMessage(args)
-      }
 
       const nonceStore = {
         seen: new Set<string>(),
@@ -119,17 +104,22 @@ describe("integration tests", () => {
 
       const result = await verifyRequest({
         request: signedReq,
-        verifyMessage,
+        verifyMessage: async () => {
+          throw new Error("EOA-only verification must not use RPC")
+        },
         nonceStore,
         policy: {
+          accountVerification: "eoa-only",
           now: () => created
         }
       })
 
       expect(result.ok).toBe(true)
       if (!result.ok) throw new Error("unreachable")
-      expect(result.address.toLowerCase()).toBe(signer.address.toLowerCase())
-      expect(result.chainId).toBe(1)
+      expect(result.principal.address.toLowerCase()).toBe(
+        signer.address.toLowerCase()
+      )
+      expect(result.principal.chainId).toBe(1)
     })
 
     test("includes nonce for non-replayable requests", async () => {
@@ -183,7 +173,7 @@ describe("integration tests", () => {
       const signedReq = await signRequest(request, signer137)
 
       const signatureInput = signedReq.headers.get("Signature-Input")
-      expect(signatureInput).toContain('keyid="erc8128:137:')
+      expect(signatureInput).toContain('keyid="eip155:137:')
     })
 
     test("different chain IDs produce different keyids", async () => {
@@ -207,8 +197,8 @@ describe("integration tests", () => {
       const input1 = signed1.headers.get("Signature-Input")
       const input42161 = signed42161.headers.get("Signature-Input")
 
-      expect(input1).toContain('keyid="erc8128:1:')
-      expect(input42161).toContain('keyid="erc8128:42161:')
+      expect(input1).toContain('keyid="eip155:1:')
+      expect(input42161).toContain('keyid="eip155:42161:')
     })
   })
 

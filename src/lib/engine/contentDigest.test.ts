@@ -9,17 +9,17 @@ import {
 describe("parseContentDigest", () => {
   test("parses valid sha-256 digest", () => {
     const result = parseContentDigest("sha-256=:aGVsbG8=:")
-    expect(result).toEqual({ alg: "sha-256", b64: "aGVsbG8=" })
+    expect(result).toEqual([{ alg: "sha-256", b64: "aGVsbG8=" }])
   })
 
-  test("normalizes algorithm name to lowercase", () => {
+  test("rejects uppercase dictionary keys as non-canonical", () => {
     const result = parseContentDigest("SHA-256=:aGVsbG8=:")
-    expect(result).toEqual({ alg: "sha-256", b64: "aGVsbG8=" })
+    expect(result).toBeNull()
   })
 
   test("trims surrounding whitespace", () => {
     const result = parseContentDigest("  sha-256=:aGVsbG8=:  ")
-    expect(result).toEqual({ alg: "sha-256", b64: "aGVsbG8=" })
+    expect(result).toEqual([{ alg: "sha-256", b64: "aGVsbG8=" }])
   })
 
   test("returns null for empty string", () => {
@@ -36,12 +36,12 @@ describe("parseContentDigest", () => {
 
   test("handles base64 with padding", () => {
     const result = parseContentDigest("sha-256=:YQ==:")
-    expect(result).toEqual({ alg: "sha-256", b64: "YQ==" })
+    expect(result).toEqual([{ alg: "sha-256", b64: "YQ==" }])
   })
 
   test("handles base64 without padding", () => {
     const result = parseContentDigest("sha-256=:AQID:")
-    expect(result).toEqual({ alg: "sha-256", b64: "AQID" })
+    expect(result).toEqual([{ alg: "sha-256", b64: "AQID" }])
   })
 })
 
@@ -154,14 +154,17 @@ describe("verifyContentDigest", () => {
     expect(await verifyContentDigest(req)).toBe(false)
   })
 
-  test("returns false for unsupported algorithm", async () => {
+  test("accepts a matching SHA-512 member", async () => {
     const req = new Request("https://example.com", {
       method: "POST",
       body: "hello",
-      headers: { "content-digest": "sha-512=:aGVsbG8=:" }
+      headers: {
+        "content-digest":
+          "sha-512=:m3HSJL1i83hdltRq0+o9czGb+8KJDKra4t/3JRlnPKcjI8PZm6XBHXx6zG4UuMXaDEZjR1wuXDre9G9zvN7AQw==:"
+      }
     })
 
-    expect(await verifyContentDigest(req)).toBe(false)
+    expect(await verifyContentDigest(req)).toBe(true)
   })
 
   test("returns false for malformed header value", async () => {

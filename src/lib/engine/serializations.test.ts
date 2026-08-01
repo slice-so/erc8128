@@ -3,14 +3,25 @@ import { Erc8128Error } from "../Erc8128Error"
 import {
   appendDictionaryMember,
   assertSignatureParamsForSerialization,
-  defaultComponents,
-  normalizeComponents,
+  defaultComponents as defaultComponentIdentifiers,
+  normalizeComponents as normalizeComponentIdentifiers,
   quoteSfString,
-  resolveComponents,
+  resolveComponents as resolveComponentIdentifiers,
   serializeSignatureHeader,
   serializeSignatureInputHeader,
   serializeSignatureParamsInnerList
 } from "./serializations"
+
+const componentNames = (components: readonly { name: string }[]) =>
+  components.map(({ name }) => name)
+const normalizeComponents = (components: readonly string[]) =>
+  componentNames(normalizeComponentIdentifiers(components))
+const defaultComponents = (
+  args: Parameters<typeof defaultComponentIdentifiers>[0]
+) => componentNames(defaultComponentIdentifiers(args))
+const resolveComponents = (
+  args: Parameters<typeof resolveComponentIdentifiers>[0]
+) => componentNames(resolveComponentIdentifiers(args))
 
 describe("quoteSfString", () => {
   test("quotes a simple string", () => {
@@ -48,11 +59,10 @@ describe("normalizeComponents", () => {
     ])
   })
 
-  test("filters empty strings", () => {
-    expect(normalizeComponents(["@authority", "", "  ", "@method"])).toEqual([
-      "@authority",
-      "@method"
-    ])
+  test("rejects empty component identifiers", () => {
+    expect(() => normalizeComponents(["@authority", "", "@method"])).toThrow(
+      Erc8128Error
+    )
   })
 
   test("handles empty array", () => {
@@ -68,7 +78,7 @@ describe("defaultComponents", () => {
         hasQuery: false,
         hasBody: false
       })
-    ).toEqual(["@authority", "@method", "@path"])
+    ).toEqual(["@scheme", "@authority", "@method", "@path", "@query"])
   })
 
   test("request-bound GET with query", () => {
@@ -78,7 +88,7 @@ describe("defaultComponents", () => {
         hasQuery: true,
         hasBody: false
       })
-    ).toEqual(["@authority", "@method", "@path", "@query"])
+    ).toEqual(["@scheme", "@authority", "@method", "@path", "@query"])
   })
 
   test("request-bound POST with body", () => {
@@ -88,7 +98,14 @@ describe("defaultComponents", () => {
         hasQuery: false,
         hasBody: true
       })
-    ).toEqual(["@authority", "@method", "@path", "content-digest"])
+    ).toEqual([
+      "@scheme",
+      "@authority",
+      "@method",
+      "@path",
+      "@query",
+      "content-digest"
+    ])
   })
 
   test("request-bound POST with query and body", () => {
@@ -98,7 +115,14 @@ describe("defaultComponents", () => {
         hasQuery: true,
         hasBody: true
       })
-    ).toEqual(["@authority", "@method", "@path", "@query", "content-digest"])
+    ).toEqual([
+      "@scheme",
+      "@authority",
+      "@method",
+      "@path",
+      "@query",
+      "content-digest"
+    ])
   })
 
   test("class-bound always returns just @authority", () => {
@@ -120,7 +144,7 @@ describe("resolveComponents", () => {
         hasQuery: true,
         hasBody: false
       })
-    ).toEqual(["@authority", "@method", "@path", "@query"])
+    ).toEqual(["@scheme", "@authority", "@method", "@path", "@query"])
   })
 
   test("request-bound: appends extra provided components", () => {
@@ -131,7 +155,15 @@ describe("resolveComponents", () => {
         hasBody: false,
         providedComponents: ["content-type", "x-custom"]
       })
-    ).toEqual(["@authority", "@method", "@path", "content-type", "x-custom"])
+    ).toEqual([
+      "@scheme",
+      "@authority",
+      "@method",
+      "@path",
+      "@query",
+      "content-type",
+      "x-custom"
+    ])
   })
 
   test("request-bound: does not duplicate base components", () => {
@@ -142,7 +174,7 @@ describe("resolveComponents", () => {
         hasBody: false,
         providedComponents: ["@authority", "@method"]
       })
-    ).toEqual(["@authority", "@method", "@path"])
+    ).toEqual(["@scheme", "@authority", "@method", "@path", "@query"])
   })
 
   test("class-bound: throws when no components provided", () => {
@@ -184,7 +216,7 @@ describe("assertSignatureParamsForSerialization", () => {
       assertSignatureParamsForSerialization({
         created: 1700000000,
         expires: 1700000060,
-        keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
+        keyid: "eip155:1:0x0000000000000000000000000000000000000001"
       })
     ).not.toThrow()
   })
@@ -245,11 +277,11 @@ describe("serializeSignatureParamsInnerList", () => {
       {
         created: 1700000000,
         expires: 1700000060,
-        keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
+        keyid: "eip155:1:0x0000000000000000000000000000000000000001"
       }
     )
     expect(result).toBe(
-      '("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="erc8128:1:0x0000000000000000000000000000000000000001"'
+      '("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="eip155:1:0x0000000000000000000000000000000000000001"'
     )
   })
 
@@ -258,7 +290,7 @@ describe("serializeSignatureParamsInnerList", () => {
       created: 1700000000,
       expires: 1700000060,
       nonce: "abc123",
-      keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
+      keyid: "eip155:1:0x0000000000000000000000000000000000000001"
     })
     expect(result).toContain(';nonce="abc123"')
   })
@@ -268,7 +300,7 @@ describe("serializeSignatureParamsInnerList", () => {
       created: 1700000000,
       expires: 1700000060,
       tag: "my-tag",
-      keyid: "erc8128:1:0x0000000000000000000000000000000000000001"
+      keyid: "eip155:1:0x0000000000000000000000000000000000000001"
     })
     expect(result).toContain(';tag="my-tag"')
   })

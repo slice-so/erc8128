@@ -1,4 +1,4 @@
-import type { Address, Hex } from "./core"
+import type { Address, ComponentIdentifier, Hex, SfMember } from "./core"
 import type { VerifyPolicy } from "./policy"
 import type {
   BindingMode,
@@ -11,13 +11,23 @@ export type VerifyMessageArgs = {
   address: Address
   chainId: number
   message: { raw: Hex }
-  mode?: "eoa"
   signature: Hex
 }
 
 export type VerifyMessageFn = (
   args: VerifyMessageArgs
-) => boolean | Promise<boolean>
+) => boolean | "unavailable" | Promise<boolean | "unavailable">
+
+export type GetAccountCodeFn = (
+  account: Pick<VerifyMessageArgs, "address" | "chainId">
+) => Hex | undefined | "unavailable" | Promise<Hex | undefined | "unavailable">
+
+export type VerifySmartAccountFn = (
+  args: VerifyMessageArgs & {
+    accountType: "counterfactual" | "deployed"
+    digest: Hex
+  }
+) => boolean | "unavailable" | Promise<boolean | "unavailable">
 
 export type SetHeadersFn = (name: string, value: string) => void
 
@@ -40,10 +50,17 @@ export type VerifyRequestArgs = {
 export type VerifyResult =
   | {
       ok: true
-      address: Address
-      chainId: number
+      principal: { address: Address; chainId: number }
+      signer: { address: Address; chainId: number }
+      delegated: boolean
+      delegation?: {
+        id: Hex
+        audiences: string[]
+        grantExpires: number
+        extensions: Record<string, SfMember>
+      }
       label: string
-      components: string[]
+      components: ComponentIdentifier[]
       params: SignatureParams
       replayable: boolean
       binding: BindingMode
@@ -75,6 +92,28 @@ export type VerifyFailReason =
   | "alg_not_allowed"
   | "bad_signature_bytes"
   | "bad_signature_check"
+  | "unsupported_delegation"
+  | "delegation_grant_missing"
+  | "delegation_grant_ambiguous"
+  | "bad_delegation_field"
+  | "delegation_too_large"
+  | "delegation_not_covered"
+  | "delegate_mismatch"
+  | "grant_root_mismatch"
+  | "grant_expired"
+  | "grant_not_yet_valid"
+  | "grant_validity_too_long"
+  | "request_outside_grant_window"
+  | "bad_grant_signature"
+  | "audience_mismatch"
+  | "delegation_nonce_required"
+  | "delegation_max_age_exceeded"
+  | "delegation_components_floor"
+  | "unsupported_critical_extension"
+  | "delegation_extension_rejected"
+  | "signature_verification_unavailable"
+  | "grant_verification_unavailable"
+  | "critical_extension_unavailable"
 
 export type VerifyCandidate<Key = string> = {
   candidate: SelectedSignature
@@ -114,7 +153,7 @@ export type VerifierClient = {
 export type ResolvedPosture = {
   binding: BindingMode | undefined
   replay: ReplayMode
-  components: string[] | undefined
+  components: import("./core").CoveredComponent[] | undefined
 }
 
 export type RedisNonceStoreClient = {

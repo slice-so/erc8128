@@ -15,3 +15,10 @@ export class Erc8128Error extends Error {
     this.name = "Erc8128Error"
   }
 }
+
+export class VerificationUnavailableError extends Error {
+  constructor(message = "Account verification is unavailable.") {
+    super(message)
+    this.name = "VerificationUnavailableError"
+  }
+}

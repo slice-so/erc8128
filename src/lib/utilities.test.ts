@@ -239,6 +239,10 @@ describe("hexToBytes / bytesToHex", () => {
     expect(() => hexToBytes("0xabc")).toThrow(Erc8128Error)
   })
 
+  test("hexToBytes rejects non-hex bytes", () => {
+    expect(() => hexToBytes("0xgg" as `0x${string}`)).toThrow(Erc8128Error)
+  })
+
   test("bytesToHex pads single digits", () => {
     const hex = bytesToHex(new Uint8Array([0, 1, 15]))
     expect(hex).toBe("0x00010f")

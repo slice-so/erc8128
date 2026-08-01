@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test"
-import { resolveNonce } from "./nonce"
+import { isValidNonce, resolveNonce } from "./nonce"
 
 describe("resolveNonce", () => {
   test("returns string nonce as-is", async () => {
-    const nonce = await resolveNonce({ nonce: "my-nonce" })
-    expect(nonce).toBe("my-nonce")
+    const nonce = await resolveNonce({ nonce: "0123456789abcdef" })
+    expect(nonce).toBe("0123456789abcdef")
   })
 
   test("calls function nonce and returns its result", async () => {
     const nonce = await resolveNonce({
-      nonce: async () => "fn-nonce"
+      nonce: async () => "fedcba9876543210"
     })
-    expect(nonce).toBe("fn-nonce")
+    expect(nonce).toBe("fedcba9876543210")
   })
 
   test("auto-generates a nonce when not provided", async () => {
@@ -35,5 +35,16 @@ describe("resolveNonce", () => {
       expect(nonce).not.toContain("/")
       expect(nonce).not.toContain("=")
     }
+  })
+
+  test("enforces the verifier-compatible nonce bounds", async () => {
+    expect(isValidNonce("0123456789abcdef")).toBe(true)
+    expect(isValidNonce("too-short")).toBe(false)
+    expect(isValidNonce("x".repeat(129))).toBe(false)
+    expect(isValidNonce("0123456789abcde\n")).toBe(false)
+
+    await expect(resolveNonce({ nonce: "too-short" })).rejects.toThrow(
+      "at least 128 bits"
+    )
   })
 })

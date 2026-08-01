@@ -57,25 +57,31 @@ const response = await signerClient.fetch(
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ amount: '100' }),
 })`,
-  verify: `import { createVerifierClient } from '@slicekit/erc8128'
+  verify: `import { createUniversalAccountVerifier, createVerifierClient } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 import { nonceStore } from './nonceStore'
+import { verifySmartAccount } from './verifySmartAccount'
 
 const publicClient = createPublicClient({
   chain: mainnet,
   transport: http(),
 })
 
+const verifyMessage = createUniversalAccountVerifier({
+  getCode: ({ address }) => publicClient.getCode({ address }),
+  verifySmartAccount,
+})
+
 const verifierClient = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
+  verifyMessage,
   nonceStore,
 })
 
 const result = await verifierClient.verifyRequest({ request })
 
 if (result.ok) {
-  console.log(\`Authenticated: \${result.address}\`)
+  console.log(\`Authenticated: \${result.principal.address}\`)
 }`
 }
 

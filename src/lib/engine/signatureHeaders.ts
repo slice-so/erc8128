@@ -2,7 +2,8 @@ import type { SelectedSignature, VerifyPolicy, VerifyResult } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import {
   parseSignatureDictionary,
-  parseSignatureInputDictionary
+  parseSignatureInputDictionary,
+  splitTopLevelCommas
 } from "./createSignatureInput"
 
 /**
@@ -27,25 +28,63 @@ export function selectSignatureFromHeaders(args: {
   const strictLabel = policy.strictLabel ?? false
 
   try {
-    const parsedInputs = parseSignatureInputDictionary(signatureInputHeader)
-    const parsedSigs = parseSignatureDictionary(signatureHeader)
+    const parsedSigs = new Map<string, string>()
+    const ambiguousSignatures = new Set<string>()
+    for (const member of splitTopLevelCommas(signatureHeader)) {
+      try {
+        const parsed = parseSignatureDictionary(member)
+        for (const [label, signature] of parsed) {
+          if (parsedSigs.has(label)) ambiguousSignatures.add(label)
+          else parsedSigs.set(label, signature)
+        }
+      } catch {
+        // A malformed unrelated member must not block a later valid candidate.
+      }
+    }
 
     const candidates: SelectedSignature[] = []
-
-    for (const cand of parsedInputs) {
-      const s = parsedSigs.get(cand.label)
-      if (!s) continue
-      candidates.push({
-        label: cand.label,
-        components: cand.components,
-        params: cand.params,
-        signatureParamsValue: cand.signatureParamsValue,
-        sigB64: s
-      })
+    const seenInputs = new Set<string>()
+    let parsedInputCount = 0
+    for (const member of splitTopLevelCommas(signatureInputHeader)) {
+      try {
+        const parsed = parseSignatureInputDictionary(member)
+        const candidate = parsed[0]
+        if (candidate === undefined) continue
+        parsedInputCount += 1
+        if (seenInputs.has(candidate.label)) {
+          const existingIndex = candidates.findIndex(
+            ({ label }) => label === candidate.label
+          )
+          if (existingIndex >= 0) candidates.splice(existingIndex, 1)
+          continue
+        }
+        seenInputs.add(candidate.label)
+        const signature = parsedSigs.get(candidate.label)
+        if (!signature || ambiguousSignatures.has(candidate.label)) continue
+        candidates.push({
+          label: candidate.label,
+          components: candidate.components,
+          params: candidate.params,
+          signatureParamsValue: candidate.signatureParamsValue,
+          sigB64: signature
+        })
+      } catch {
+        // Continue in header order so one bad candidate cannot cause downgrade
+        // or denial when a later independent candidate is valid.
+      }
     }
 
     if (candidates.length === 0) {
-      return { ok: false, result: { ok: false, reason: "label_not_found" } }
+      return {
+        ok: false,
+        result: {
+          ok: false,
+          reason:
+            parsedInputCount === 0 || parsedSigs.size === 0
+              ? "bad_signature_input"
+              : "label_not_found"
+        }
+      }
     }
 
     if (labelPref != null && strictLabel) {

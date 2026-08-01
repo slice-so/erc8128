@@ -430,8 +430,10 @@ export function createVerificationRuntime(
           await runtimeConfig.verificationCache.set(
             signatureHeader,
             {
-              address: result.address,
-              chainId: result.chainId,
+              principal: result.principal,
+              signer: result.signer,
+              delegated: result.delegated,
+              ...(result.delegation ? { delegation: result.delegation } : {}),
               label: result.label,
               components: result.components,
               params: result.params,

@@ -1,8 +1,13 @@
 import type {
   ContentDigestMode,
+  CoveredComponent,
   ResolveAuthorizedPostureParameters,
   ResolvedAuthorizedPosture
 } from "../types"
+import {
+  componentIdentifierEquals,
+  normalizeComponentIdentifier
+} from "./engine/componentIdentifier"
 
 const positiveInteger = (value: number | undefined) =>
   value !== undefined && Number.isSafeInteger(value) && value > 0
@@ -10,15 +15,18 @@ const positiveInteger = (value: number | undefined) =>
     : undefined
 
 const unionComponents = (
-  ...groups: readonly (readonly string[] | undefined)[]
+  ...groups: readonly (readonly CoveredComponent[] | undefined)[]
 ) => {
-  const components: string[] = []
-  const seen = new Set<string>()
+  const components: CoveredComponent[] = []
   for (const group of groups) {
     for (const component of group ?? []) {
-      const normalized = component.trim().toLowerCase()
-      if (!normalized || seen.has(normalized)) continue
-      seen.add(normalized)
+      const normalized = normalizeComponentIdentifier(component)
+      if (
+        components.some((candidate) =>
+          componentIdentifierEquals(candidate, normalized)
+        )
+      )
+        continue
       components.push(normalized)
     }
   }
@@ -26,22 +34,26 @@ const unionComponents = (
 }
 
 const selectClassBoundPolicy = (
-  minimum: readonly string[],
-  policies: string[] | string[][] | undefined
+  minimum: readonly CoveredComponent[],
+  policies: CoveredComponent[] | CoveredComponent[][] | undefined
 ) => {
   if (policies === undefined) return undefined
   if (policies.length === 0) return []
-  const candidates =
-    typeof policies[0] === "string"
-      ? [policies as string[]]
-      : (policies as string[][])
-  const minimumSet = new Set(minimum)
+  const candidates = Array.isArray(policies[0])
+    ? (policies as CoveredComponent[][])
+    : [policies as CoveredComponent[]]
   return candidates.reduce((best, candidate) => {
     const candidateExtra = candidate.filter(
-      (component) => !minimumSet.has(component)
+      (component) =>
+        !minimum.some((required) =>
+          componentIdentifierEquals(required, component)
+        )
     ).length
     const bestExtra = best.filter(
-      (component) => !minimumSet.has(component)
+      (component) =>
+        !minimum.some((required) =>
+          componentIdentifierEquals(required, component)
+        )
     ).length
     return candidateExtra < bestExtra ? candidate : best
   })

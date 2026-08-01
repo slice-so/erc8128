@@ -1,6 +1,8 @@
+import { sha512 as nobleSha512 } from "@noble/hashes/sha2.js"
 import type { ContentDigestMode } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import { base64Encode, readBodyBytes, sha256 } from "../utilities"
+import { parseSfDictionary } from "./structuredFields"
 
 /**
  * Sets or validates the Content-Digest header on the request.
@@ -49,22 +51,52 @@ export async function verifyContentDigest(
 
   const parsed = parseContentDigest(v)
   if (!parsed) return false
-  if (parsed.alg !== "sha-256") return false // minimal support
-
   const resolvedBodyBytes = bodyBytes ?? (await readBodyBytes(request))
-  const digest = await sha256(resolvedBodyBytes)
-  const digestB64 = base64Encode(digest)
-  return timingSafeEqualAscii(parsed.b64, digestB64)
+  const expected = new Map<string, string>([
+    ["sha-256", base64Encode(await sha256(resolvedBodyBytes))],
+    ["sha-512", base64Encode(nobleSha512(resolvedBodyBytes))]
+  ])
+  let recognized = 0
+  for (const member of parsed) {
+    if (
+      member.alg === "md5" ||
+      member.alg === "sha" ||
+      member.alg === "sha-1"
+    ) {
+      return false
+    }
+    const expectedValue = expected.get(member.alg)
+    if (expectedValue === undefined) continue
+    recognized += 1
+    if (!timingSafeEqualAscii(member.b64, expectedValue)) return false
+  }
+  return recognized > 0
 }
 
 export function parseContentDigest(
   v: string
-): { alg: string; b64: string } | null {
-  // Very small parser for `sha-256=:<base64>:` (ignore surrounding whitespace)
-  const s = v.trim()
-  const m = /^([A-Za-z0-9_-]+)=:([A-Za-z0-9+/]+={0,2}):$/.exec(s)
-  if (!m) return null
-  return { alg: m[1].toLowerCase(), b64: m[2] }
+): { alg: string; b64: string }[] | null {
+  try {
+    const dictionary = parseSfDictionary(v)
+    const result: { alg: string; b64: string }[] = []
+    for (const [alg, member] of Object.entries(dictionary)) {
+      if (
+        !("value" in member) ||
+        typeof member.value !== "object" ||
+        member.value.type !== "binary" ||
+        Object.keys(member.params ?? {}).length !== 0
+      ) {
+        return null
+      }
+      result.push({
+        alg: alg.toLowerCase(),
+        b64: base64Encode(member.value.value)
+      })
+    }
+    return result.length === 0 ? null : result
+  } catch {
+    return null
+  }
 }
 
 function timingSafeEqualAscii(a: string, b: string): boolean {

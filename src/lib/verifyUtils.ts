@@ -6,6 +6,8 @@ import type {
   VerifyResult
 } from "../types"
 import { createSignatureBaseMinimal } from "./engine/createSignatureBase"
+import { formatReplayKey } from "./keyId"
+import { isValidNonce } from "./nonce"
 import {
   includesAllComponents,
   isRequestBoundForThisRequest
@@ -18,15 +20,17 @@ export function buildAttempts<Key>(
   options: {
     hasQuery: boolean
     hasBody: boolean
-    requestBoundExtras: string[]
-    requestBoundRequired: string[]
-    requiredWhenPresent: string[]
-    classBoundPolicies: string[][]
+    hasContentType?: boolean
+    requestBoundExtras: import("../types").ComponentIdentifier[]
+    requestBoundRequired: import("../types").ComponentIdentifier[]
+    requiredWhenPresent: import("../types").ComponentIdentifier[]
+    classBoundPolicies: import("../types").ComponentIdentifier[][]
   }
 ): { attempts: Attempt<Key>[]; sawClassBound: boolean } {
   const {
     hasQuery,
     hasBody,
+    hasContentType,
     requestBoundExtras,
     requestBoundRequired,
     requiredWhenPresent,
@@ -42,7 +46,7 @@ export function buildAttempts<Key>(
     }
     const isRequestBound = isRequestBoundForThisRequest(
       candidate.components,
-      { hasQuery, hasBody },
+      { hasQuery, hasBody, hasContentType },
       requestBoundExtras
     )
     if (isRequestBound) {
@@ -78,7 +82,7 @@ export function runTimeChecks(options: {
   maxValiditySec: number | null | undefined
   created: number | undefined
   expires: number | undefined
-}): VerifyResult | null {
+}): Extract<VerifyResult, { ok: false }> | null {
   const { now, skew, maxValiditySec, created, expires } = options
 
   if (
@@ -115,7 +119,10 @@ export function runNonceChecks(options: {
   nonceKey: ((keyid: string, nonce: string) => string) | undefined
   maxNonceWindowSec: number | null | undefined
   clockSkewSec: number
-}): { failure: VerifyResult | null; plan: NoncePlan } {
+}): {
+  failure: Extract<VerifyResult, { ok: false }> | null
+  plan: NoncePlan
+} {
   const {
     allowReplayable,
     params,
@@ -170,7 +177,18 @@ export function runNonceChecks(options: {
       }
     }
 
-    const keyFn = nonceKey ?? ((k, n) => `${k}:${n}`)
+    if (!isValidNonce(nonce)) {
+      return {
+        failure: {
+          ok: false,
+          reason: "bad_signature_input",
+          detail: "nonce must be 16-128 printable ASCII bytes"
+        },
+        plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }
+      }
+    }
+
+    const keyFn = nonceKey ?? formatReplayKey
     return {
       failure: null,
       plan: {

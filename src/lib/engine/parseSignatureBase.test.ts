@@ -11,6 +11,7 @@ const request = new Request("https://api.example.test/path?value=1", {
 })
 const components = [
   "@method",
+  "@scheme",
   "@authority",
   "@path",
   "@query",
@@ -19,7 +20,7 @@ const components = [
 const params = {
   created: 1_800_000_000,
   expires: 1_800_000_060,
-  keyid: "erc8128:1:0x0000000000000000000000000000000000000001",
+  keyid: "eip155:1:0x0000000000000000000000000000000000000001",
   nonce: "nonce"
 }
 const signatureParamsValue = serializeSignatureParamsInnerList(
@@ -34,11 +35,20 @@ describe("parseSignatureBase", () => {
   it("differentially parses the backend signature-base builder", () => {
     expect(parseSignatureBase(base)).toEqual({
       entries: [
-        { name: "@method", value: "POST" },
-        { name: "@authority", value: "api.example.test" },
-        { name: "@path", value: "/path" },
-        { name: "@query", value: "?value=1" },
-        { name: "content-digest", value: "sha-256=:AAAA:" }
+        { component: { name: "@method" }, name: "@method", value: "POST" },
+        { component: { name: "@scheme" }, name: "@scheme", value: "https" },
+        {
+          component: { name: "@authority" },
+          name: "@authority",
+          value: "api.example.test"
+        },
+        { component: { name: "@path" }, name: "@path", value: "/path" },
+        { component: { name: "@query" }, name: "@query", value: "?value=1" },
+        {
+          component: { name: "content-digest" },
+          name: "content-digest",
+          value: "sha-256=:AAAA:"
+        }
       ],
       params
     })

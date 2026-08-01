@@ -147,7 +147,9 @@ describe("playground erc8128 runtime", () => {
     }
 
     expect(result.result).toMatchObject({
-      address: TEST_SIGNER_VERIFIED_ADDRESS,
+      principal: { address: TEST_SIGNER_VERIFIED_ADDRESS, chainId: 1 },
+      signer: { address: TEST_SIGNER_VERIFIED_ADDRESS, chainId: 1 },
+      delegated: false,
       binding: "request-bound",
       replayable: false
     })
@@ -183,7 +185,9 @@ describe("playground erc8128 runtime", () => {
     }
 
     expect(result.result).toMatchObject({
-      address: TEST_SIGNER_VERIFIED_ADDRESS,
+      principal: { address: TEST_SIGNER_VERIFIED_ADDRESS, chainId: 1 },
+      signer: { address: TEST_SIGNER_VERIFIED_ADDRESS, chainId: 1 },
+      delegated: false,
       binding: "class-bound",
       replayable: true
     })

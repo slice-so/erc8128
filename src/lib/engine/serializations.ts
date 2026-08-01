@@ -1,22 +1,34 @@
-import type { BindingMode, SignatureParams } from "../../types"
+import type {
+  BindingMode,
+  ComponentIdentifier,
+  CoveredComponent,
+  SignatureParams
+} from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
+import {
+  componentIdentifierEquals,
+  normalizeComponentIdentifiers
+} from "./componentIdentifier"
 import { assertLabel } from "./createSignatureInput"
+import { serializeSfMember } from "./structuredFields"
 
 export function serializeSignatureParamsInnerList(
-  components: string[],
+  components: readonly CoveredComponent[],
   params: SignatureParams
 ): string {
-  const items = components.map((c) => quoteSfString(c)).join(" ")
-  const inner = `(${items})`
-
-  let out = inner
-  out += `;created=${params.created}`
-  out += `;expires=${params.expires}`
-  if (params.nonce != null) out += `;nonce=${quoteSfString(params.nonce)}`
-  if (params.tag != null) out += `;tag=${quoteSfString(params.tag)}`
-  out += `;keyid=${quoteSfString(params.keyid)}`
-
-  return out
+  return serializeSfMember({
+    items: normalizeComponentIdentifiers(components).map((component) => ({
+      value: component.name,
+      params: component.params
+    })),
+    params: {
+      created: params.created,
+      expires: params.expires,
+      ...(params.nonce === undefined ? {} : { nonce: params.nonce }),
+      ...(params.tag === undefined ? {} : { tag: params.tag }),
+      keyid: params.keyid
+    }
+  })
 }
 
 /**
@@ -64,34 +76,32 @@ export function appendDictionaryMember(
 }
 
 export function quoteSfString(value: string): string {
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i)
-    if ((code >= 0 && code <= 0x1f) || code === 0x7f)
-      throw new Erc8128Error(
-        "BAD_HEADER_VALUE",
-        "sf-string cannot contain control characters."
-      )
-  }
-  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
-  return `"${escaped}"`
+  return serializeSfMember({ value })
 }
 
-export function normalizeComponents(components: string[]): string[] {
-  return components.map((c) => c.trim()).filter(Boolean)
+export function normalizeComponents(
+  components: readonly CoveredComponent[]
+): ComponentIdentifier[] {
+  return normalizeComponentIdentifiers(components)
 }
 
 export function defaultComponents(args: {
   binding: BindingMode
   hasQuery: boolean
   hasBody: boolean
-}): string[] {
-  const { binding, hasQuery, hasBody } = args
+}): ComponentIdentifier[] {
+  const { binding, hasBody } = args
 
-  if (binding === "class-bound") return ["@authority"]
+  if (binding === "class-bound") return [{ name: "@authority" }]
 
-  const c = ["@authority", "@method", "@path"]
-  if (hasQuery) c.push("@query")
-  if (hasBody) c.push("content-digest")
+  const c: ComponentIdentifier[] = [
+    { name: "@scheme" },
+    { name: "@authority" },
+    { name: "@method" },
+    { name: "@path" },
+    { name: "@query" }
+  ]
+  if (hasBody) c.push({ name: "content-digest" })
   return c
 }
 
@@ -99,8 +109,8 @@ export function resolveComponents(args: {
   binding: BindingMode
   hasQuery: boolean
   hasBody: boolean
-  providedComponents?: string[]
-}): string[] {
+  providedComponents?: readonly CoveredComponent[]
+}): ComponentIdentifier[] {
   const { binding, hasQuery, hasBody, providedComponents } = args
 
   if (binding === "request-bound") {
@@ -108,7 +118,10 @@ export function resolveComponents(args: {
     const base = defaultComponents({ binding, hasQuery, hasBody })
     if (!providedComponents) return base
     const extra = normalizeComponents(providedComponents).filter(
-      (c) => !base.includes(c)
+      (component) =>
+        !base.some((baseComponent) =>
+          componentIdentifierEquals(baseComponent, component)
+        )
     )
     return base.concat(extra)
   }
@@ -123,7 +136,9 @@ export function resolveComponents(args: {
 
   const components = normalizeComponents(providedComponents)
   // always include @authority
-  if (!components.includes("@authority")) components.unshift("@authority")
+  if (!components.some((component) => component.name === "@authority")) {
+    components.unshift({ name: "@authority" })
+  }
 
   return components
 }

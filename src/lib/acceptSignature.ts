@@ -7,28 +7,38 @@ import type {
 } from "../types"
 import { Erc8128Error } from "./Erc8128Error"
 import {
+  componentIdentifierEquals,
+  normalizeComponentIdentifiers,
+  serializeComponentIdentifier
+} from "./engine/componentIdentifier"
+import {
   assertLabel,
   parseInnerListWithBareParams,
   splitTopLevelCommas
 } from "./engine/createSignatureInput"
-import { quoteSfString } from "./engine/serializations"
 import { requiredRequestBoundComponents } from "./policies/isRequestBound"
 import { sanitizeUrl } from "./utilities"
 
 function serializeAcceptSignatureValue(
-  components: string[],
+  components: import("../types").CoveredComponent[],
   requireNonce: boolean
 ) {
-  const items = components.map((c) => quoteSfString(c)).join(" ")
+  const items = components
+    .map((component) =>
+      serializeComponentIdentifier(
+        typeof component === "string" ? { name: component } : component
+      )
+    )
+    .join(" ")
   let out = `(${items})`
-  out += `;keyid;created;expires`
+  out += `;keyid;created;expires;tag`
   if (requireNonce) out += `;nonce`
   return out
 }
 
 export function buildAcceptSignatureHeader(args: {
-  requestBoundRequired: string[]
-  classBoundPolicies: string[][]
+  requestBoundRequired: import("../types").CoveredComponent[]
+  classBoundPolicies: import("../types").CoveredComponent[][]
   allowReplayable: boolean
 }): string {
   const { requestBoundRequired, classBoundPolicies, allowReplayable } = args
@@ -36,8 +46,17 @@ export function buildAcceptSignatureHeader(args: {
   const seen = new Set<string>()
   let index = 1
 
-  const addEntry = (components: string[], requireNonce: boolean) => {
-    const key = `${components.join("\u0000")}\u0000${requireNonce ? "nonce" : "replayable"}`
+  const addEntry = (
+    components: import("../types").CoveredComponent[],
+    requireNonce: boolean
+  ) => {
+    const key = `${components
+      .map((component) =>
+        serializeComponentIdentifier(
+          typeof component === "string" ? { name: component } : component
+        )
+      )
+      .join("\u0000")}\u0000${requireNonce ? "nonce" : "replayable"}`
     if (seen.has(key)) return
     seen.add(key)
     const value = serializeAcceptSignatureValue(components, requireNonce)
@@ -79,29 +98,31 @@ export function parseAcceptSignatureHeader(
 
     const acceptSignatureValue = member.slice(eq + 1).trim()
     const parsed = parseInnerListWithBareParams(acceptSignatureValue)
+    const components = parsed.items
     const requiredParams = Array.from(new Set(parsed.bareParams))
 
     if (
       !requiredParams.includes("keyid") ||
       !requiredParams.includes("created") ||
-      !requiredParams.includes("expires")
+      !requiredParams.includes("expires") ||
+      !requiredParams.includes("tag")
     ) {
       throw new Erc8128Error(
         "PARSE_ERROR",
-        "Missing required keyid/created/expires params in Accept-Signature."
+        "Missing required keyid/created/expires/tag params in Accept-Signature."
       )
     }
 
     out.push({
       label,
-      components: parsed.items,
+      components,
       requiredParams,
       acceptSignatureValue,
       ...(resolvedRequestShape
         ? {
             signOptions: acceptSignatureMemberToSignOptions(
               {
-                components: parsed.items,
+                components,
                 requiredParams
               },
               resolvedRequestShape
@@ -126,7 +147,10 @@ export function acceptSignatureMemberToSignOptions(
 
   if (includesAllComponents(requestBoundComponents, member.components)) {
     const extraComponents = member.components.filter(
-      (component) => !requestBoundComponents.includes(component)
+      (component) =>
+        !requestBoundComponents.some((required) =>
+          componentIdentifierEquals(required, component)
+        )
     )
     return normalizeAcceptSignatureSignOptions({
       binding: "request-bound",
@@ -148,18 +172,23 @@ export function normalizeAcceptSignatureSignOptions(
   const binding = options?.binding ?? "request-bound"
   const replay = options?.replay ?? "non-replayable"
   const seen = new Set<string>()
-  const normalizedComponents: string[] = []
+  const normalizedComponents: import("../types").ComponentIdentifier[] = []
 
   for (const raw of options?.components ?? []) {
-    const component = raw.trim()
+    const component = normalizeComponentIdentifiers([raw])[0]
     if (!component) continue
-    if (binding === "class-bound" && component === "@authority") continue
-    if (seen.has(component)) continue
-    seen.add(component)
+    if (binding === "class-bound" && component.name === "@authority") continue
+    const key = serializeComponentIdentifier(component)
+    if (seen.has(key)) continue
+    seen.add(key)
     normalizedComponents.push(component)
   }
 
-  normalizedComponents.sort()
+  normalizedComponents.sort((left, right) =>
+    serializeComponentIdentifier(left).localeCompare(
+      serializeComponentIdentifier(right)
+    )
+  )
 
   return {
     binding,
@@ -205,12 +234,16 @@ function toRequestShape(requestShape: AcceptSignatureRequestShape): {
 }
 
 function includesAllComponents(
-  required: string[],
-  components: string[]
+  required: import("../types").CoveredComponent[],
+  components: import("../types").CoveredComponent[]
 ): boolean {
-  const available = new Set(components)
   for (const component of required) {
-    if (!available.has(component)) return false
+    if (
+      !components.some((candidate) =>
+        componentIdentifierEquals(candidate, component)
+      )
+    )
+      return false
   }
   return true
 }
@@ -218,5 +251,11 @@ function includesAllComponents(
 function serializeNormalizedSignOptions(
   options: AcceptSignatureSignOptions
 ): string {
-  return `${options.binding}\u0000${options.replay}\u0000${options.components.join("\u0000")}`
+  return `${options.binding}\u0000${options.replay}\u0000${options.components
+    .map((component) =>
+      serializeComponentIdentifier(
+        typeof component === "string" ? { name: component } : component
+      )
+    )
+    .join("\u0000")}`
 }

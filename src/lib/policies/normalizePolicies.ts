@@ -1,32 +1,43 @@
-export type ClassBoundPolicy = string[]
+import type { ComponentIdentifier, CoveredComponent } from "../../types"
+import {
+  componentIdentifierEquals,
+  normalizeComponentIdentifier
+} from "../engine/componentIdentifier"
 
-export function normalizeComponentsList(components?: string[]): string[] {
+export type ClassBoundPolicy = ComponentIdentifier[]
+
+export function normalizeComponentsList(
+  components?: readonly CoveredComponent[]
+): ComponentIdentifier[] {
   if (!components) return []
-  const out: string[] = []
-  const seen = new Set<string>()
-  for (const raw of components) {
-    const c = raw.trim()
-    if (!c || seen.has(c)) continue
-    seen.add(c)
-    out.push(c)
+  const result: ComponentIdentifier[] = []
+  for (const component of components) {
+    const normalized = normalizeComponentIdentifier(component)
+    if (
+      !result.some((candidate) =>
+        componentIdentifierEquals(candidate, normalized)
+      )
+    ) {
+      result.push(normalized)
+    }
   }
-  return out
+  return result
 }
 
 export function normalizeClassBoundPolicies(
-  policies?: string[] | string[][]
+  policies?: CoveredComponent[] | CoveredComponent[][]
 ): ClassBoundPolicy[] {
   if (policies === undefined) return []
   if (policies.length === 0) return [[]]
-  if (typeof policies[0] === "string") {
-    return [normalizeComponentsList(policies as string[])]
+  if (Array.isArray(policies[0])) {
+    return (policies as CoveredComponent[][]).map((policy) =>
+      normalizeComponentsList(policy)
+    )
   }
-  return (policies as string[][]).map((policy) =>
-    normalizeComponentsList(policy)
-  )
+  return [normalizeComponentsList(policies as CoveredComponent[])]
 }
 
 export function ensureAuthority(policy: ClassBoundPolicy): ClassBoundPolicy {
-  if (policy.includes("@authority")) return policy
-  return ["@authority", ...policy]
+  if (policy.some((component) => component.name === "@authority")) return policy
+  return [{ name: "@authority" }, ...policy]
 }

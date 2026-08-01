@@ -1,9 +1,14 @@
 import type {
+  CoveredComponent,
   ReplayMode,
   ResolvedPosture,
   ServerConfig,
   SignOptions
 } from "../types"
+import {
+  componentIdentifierEquals,
+  normalizeComponentIdentifier
+} from "./engine/componentIdentifier"
 import { matchRoutePolicy } from "./matchRoutePolicy"
 
 /**
@@ -63,12 +68,7 @@ export function resolvePosture(
   // For request-bound, merge additionalRequestBoundComponents from route
   const additionalComponents = routePolicy?.additionalRequestBoundComponents
   const components = additionalComponents
-    ? [
-        ...new Set([
-          ...(mergedOptions.components ?? []),
-          ...additionalComponents
-        ])
-      ]
+    ? mergeComponentGroups(mergedOptions.components ?? [], additionalComponents)
     : mergedOptions.components
 
   return {
@@ -90,9 +90,9 @@ export function resolvePosture(
  * - `undefined`: route does not allow class-bound
  */
 function mergeComponents(
-  clientComponents: string[],
-  classBoundPolicies: string[] | string[][] | undefined
-): string[] {
+  clientComponents: CoveredComponent[],
+  classBoundPolicies: CoveredComponent[] | CoveredComponent[][] | undefined
+): CoveredComponent[] {
   if (classBoundPolicies === undefined) {
     return clientComponents
   }
@@ -102,17 +102,21 @@ function mergeComponents(
   }
 
   // Normalize to list of policies
-  const policies: string[][] = Array.isArray(classBoundPolicies[0])
-    ? (classBoundPolicies as string[][])
-    : [classBoundPolicies as string[]]
+  const policies: CoveredComponent[][] = Array.isArray(classBoundPolicies[0])
+    ? (classBoundPolicies as CoveredComponent[][])
+    : [classBoundPolicies as CoveredComponent[]]
 
   // Pick the policy requiring the fewest extra components beyond clientComponents
-  const clientSet = new Set(clientComponents)
   let bestPolicy = policies[0]
   let bestExtra = Infinity
 
   for (const policy of policies) {
-    const extra = policy.filter((c) => !clientSet.has(c)).length
+    const extra = policy.filter(
+      (component) =>
+        !clientComponents.some((candidate) =>
+          componentIdentifierEquals(candidate, component)
+        )
+    ).length
     if (extra < bestExtra) {
       bestExtra = extra
       bestPolicy = policy
@@ -120,7 +124,23 @@ function mergeComponents(
   }
 
   // Union: best policy + client components
-  const set = new Set(bestPolicy)
-  for (const c of clientComponents) set.add(c)
-  return [...set]
+  return mergeComponentGroups(bestPolicy ?? [], clientComponents)
+}
+
+function mergeComponentGroups(
+  ...groups: readonly CoveredComponent[][]
+): CoveredComponent[] {
+  const result: CoveredComponent[] = []
+  for (const group of groups) {
+    for (const component of group) {
+      const normalized = normalizeComponentIdentifier(component)
+      if (
+        !result.some((candidate) =>
+          componentIdentifierEquals(candidate, normalized)
+        )
+      )
+        result.push(normalized)
+    }
+  }
+  return result
 }

@@ -73,7 +73,7 @@ You can use the following options to configure the ERC-8128 signature:
 --components <component>...   Components to sign (can be specified multiple times)
                                 - Additional components for request-bound signatures
                                 - Required Components for class-bound signatures
---keyid <keyid>               Expected key id (erc8128:chainId:address)
+--keyid <keyid>               Expected key id (eip155:chainId:address)
 ```
 
 ## Examples
@@ -109,7 +109,7 @@ erc8128 curl -X POST \
 erc8128 curl -X POST \
   -d @body.json \
   --keyfile ~/.keys/bot.key \
-  --keyid erc8128:8453:0xabc... \
+  --keyid eip155:8453:0xabc... \
   https://api.example.com/orders
 ```
 
@@ -146,7 +146,7 @@ Example:
   "replay": "non-replayable",
   "ttl": 120,
   "keyfile": "/Users/you/.keys/bot.key",
-  "keyid": "erc8128:8453:0xabc...",
+  "keyid": "eip155:8453:0xabc...",
   "headers": ["Content-Type: application/json"],
   "components": ["x-idempotency-key"]
 }

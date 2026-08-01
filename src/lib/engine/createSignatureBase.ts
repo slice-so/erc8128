@@ -1,14 +1,33 @@
-import type { SignatureParams } from "../../types"
+import type {
+  ComponentIdentifier,
+  CoveredComponent,
+  SignatureParams
+} from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import { sanitizeUrl, utf8Encode } from "../utilities"
+import {
+  componentIdentifierEquals,
+  normalizeComponentIdentifier,
+  serializeComponentIdentifier
+} from "./componentIdentifier"
 import { parseSignatureInputHeader } from "./createSignatureInput"
 import {
   quoteSfString,
   serializeSignatureParamsInnerList
 } from "./serializations"
+import {
+  canonicalizeSfDictionary,
+  parseSfDictionary,
+  parseSfInnerList,
+  serializeSfMember
+} from "./structuredFields"
 
 export function parseSignatureBase(base: string): {
-  entries: ReadonlyArray<{ name: string; value: string }>
+  entries: ReadonlyArray<{
+    component: ComponentIdentifier
+    name: string
+    value: string
+  }>
   params: SignatureParams
 } | null {
   if (
@@ -22,32 +41,48 @@ export function parseSignatureBase(base: string): {
   }
   const lines = base.split("\n")
   if (lines.length < 2) return null
-  const parsedLines: { name: string; value: string }[] = []
+  const parsedLines: {
+    component: ComponentIdentifier
+    name: string
+    value: string
+  }[] = []
   for (const line of lines) {
-    const match = /^("(?:[^"\\]|\\["\\])*"): (.*)$/.exec(line)
-    if (match === null) return null
-    const quotedName = match[1]
-    const value = match[2]
-    if (quotedName === undefined || value === undefined) return null
-    let name = ""
-    for (let index = 1; index < quotedName.length - 1; index += 1) {
-      const character = quotedName[index]
-      if (character === "\\") {
-        index += 1
-        const escaped = quotedName[index]
-        if (escaped !== "\\" && escaped !== '"') return null
-        name += escaped
-      } else {
-        name += character
-      }
+    const separator = findComponentSeparator(line)
+    if (separator < 0) return null
+    const identifier = line.slice(0, separator)
+    const value = line.slice(separator + 2)
+    let component: ComponentIdentifier
+    try {
+      const parsed = parseSfInnerList(`(${identifier})`)
+      const item = parsed.items[0]
+      if (
+        parsed.items.length !== 1 ||
+        item === undefined ||
+        typeof item.value !== "string"
+      )
+        return null
+      component = normalizeComponentIdentifier({
+        name: item.value,
+        ...(Object.keys(item.params ?? {}).length
+          ? {
+              params: item.params as NonNullable<ComponentIdentifier["params"]>
+            }
+          : {})
+      })
+      if (serializeComponentIdentifier(component) !== identifier) return null
+    } catch {
+      return null
     }
-    if (quoteSfString(name) !== quotedName || name.length === 0) return null
-    parsedLines.push({ name, value })
+    parsedLines.push({ component, name: component.name, value })
   }
   const signatureParams = parsedLines.at(-1)
   if (signatureParams?.name !== "@signature-params") return null
   const entries = parsedLines.slice(0, -1)
-  if (new Set(entries.map(({ name }) => name)).size !== entries.length) {
+  if (
+    new Set(
+      entries.map(({ component }) => serializeComponentIdentifier(component))
+    ).size !== entries.length
+  ) {
     return null
   }
   try {
@@ -56,7 +91,11 @@ export function parseSignatureBase(base: string): {
       member === undefined ||
       member.components.length !== entries.length ||
       member.components.some(
-        (component, index) => component !== entries[index]?.name
+        (component, index) =>
+          !componentIdentifierEquals(
+            component,
+            entries[index]?.component ?? { name: "" }
+          )
       ) ||
       serializeSignatureParamsInnerList(member.components, member.params) !==
         signatureParams.value
@@ -69,17 +108,35 @@ export function parseSignatureBase(base: string): {
   }
 }
 
+function findComponentSeparator(line: string): number {
+  let quoted = false
+  let escaped = false
+  for (let index = 0; index < line.length - 1; index += 1) {
+    const character = line[index]
+    if (quoted) {
+      if (escaped) escaped = false
+      else if (character === "\\") escaped = true
+      else if (character === '"') quoted = false
+      continue
+    }
+    if (character === '"') quoted = true
+    else if (character === ":" && line[index + 1] === " ") return index
+  }
+  return -1
+}
+
 export function createSignatureBaseMinimal(args: {
   request: Request
-  components: string[]
+  components: readonly CoveredComponent[]
   signatureParamsValue: string // the inner-list+params string, e.g. ("@authority"...);created=...;...
 }): Uint8Array {
   const { request, components, signatureParamsValue } = args
   const url = sanitizeUrl(request.url)
 
   const lines: string[] = []
-  for (const comp of components) {
-    const value = componentValueMinimal({ request, url, component: comp })
+  for (const rawComponent of components) {
+    const component = normalizeComponentIdentifier(rawComponent)
+    const value = componentValueMinimal({ request, url, component })
 
     // strict: no CR/LF and only visible ASCII + SP
     if (
@@ -89,10 +146,10 @@ export function createSignatureBaseMinimal(args: {
     ) {
       throw new Erc8128Error(
         "BAD_DERIVED_VALUE",
-        `Component ${comp} produced invalid characters.`
+        `Component ${component.name} produced invalid characters.`
       )
     }
-    lines.push(`${quoteSfString(comp)}: ${value}`)
+    lines.push(`${serializeComponentIdentifier(component)}: ${value}`)
   }
 
   const sigParamsLine = `${quoteSfString("@signature-params")}: ${signatureParamsValue}`
@@ -105,11 +162,21 @@ export function createSignatureBaseMinimal(args: {
 function componentValueMinimal(args: {
   request: Request
   url: URL
-  component: string
+  component: ComponentIdentifier
 }): string {
   const { request, url, component } = args
 
-  switch (component) {
+  if (component.params?.req || component.params?.tr || component.params?.name) {
+    throw new Erc8128Error(
+      "BAD_DERIVED_VALUE",
+      `Component ${component.name} uses parameters unavailable in Fetch requests.`
+    )
+  }
+
+  switch (component.name) {
+    case "@scheme": {
+      return url.protocol.slice(0, -1).toLowerCase()
+    }
     case "@method": {
       const m = (request.method || "GET").toUpperCase()
       ensureNoCrlf(m, "@method")
@@ -136,23 +203,50 @@ function componentValueMinimal(args: {
       return path
     }
     case "@query": {
-      const q = url.search || ""
+      const q = url.search || "?"
       ensureNoCrlf(q, "@query")
       return q
     }
     default: {
       // header field component (e.g. content-digest)
-      const v = request.headers.get(component)
+      const v = request.headers.get(component.name)
       if (v == null)
         throw new Erc8128Error(
           "BAD_HEADER_VALUE",
-          `Required header "${component}" is missing.`
+          `Required header "${component.name}" is missing.`
         )
-      const canon = canonicalizeFieldValue(v)
-      ensureNoCrlf(canon, component)
-      return canon
+      let canonical = canonicalizeFieldValue(v)
+      if (component.params?.sf) {
+        canonical = component.params.key
+          ? serializeSelectedDictionaryMember(v, component.params.key)
+          : canonicalizeSfDictionary(v)
+      } else if (component.params?.key) {
+        throw new Erc8128Error(
+          "BAD_DERIVED_VALUE",
+          "The key component parameter requires sf."
+        )
+      }
+      if (component.params?.bs) {
+        const bytes = new TextEncoder().encode(canonical)
+        canonical = serializeSfMember({
+          value: { type: "binary", value: bytes }
+        })
+      }
+      ensureNoCrlf(canonical, component.name)
+      return canonical
     }
   }
+}
+
+function serializeSelectedDictionaryMember(value: string, key: string): string {
+  const member = parseSfDictionary(value)[key]
+  if (member === undefined) {
+    throw new Erc8128Error(
+      "BAD_DERIVED_VALUE",
+      `Structured Field Dictionary has no ${key} member.`
+    )
+  }
+  return serializeSfMember(member)
 }
 
 function canonicalizeFieldValue(v: string): string {

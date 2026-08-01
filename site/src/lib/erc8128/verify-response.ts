@@ -22,6 +22,14 @@ function withCachedVerification(metadata: VerificationMetadata) {
 
 function reasonToStatus(reason: string): ContentfulStatusCode {
   if (
+    reason === "signature_verification_unavailable" ||
+    reason === "grant_verification_unavailable" ||
+    reason === "critical_extension_unavailable"
+  ) {
+    return 503
+  }
+
+  if (
     reason === "missing_headers" ||
     reason === "bad_signature_input" ||
     reason === "bad_keyid"
@@ -52,8 +60,12 @@ export function buildVerifyResultResponse(args: {
       status: 200,
       payload: {
         ok: true,
-        address: verifyResult.address,
-        chainId: verifyResult.chainId,
+        principal: verifyResult.principal,
+        signer: verifyResult.signer,
+        delegated: verifyResult.delegated,
+        ...(verifyResult.delegation
+          ? { delegation: verifyResult.delegation }
+          : {}),
         label: verifyResult.label,
         components: verifyResult.components,
         binding: verifyResult.binding,

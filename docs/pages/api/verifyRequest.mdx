@@ -20,7 +20,7 @@ const result = await verifyRequest({
 })
 
 if (result.ok) {
-  console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
+  console.log(`Authenticated: ${result.principal.address} on chain ${result.principal.chainId}`)
 } else {
   console.log(`Failed: ${result.reason}`)
 }
@@ -35,8 +35,9 @@ An object indicating success or failure:
 ```typescript
 if (result.ok) {
   // Success — access verified data
-  result.address   // Ethereum address
-  result.chainId   // Chain ID
+  result.principal // Root or direct authenticated account
+  result.signer    // Account that signed this request
+  result.delegated // Whether a delegation authenticated the principal
   result.label     // Signature label
   result.components // Signed components
   result.replayable // true if nonce-less
@@ -70,7 +71,9 @@ The Request to verify.
 
 - **Type:** [`VerifyMessageFn`](/api/types#verifymessagefn)
 
-Signature verification function (e.g. viem-compatible).
+Signature verification function. Use `createUniversalAccountVerifier` with a
+viem public client to preserve ERC-6492/ERC-1271 ordering and strict EOA
+encoding.
 
 ### nonceStore
 

@@ -97,7 +97,9 @@ type VerifyPayload = {
   message?: string
   reason?: string
   detail?: string
-  address?: string
+  principal?: { address: string; chainId: number }
+  signer?: { address: string; chainId: number }
+  delegated?: boolean
   binding?: string
   replayable?: boolean
   verifyMs?: number
@@ -115,7 +117,6 @@ type SentRequestSnapshot = {
 
 const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
 const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
-const PLAYGROUND_VERIFY_MESSAGE_MODE = "eoa" as const
 const PLAYGROUND_ORIGIN =
   import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
 
@@ -349,8 +350,8 @@ export function PlaygroundInner() {
         setVerifyOk(!!payload?.ok)
         setVerifyData(payload)
 
-        if (payload?.ok && payload?.address) {
-          resolveEns(payload.address).then(setEnsName)
+        if (payload?.ok && payload?.principal) {
+          resolveEns(payload.principal.address).then(setEnsName)
         } else {
           setEnsName(null)
         }
@@ -436,10 +437,6 @@ export function PlaygroundInner() {
       lines.push(`<span style="color:#86efac">"@method": ${method}</span>`)
     if (selectedComponents.has("@path"))
       lines.push(`<span style="color:#86efac">"@path": ${signingPath}</span>`)
-    lines.push(
-      `<span style="color:#f9a8d4">"mode": ${PLAYGROUND_VERIFY_MESSAGE_MODE}</span>`
-    )
-
     if (includeContentDigest) {
       lines.push(
         `<span style="color:#c4b5fd">"content-digest": ${escapeHtml(contentDigestPreview || "sha-256=:[calculating...]:")}</span>`
@@ -452,7 +449,6 @@ export function PlaygroundInner() {
     const allComponents = ["@authority"]
     if (selectedComponents.has("@method")) allComponents.push("@method")
     if (selectedComponents.has("@path")) allComponents.push("@path")
-    allComponents.push("mode")
     if (includeContentDigest) allComponents.push("content-digest")
 
     const now = Math.floor(Date.now() / 1000)
@@ -463,7 +459,7 @@ export function PlaygroundInner() {
     const previewSigner = storedSessionKey
       ? privateKeyToAccount(storedSessionKey as `0x${string}`).address
       : (address ?? "0x...")
-    paramsStr += `;keyid="erc8128:${chainId || 1}:${previewSigner}"`
+    paramsStr += `;keyid="eip155:${chainId || 1}:${previewSigner.toLowerCase()}";tag="erc8128"`
 
     lines.push(
       `<span style="color:rgba(255,255,255,0.35)">"@signature-params": (${allComponents.map((x) => `"${x}"`).join(" ")})${paramsStr}</span>`
@@ -501,9 +497,6 @@ export function PlaygroundInner() {
         .filter((c) => c !== "nonce")
         .filter((c) => !(c === "content-digest" && !hasBody))
     ]
-    if (!components.includes("mode")) {
-      components.push("mode")
-    }
     const includeNonce = selectedComponents.has("nonce")
     const storedPrivateKey = readStoredAppWalletPrivateKey()
     const sessionAccount = storedPrivateKey
@@ -548,7 +541,6 @@ export function PlaygroundInner() {
 
     try {
       const requestHeaders: Record<string, string> = {}
-      requestHeaders.mode = PLAYGROUND_VERIFY_MESSAGE_MODE
       if (hasBody) {
         requestHeaders["content-type"] = "application/json"
       }
@@ -1085,7 +1077,7 @@ export function PlaygroundInner() {
               )}
             </div>
 
-            {verifyOk && verifyData?.address && (
+            {verifyOk && verifyData?.principal && (
               <div className="mb-2 flex items-center justify-between gap-3 border border-[#86efac]/15 bg-[#86efac]/6 p-2 px-3">
                 <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-[#86efac]/70">
                   Authenticated Account
@@ -1097,11 +1089,11 @@ export function PlaygroundInner() {
                     </span>
                   )}
                   {appWallet &&
-                  verifyData.address.toLowerCase() ===
+                  verifyData.principal.address.toLowerCase() ===
                     appWallet.publicKey.toLowerCase() ? (
                     <>
                       <span className="font-mono text-[12px] text-[#86efac]">
-                        {`${verifyData.address.slice(0, 6)}...${verifyData.address.slice(-4)}`}
+                        {`${verifyData.principal.address.slice(0, 6)}...${verifyData.principal.address.slice(-4)}`}
                       </span>
                       <span className="font-mono text-[10px] text-white/35">
                         {"App wallet for " +
@@ -1115,7 +1107,7 @@ export function PlaygroundInner() {
                     <span
                       className={`font-mono ${ensName ? "text-[10px] text-white/35" : "text-[12px] text-[#86efac]"}`}
                     >
-                      {`${verifyData.address.slice(0, 6)}...${verifyData.address.slice(-4)}`}
+                      {`${verifyData.principal.address.slice(0, 6)}...${verifyData.principal.address.slice(-4)}`}
                     </span>
                   )}
                 </div>

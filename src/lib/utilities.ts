@@ -156,9 +156,10 @@ export function base64UrlEncode(bytes: Uint8Array): string {
 }
 
 export function hexToBytes(hex: Hex): Uint8Array {
+  if (!/^0x(?:[0-9a-fA-F]{2})*$/.test(hex)) {
+    throw new Erc8128Error("UNSUPPORTED_REQUEST", "Invalid hex bytes.")
+  }
   const h = hex.slice(2)
-  if (h.length % 2 !== 0)
-    throw new Erc8128Error("UNSUPPORTED_REQUEST", "Invalid hex length.")
   const out = new Uint8Array(h.length / 2)
   for (let i = 0; i < out.length; i++)
     out[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16)

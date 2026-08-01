@@ -5,19 +5,19 @@ import { formatKeyId, parseKeyId } from "./keyId"
 describe("formatKeyId", () => {
   test("formats a valid keyid", () => {
     expect(formatKeyId(1, "0x0000000000000000000000000000000000000001")).toBe(
-      "erc8128:1:0x0000000000000000000000000000000000000001"
+      "eip155:1:0x0000000000000000000000000000000000000001"
     )
   })
 
   test("lowercases the address", () => {
     expect(formatKeyId(1, "0xAbCdEf0000000000000000000000000000000001")).toBe(
-      "erc8128:1:0xabcdef0000000000000000000000000000000001"
+      "eip155:1:0xabcdef0000000000000000000000000000000001"
     )
   })
 
   test("supports large chain IDs", () => {
     expect(formatKeyId(137, "0x0000000000000000000000000000000000000001")).toBe(
-      "erc8128:137:0x0000000000000000000000000000000000000001"
+      "eip155:137:0x0000000000000000000000000000000000000001"
     )
   })
 
@@ -43,7 +43,7 @@ describe("formatKeyId", () => {
 describe("parseKeyId", () => {
   test("parses a valid keyid", () => {
     const result = parseKeyId(
-      "erc8128:1:0x0000000000000000000000000000000000000001"
+      "eip155:1:0x0000000000000000000000000000000000000001"
     )
     expect(result).toEqual({
       chainId: 1,
@@ -53,7 +53,7 @@ describe("parseKeyId", () => {
 
   test("parses with large chain ID", () => {
     const result = parseKeyId(
-      "erc8128:42161:0xabcdef0000000000000000000000000000000001"
+      "eip155:42161:0xabcdef0000000000000000000000000000000001"
     )
     expect(result).toEqual({
       chainId: 42161,
@@ -61,23 +61,23 @@ describe("parseKeyId", () => {
     })
   })
 
-  test("returns null for non-erc8128 prefix", () => {
+  test("returns null for a non-CAIP prefix", () => {
     expect(
-      parseKeyId("not-erc8128:1:0x0000000000000000000000000000000000000001")
+      parseKeyId("legacy:1:0x0000000000000000000000000000000000000001")
     ).toBeNull()
   })
 
   test("returns null for missing address", () => {
-    expect(parseKeyId("erc8128:1:")).toBeNull()
+    expect(parseKeyId("eip155:1:")).toBeNull()
   })
 
   test("returns null for short address", () => {
-    expect(parseKeyId("erc8128:1:0x0001")).toBeNull()
+    expect(parseKeyId("eip155:1:0x0001")).toBeNull()
   })
 
   test("returns null for address without 0x prefix", () => {
     expect(
-      parseKeyId("erc8128:1:0000000000000000000000000000000000000001")
+      parseKeyId("eip155:1:0000000000000000000000000000000000000001")
     ).toBeNull()
   })
 
@@ -91,13 +91,13 @@ describe("parseKeyId", () => {
 
   test("returns null for missing chain ID", () => {
     expect(
-      parseKeyId("erc8128::0x0000000000000000000000000000000000000001")
+      parseKeyId("eip155::0x0000000000000000000000000000000000000001")
     ).toBeNull()
   })
 
   test("lowercases address", () => {
     const result = parseKeyId(
-      "erc8128:1:0xAbCdEf0000000000000000000000000000000001"
+      "eip155:1:0xAbCdEf0000000000000000000000000000000001"
     )
     expect(result).not.toBeNull()
     expect(result?.address).toBe("0xabcdef0000000000000000000000000000000001")

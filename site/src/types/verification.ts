@@ -1,22 +1,19 @@
 import type {
-  BindingMode,
   DiscoveryDocument,
   NonceStore,
-  SignatureParams,
   VerifyResult
 } from "@slicekit/erc8128"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
+type SuccessfulVerification = Extract<VerifyResult, { ok: true }>
+
 export type CacheStrategy = "secondary-storage" | "database"
 
-export type CachedVerification = {
-  address: `0x${string}`
-  chainId: number
-  label: string
-  components: string[]
-  params: SignatureParams
+export type CachedVerification = Omit<
+  SuccessfulVerification,
+  "ok" | "replayable"
+> & {
   replayable: true
-  binding: BindingMode
 }
 
 export interface VerificationCacheStore {
@@ -67,7 +64,10 @@ export type VerificationHttpPayloadValue =
   | number
   | boolean
   | string[]
-  | SignatureParams
+  | SuccessfulVerification["principal"]
+  | SuccessfulVerification["delegation"]
+  | SuccessfulVerification["components"]
+  | SuccessfulVerification["params"]
   | undefined
 
 export type VerificationHttpResponse = {

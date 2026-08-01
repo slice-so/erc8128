@@ -1,4 +1,4 @@
-import type { Hex } from "./core"
+import type { CoveredComponent, Hex } from "./core"
 import type {
   BindingMode,
   ContentDigestMode,
@@ -14,7 +14,7 @@ export type RoutePolicy = {
   replayable?: boolean
 
   /** Extra components required in addition to default request-bound set. */
-  additionalRequestBoundComponents?: string[]
+  additionalRequestBoundComponents?: CoveredComponent[]
 
   /** Content-digest behavior required by this route. */
   contentDigest?: ContentDigestMode
@@ -26,7 +26,7 @@ export type RoutePolicy = {
    * - entries: require @authority plus those components
    * - `[]`: supported shorthand for `["@authority"]`
    */
-  classBoundPolicies?: string[] | string[][]
+  classBoundPolicies?: CoveredComponent[] | CoveredComponent[][]
 }
 
 export type RoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]> & {
@@ -38,12 +38,17 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   label?: string
   strictLabel?: boolean // default false
   /** Require the exact RFC 9421 signature role. Untagged candidates never match. */
-  requiredTag?: string
+  /** Select direct, delegated, or either principal class. */
+  principal?: "direct" | "delegated" | "either"
+  /** Explicit direct-account verification policy. */
+  accountVerification?: "universal" | "eoa-only"
   /**
    * If one of these request fields is present, every eligible signature must
    * cover it. Absence is allowed.
    */
-  requiredCoveredComponentsWhenPresent?: string[]
+  requiredCoveredComponentsWhenPresent?: CoveredComponent[]
+
+  delegation?: import("./delegation").DelegationPolicy
 
   /**
    * Optional replayable invalidation policy.
@@ -73,7 +78,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
 
   /** Replay protection */
-  nonceKey?: (keyid: string, nonce: string) => string // default `${keyid}:${nonce}`
+  nonceKey?: (keyid: string, nonce: string) => string
 }
 
 export type ServerConfig = {
@@ -82,7 +87,7 @@ export type ServerConfig = {
   route_policies?: RoutePolicyConfig
 }
 
-export type ClassBoundPolicy = string[]
+export type ClassBoundPolicy = CoveredComponent[]
 
 /**
  * Immutable signing constraints imposed by an authorization grant.
@@ -92,7 +97,7 @@ export type ClassBoundPolicy = string[]
  */
 export type AuthorizationPolicy = {
   binding: BindingMode
-  components: readonly string[]
+  components: readonly CoveredComponent[]
   preferReplayable: boolean
   ttlSeconds: number
 }
@@ -108,7 +113,7 @@ export type ResolveAuthorizedPostureParameters = {
 
 export type ResolvedAuthorizedPosture = {
   binding: BindingMode
-  components: string[]
+  components: CoveredComponent[]
   contentDigest: ContentDigestMode
   replay: ReplayMode
   ttlSeconds: number

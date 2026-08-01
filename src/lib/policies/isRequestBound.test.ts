@@ -4,37 +4,46 @@ import {
   isRequestBoundForThisRequest
 } from "./isRequestBound"
 
+const identifiers = (names: readonly string[]) =>
+  names.map((name) => ({ name }))
+const includes = (required: readonly string[], components: readonly string[]) =>
+  includesAllComponents([...required], identifiers(components))
+const isBound = (
+  components: readonly string[],
+  shape: { hasQuery: boolean; hasBody: boolean; hasContentType?: boolean }
+) => isRequestBoundForThisRequest(identifiers(components), shape)
+
 describe("includesAllComponents", () => {
   test("returns true when required is empty", () => {
-    expect(includesAllComponents([], ["a", "b"])).toBe(true)
+    expect(includes([], ["a", "b"])).toBe(true)
   })
 
   test("returns true when required equals components", () => {
-    expect(includesAllComponents(["a", "b"], ["a", "b"])).toBe(true)
+    expect(includes(["a", "b"], ["a", "b"])).toBe(true)
   })
 
   test("ignores order", () => {
-    expect(includesAllComponents(["b", "a"], ["a", "b"])).toBe(true)
+    expect(includes(["b", "a"], ["a", "b"])).toBe(true)
   })
 
   test("returns false when required has elements not in components", () => {
-    expect(includesAllComponents(["x"], ["a", "b"])).toBe(false)
+    expect(includes(["x"], ["a", "b"])).toBe(false)
   })
 
   test("returns true when both are empty", () => {
-    expect(includesAllComponents([], [])).toBe(true)
+    expect(includes([], [])).toBe(true)
   })
 
   test("returns false when components are empty but required is not", () => {
-    expect(includesAllComponents(["a"], [])).toBe(false)
+    expect(includes(["a"], [])).toBe(false)
   })
 })
 
 describe("isRequestBoundForThisRequest", () => {
-  test("minimal GET (no query, no body) requires @authority, @method, @path", () => {
-    const components = ["@authority", "@method", "@path"]
+  test("minimal GET requires the full received-request component floor", () => {
+    const components = ["@scheme", "@authority", "@method", "@path", "@query"]
     expect(
-      isRequestBoundForThisRequest(components, {
+      isBound(components, {
         hasQuery: false,
         hasBody: false
       })
@@ -43,31 +52,38 @@ describe("isRequestBoundForThisRequest", () => {
 
   test("GET with query requires @query", () => {
     expect(
-      isRequestBoundForThisRequest(["@authority", "@method", "@path"], {
+      isBound(["@scheme", "@authority", "@method", "@path"], {
         hasQuery: true,
         hasBody: false
       })
     ).toBe(false)
 
     expect(
-      isRequestBoundForThisRequest(
-        ["@authority", "@method", "@path", "@query"],
-        { hasQuery: true, hasBody: false }
-      )
+      isBound(["@scheme", "@authority", "@method", "@path", "@query"], {
+        hasQuery: true,
+        hasBody: false
+      })
     ).toBe(true)
   })
 
   test("POST with body requires content-digest", () => {
     expect(
-      isRequestBoundForThisRequest(["@authority", "@method", "@path"], {
+      isBound(["@scheme", "@authority", "@method", "@path", "@query"], {
         hasQuery: false,
         hasBody: true
       })
     ).toBe(false)
 
     expect(
-      isRequestBoundForThisRequest(
-        ["@authority", "@method", "@path", "content-digest"],
+      isBound(
+        [
+          "@scheme",
+          "@authority",
+          "@method",
+          "@path",
+          "@query",
+          "content-digest"
+        ],
         { hasQuery: false, hasBody: true }
       )
     ).toBe(true)
@@ -75,24 +91,39 @@ describe("isRequestBoundForThisRequest", () => {
 
   test("POST with query and body requires both @query and content-digest", () => {
     expect(
-      isRequestBoundForThisRequest(
-        ["@authority", "@method", "@path", "@query", "content-digest"],
+      isBound(
+        [
+          "@scheme",
+          "@authority",
+          "@method",
+          "@path",
+          "@query",
+          "content-digest"
+        ],
         { hasQuery: true, hasBody: true }
       )
     ).toBe(true)
 
     expect(
-      isRequestBoundForThisRequest(
-        ["@authority", "@method", "@path", "content-digest"],
-        { hasQuery: true, hasBody: true }
-      )
+      isBound(["@scheme", "@authority", "@method", "@path", "content-digest"], {
+        hasQuery: true,
+        hasBody: true
+      })
     ).toBe(false)
   })
 
   test("allows extra components beyond the required set", () => {
     expect(
-      isRequestBoundForThisRequest(
-        ["@authority", "@method", "@path", "x-custom", "content-type"],
+      isBound(
+        [
+          "@scheme",
+          "@authority",
+          "@method",
+          "@path",
+          "@query",
+          "x-custom",
+          "content-type"
+        ],
         { hasQuery: false, hasBody: false }
       )
     ).toBe(true)
@@ -100,7 +131,7 @@ describe("isRequestBoundForThisRequest", () => {
 
   test("fails when @authority is missing", () => {
     expect(
-      isRequestBoundForThisRequest(["@method", "@path"], {
+      isBound(["@scheme", "@method", "@path", "@query"], {
         hasQuery: false,
         hasBody: false
       })
@@ -109,7 +140,7 @@ describe("isRequestBoundForThisRequest", () => {
 
   test("fails when @method is missing", () => {
     expect(
-      isRequestBoundForThisRequest(["@authority", "@path"], {
+      isBound(["@scheme", "@authority", "@path", "@query"], {
         hasQuery: false,
         hasBody: false
       })
@@ -118,7 +149,7 @@ describe("isRequestBoundForThisRequest", () => {
 
   test("fails when @path is missing", () => {
     expect(
-      isRequestBoundForThisRequest(["@authority", "@method"], {
+      isBound(["@scheme", "@authority", "@method", "@query"], {
         hasQuery: false,
         hasBody: false
       })
@@ -127,7 +158,7 @@ describe("isRequestBoundForThisRequest", () => {
 
   test("ignores component order", () => {
     expect(
-      isRequestBoundForThisRequest(["@path", "@method", "@authority"], {
+      isBound(["@query", "@path", "@method", "@authority", "@scheme"], {
         hasQuery: false,
         hasBody: false
       })

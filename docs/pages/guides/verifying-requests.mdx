@@ -25,8 +25,8 @@ const result = await verifyRequest({
 })
 
 if (result.ok) {
-  console.log(`Authenticated: ${result.address}`)
-  console.log(`Chain: ${result.chainId}`)
+  console.log(`Authenticated: ${result.principal.address}`)
+  console.log(`Chain: ${result.principal.chainId}`)
 } else {
   console.log(`Failed: ${result.reason}`)
 }
@@ -238,8 +238,8 @@ const erc8128Auth = createMiddleware(async (c, next) => {
   }
 
   c.set('auth', {
-    address: result.address,
-    chainId: result.chainId,
+    address: result.principal.address,
+    chainId: result.principal.chainId,
   })
 
   await next()
@@ -261,8 +261,8 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: result.reason }, { status: 401 })
   }
 
-  // Authenticated! Use result.address
-  return Response.json({ address: result.address })
+  // Authenticated! Use the root/direct principal.
+  return Response.json({ address: result.principal.address })
 }
 ```
 
@@ -297,8 +297,8 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
 
   // Attach identity to request
   req.auth = {
-    address: result.address,
-    chainId: result.chainId,
+    address: result.principal.address,
+    chainId: result.principal.chainId,
   }
 
   next()
@@ -361,11 +361,11 @@ if (!result.ok) {
 
 ## Multi-Chain Support
 
-The `chainId` in the verification result tells you which chain the signer claims to be on:
+The principal identity identifies the authenticated root or direct account:
 
 ```typescript
 if (result.ok) {
-  const { address, chainId } = result
+  const { address, chainId } = result.principal
 
   // Verify the signer has permissions on this chain
   const hasAccess = await checkPermissions(address, chainId)

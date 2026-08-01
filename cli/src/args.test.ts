@@ -271,15 +271,25 @@ describe("CLI argument parsing", () => {
     test("parses --keyid", () => {
       const opts = parseTestArgs([
         "--keyid",
-        "erc8128:1:0x14791697260E4c9A71f18484C9f997B308e59325",
+        "eip155:1:0x14791697260E4c9A71f18484C9f997B308e59325",
         "https://example.com"
       ])
       expect(opts.keyid).toBe(
-        "erc8128:1:0x14791697260E4c9A71f18484C9f997B308e59325"
+        "eip155:1:0x14791697260E4c9A71f18484C9f997B308e59325"
       )
       expect(opts.keyIdAddress).toBe(
         "0x14791697260e4c9a71f18484c9f997b308e59325"
       )
+    })
+
+    test("rejects the legacy private keyid namespace", () => {
+      expect(() =>
+        parseTestArgs([
+          "--keyid",
+          `${"erc"}8128:1:0x14791697260E4c9A71f18484C9f997B308e59325`,
+          "https://example.com"
+        ])
+      ).toThrow("Expected eip155")
     })
 
     test("parses --keystore", () => {

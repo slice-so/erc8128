@@ -229,7 +229,7 @@ const result = await verifyRequest({
 })
 if (result.ok) {
   // Check rate limit for this address
-  const allowed = await rateLimit(result.address)
+  const allowed = await rateLimit(result.principal.address)
   if (!allowed) {
     return { status: 429, error: 'Rate limited' }
   }

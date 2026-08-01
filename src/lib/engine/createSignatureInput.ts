@@ -1,64 +1,84 @@
-//////////////////////////////
-// Parsing: Signature-Input / Signature
-//////////////////////////////
-
-import type { ParsedSignatureInputMember, SignatureParams } from "../../types"
+import type {
+  ComponentIdentifier,
+  ParsedSignatureInputMember,
+  SfInnerList,
+  SfItem,
+  SignatureParams
+} from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
+import {
+  parseSfDictionary,
+  parseSfInnerList,
+  serializeSfMember
+} from "./structuredFields"
+
+const COMPONENT_PARAMETER_NAMES = new Set([
+  "sf",
+  "bs",
+  "tr",
+  "req",
+  "key",
+  "name"
+])
+const SIGNATURE_PARAMETER_NAMES = new Set([
+  "created",
+  "expires",
+  "keyid",
+  "nonce",
+  "tag"
+])
 
 export function parseSignatureInputDictionary(
   headerValue: string
 ): ParsedSignatureInputMember[] {
-  const out: ParsedSignatureInputMember[] = []
-
-  for (const raw of splitTopLevelCommas(headerValue)) {
-    const m = raw.trim()
-    if (!m) continue
-    const eq = m.indexOf("=")
-    if (eq <= 0)
+  const dictionary = parseSfDictionary(headerValue)
+  return Object.entries(dictionary).map(([label, member]) => {
+    assertLabel(label)
+    if (!("items" in member)) {
       throw new Erc8128Error(
         "PARSE_ERROR",
-        "Invalid Signature-Input member (missing '=')."
+        "Signature-Input members must be Inner Lists."
       )
-    const label = m.slice(0, eq).trim()
-    assertLabel(label)
-
-    const value = m.slice(eq + 1).trim() // inner-list + params
-    // Keep raw value to use for @signature-params line
-    const signatureParamsValue = value
-
-    const parsed = parseInnerListWithParams(value)
-    out.push({
+    }
+    const components = member.items.map(parseComponentIdentifier)
+    if (components.length === 0) {
+      throw new Erc8128Error(
+        "PARSE_ERROR",
+        "Signature component list is empty."
+      )
+    }
+    const params = parseSignatureParams(member)
+    return {
       label,
-      components: parsed.items,
-      params: parsed.params,
-      signatureParamsValue
-    })
-  }
-  return out
+      components,
+      params,
+      signatureParamsValue: serializeSfMember(member)
+    }
+  })
 }
 
 export function parseSignatureDictionary(
   headerValue: string
 ): Map<string, string> {
-  const out = new Map<string, string>()
-
-  for (const raw of splitTopLevelCommas(headerValue)) {
-    const m = raw.trim()
-    if (!m) continue
-    const eq = m.indexOf("=")
-    if (eq <= 0)
+  const dictionary = parseSfDictionary(headerValue)
+  const signatures = new Map<string, string>()
+  for (const [label, member] of Object.entries(dictionary)) {
+    assertLabel(label)
+    if (
+      !("value" in member) ||
+      typeof member.value !== "object" ||
+      member.value.type !== "binary" ||
+      Object.keys(member.params ?? {}).length !== 0 ||
+      member.value.value.length === 0
+    ) {
       throw new Erc8128Error(
         "PARSE_ERROR",
-        "Invalid Signature member (missing '=')."
+        "Signature members must be non-empty Byte Sequences."
       )
-    const label = m.slice(0, eq).trim()
-    assertLabel(label)
-
-    const value = m.slice(eq + 1).trim()
-    const b64 = parseBinaryItem(value)
-    out.set(label, b64)
+    }
+    signatures.set(label, bytesToBase64(member.value.value))
   }
-  return out
+  return signatures
 }
 
 export function parseSignatureInputHeader(
@@ -71,259 +91,146 @@ export function parseSignatureHeader(headerValue: string): Map<string, string> {
   return parseSignatureDictionary(headerValue)
 }
 
-function parseBinaryItem(v: string): string {
-  // sf-binary: :base64:
-  const s = v.trim()
-  if (!s.startsWith(":") || !s.endsWith(":") || s.length < 3)
-    throw new Erc8128Error("PARSE_ERROR", "Invalid sf-binary.")
-  const inner = s.slice(1, -1)
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(inner))
-    throw new Erc8128Error("PARSE_ERROR", "Invalid base64 in sf-binary.")
-  return inner
+export function parseInnerListWithBareParams(value: string): {
+  items: ComponentIdentifier[]
+  bareParams: string[]
+} {
+  const member = parseSfInnerList(value)
+  const items = member.items.map(parseComponentIdentifier)
+  const bareParams = Object.entries(member.params ?? {}).map(([key, value]) => {
+    if (value !== true) {
+      throw new Erc8128Error(
+        "PARSE_ERROR",
+        `Accept-Signature param ${key} must be bare.`
+      )
+    }
+    return key
+  })
+  return { items, bareParams }
 }
 
-function parseInnerListWithParams(value: string): {
-  items: string[]
-  params: SignatureParams
-} {
-  // value like: ("@authority" "@method" "@path");created=...;expires=...;nonce="...";keyid="..."
-  let i = 0
-  const s = value.trim()
-  if (s[i] !== "(")
-    throw new Erc8128Error("PARSE_ERROR", "Inner list must start with '('.")
-
-  i++ // skip '('
-  const items: string[] = []
-  while (i < s.length) {
-    skipWs()
-    if (s[i] === ")") {
-      i++
-      break
+export function splitTopLevelCommas(value: string): string[] {
+  const members: string[] = []
+  let start = 0
+  let inString = false
+  let inBinary = false
+  let escaped = false
+  let depth = 0
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (character === "\\") escaped = true
+      else if (character === '"') inString = false
+      continue
     }
-    const str = parseSfString()
-    items.push(str)
-    skipWs()
+    if (inBinary) {
+      if (character === ":") inBinary = false
+      continue
+    }
+    if (character === '"') inString = true
+    else if (character === ":") inBinary = true
+    else if (character === "(") depth += 1
+    else if (character === ")") depth -= 1
+    else if (character === "," && depth === 0) {
+      members.push(value.slice(start, index))
+      start = index + 1
+    }
   }
-  if (items.length === 0)
-    throw new Erc8128Error("PARSE_ERROR", "Inner list has no items.")
+  members.push(value.slice(start))
+  return members
+}
 
-  const params: Record<string, string | number> = {}
-  while (i < s.length) {
-    skipWs()
-    if (s[i] !== ";") break
-    i++ // skip ';'
-    skipWs()
-    const key = parseToken()
-    skipWs()
-    if (s[i] !== "=")
-      throw new Erc8128Error("PARSE_ERROR", `Param ${key} missing '='.`)
-    i++
-    skipWs()
-    const val = parseParamValue()
-    params[key] = val
+export function assertLabel(label: string): void {
+  if (!/^[a-z*][a-z0-9_.*-]*$/.test(label)) {
+    throw new Erc8128Error("PARSE_ERROR", `Invalid signature label: ${label}`)
   }
+}
 
-  const created = params.created
-  const expires = params.expires
-  const keyid = params.keyid
-  const nonce = params.nonce
-  const tag = params.tag
+function parseComponentIdentifier(item: SfItem): ComponentIdentifier {
+  if (typeof item.value !== "string") {
+    throw new Erc8128Error("PARSE_ERROR", "Covered components must be strings.")
+  }
+  const params: NonNullable<ComponentIdentifier["params"]> = {}
+  for (const [key, value] of Object.entries(item.params ?? {})) {
+    if (!COMPONENT_PARAMETER_NAMES.has(key)) {
+      throw new Erc8128Error(
+        "PARSE_ERROR",
+        `Unknown component parameter: ${key}.`
+      )
+    }
+    if (key === "key" || key === "name") {
+      if (typeof value !== "string") {
+        throw new Erc8128Error(
+          "PARSE_ERROR",
+          `Component ${key} must be a string.`
+        )
+      }
+      Object.assign(params, { [key]: value })
+    } else {
+      if (value !== true) {
+        throw new Erc8128Error(
+          "PARSE_ERROR",
+          `Component ${key} must be bare true.`
+        )
+      }
+      Object.assign(params, { [key]: true })
+    }
+  }
+  return Object.keys(params).length === 0
+    ? { name: item.value.toLowerCase() }
+    : { name: item.value.toLowerCase(), params }
+}
 
+function parseSignatureParams(member: SfInnerList): SignatureParams {
+  const values = member.params ?? {}
+  for (const key of Object.keys(values)) {
+    if (!SIGNATURE_PARAMETER_NAMES.has(key)) {
+      throw new Erc8128Error(
+        "PARSE_ERROR",
+        `Unsupported signature parameter: ${key}.`
+      )
+    }
+  }
+  const created = values.created
+  const expires = values.expires
+  const keyid = values.keyid
+  const nonce = values.nonce
+  const tag = values.tag
   if (
     !Number.isInteger(created) ||
     !Number.isInteger(expires) ||
-    typeof keyid !== "string"
+    typeof keyid !== "string" ||
+    (nonce !== undefined && typeof nonce !== "string") ||
+    (tag !== undefined && typeof tag !== "string")
   ) {
     throw new Erc8128Error(
       "PARSE_ERROR",
       "Missing or invalid created/expires/keyid in Signature-Input."
     )
   }
-
-  const outParams: SignatureParams = {
+  return {
     created: created as number,
     expires: expires as number,
-    keyid: keyid as string,
-    ...(typeof nonce === "string" ? { nonce } : {}),
-    ...(typeof tag === "string" ? { tag } : {})
-  }
-
-  return { items, params: outParams as SignatureParams }
-
-  function skipWs() {
-    while (i < s.length && (s[i] === " " || s[i] === "\t")) i++
-  }
-
-  function parseSfString(): string {
-    if (s[i] !== '"')
-      throw new Erc8128Error("PARSE_ERROR", "Expected sf-string.")
-    i++ // skip "
-    let out = ""
-    while (i < s.length) {
-      const ch = s[i]
-      if (ch === '"') {
-        i++
-        break
-      }
-      if (ch === "\\") {
-        i++
-        if (i >= s.length)
-          throw new Erc8128Error("PARSE_ERROR", "Bad escape in sf-string.")
-        out += s[i]
-        i++
-        continue
-      }
-      // disallow controls
-      const code = ch.charCodeAt(0)
-      if (code < 0x20 || code === 0x7f)
-        throw new Erc8128Error("PARSE_ERROR", "Control char in sf-string.")
-      out += ch
-      i++
-    }
-    return out
-  }
-
-  function parseToken(): string {
-    const start = i
-    while (i < s.length && /[A-Za-z0-9_\-*.]/.test(s[i])) i++
-    if (i === start) throw new Erc8128Error("PARSE_ERROR", "Expected token.")
-    return s.slice(start, i)
-  }
-
-  function parseParamValue(): string | number {
-    if (s[i] === '"') return parseSfString()
-    // integer
-    const start = i
-    if (s[i] === "-") i++
-    while (i < s.length && /[0-9]/.test(s[i])) i++
-    if (i === start)
-      throw new Erc8128Error("PARSE_ERROR", "Expected param value.")
-    const num = Number(s.slice(start, i))
-    if (!Number.isFinite(num))
-      throw new Erc8128Error("PARSE_ERROR", "Bad integer param value.")
-    return num
+    keyid,
+    ...(nonce === undefined ? {} : { nonce: nonce as string }),
+    ...(tag === undefined ? {} : { tag: tag as string })
   }
 }
 
-export function parseInnerListWithBareParams(value: string): {
-  items: string[]
-  bareParams: string[]
-} {
-  let i = 0
-  const s = value.trim()
-  if (s[i] !== "(")
-    throw new Erc8128Error("PARSE_ERROR", "Inner list must start with '('.")
-
-  i++
-  const items: string[] = []
-  while (i < s.length) {
-    skipWs()
-    if (s[i] === ")") {
-      i++
-      break
-    }
-    items.push(parseSfString())
-    skipWs()
+function bytesToBase64(bytes: Uint8Array): string {
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+  let result = ""
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index] ?? 0
+    const second = bytes[index + 1] ?? 0
+    const third = bytes[index + 2] ?? 0
+    const combined = (first << 16) | (second << 8) | third
+    result += alphabet[(combined >> 18) & 63]
+    result += alphabet[(combined >> 12) & 63]
+    result += index + 1 < bytes.length ? alphabet[(combined >> 6) & 63] : "="
+    result += index + 2 < bytes.length ? alphabet[combined & 63] : "="
   }
-  if (items.length === 0)
-    throw new Erc8128Error("PARSE_ERROR", "Inner list has no items.")
-
-  const bareParams: string[] = []
-  while (i < s.length) {
-    skipWs()
-    if (s[i] !== ";") break
-    i++
-    skipWs()
-    const key = parseToken()
-    skipWs()
-    if (s[i] === "=") {
-      throw new Erc8128Error(
-        "PARSE_ERROR",
-        `Accept-Signature param ${key} must be bare.`
-      )
-    }
-    bareParams.push(key)
-  }
-
-  return { items, bareParams }
-
-  function skipWs() {
-    while (i < s.length && (s[i] === " " || s[i] === "\t")) i++
-  }
-
-  function parseSfString(): string {
-    if (s[i] !== '"')
-      throw new Erc8128Error("PARSE_ERROR", "Expected sf-string.")
-    i++
-    let out = ""
-    while (i < s.length) {
-      const ch = s[i]
-      if (ch === '"') {
-        i++
-        break
-      }
-      if (ch === "\\") {
-        i++
-        if (i >= s.length)
-          throw new Erc8128Error("PARSE_ERROR", "Bad escape in sf-string.")
-        out += s[i]
-        i++
-        continue
-      }
-      const code = ch.charCodeAt(0)
-      if (code < 0x20 || code === 0x7f)
-        throw new Erc8128Error("PARSE_ERROR", "Control char in sf-string.")
-      out += ch
-      i++
-    }
-    return out
-  }
-
-  function parseToken(): string {
-    const start = i
-    while (i < s.length && /[A-Za-z0-9_\-*.]/.test(s[i])) i++
-    if (i === start) throw new Erc8128Error("PARSE_ERROR", "Expected token.")
-    return s.slice(start, i)
-  }
-}
-
-export function splitTopLevelCommas(s: string): string[] {
-  // Split on commas not inside quotes.
-  const out: string[] = []
-  let cur = ""
-  let inQuotes = false
-  let isEscaped = false
-
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i]
-    if (isEscaped) {
-      cur += ch
-      isEscaped = false
-      continue
-    }
-    if (ch === "\\" && inQuotes) {
-      cur += ch
-      isEscaped = true
-      continue
-    }
-    if (ch === '"') {
-      cur += ch
-      inQuotes = !inQuotes
-      continue
-    }
-    if (ch === "," && !inQuotes) {
-      out.push(cur)
-      cur = ""
-      continue
-    }
-    cur += ch
-  }
-  if (cur) out.push(cur)
-  return out
-}
-
-export function assertLabel(label: string) {
-  // Minimal signature label: lowercase token
-  if (!/^[a-z][a-z0-9_.-]*$/.test(label))
-    throw new Erc8128Error("PARSE_ERROR", `Invalid signature label: ${label}`)
+  return result
 }

@@ -1,6 +1,8 @@
 /* eslint-disable no-control-regex */
 
+import { TAG_DELEGATED, TAG_DIRECT } from "./lib/delegation/delegationField"
 import { Erc8128Error } from "./lib/Erc8128Error"
+import { includesComponent } from "./lib/engine/componentIdentifier"
 import { setContentDigestHeader } from "./lib/engine/contentDigest"
 import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
 import {
@@ -23,6 +25,11 @@ import {
   unixNow
 } from "./lib/utilities"
 import type { EthHttpSigner, SignatureParams, SignOptions } from "./types"
+
+const SIGNATURE_TAG = Symbol("ERC-8128 signature tag")
+type InternalSignOptions = SignOptions & {
+  [SIGNATURE_TAG]?: typeof TAG_DIRECT | typeof TAG_DELEGATED
+}
 
 /**
  *   Minimal ERC-8128 signing
@@ -72,7 +79,7 @@ export async function signRequest(
     signOpts = opts
   }
 
-  const resolvedOpts = signOpts ?? {}
+  const resolvedOpts = (signOpts ?? {}) as InternalSignOptions
   const request = toRequest(input, init)
 
   const label = resolvedOpts.label ?? "eth"
@@ -94,7 +101,7 @@ export async function signRequest(
   const hasQuery = url.search.length > 0
   const bodyBytes =
     request.body === null ? new Uint8Array() : await readBodyBytes(request)
-  const hasBody = bodyBytes.byteLength > 0
+  const hasBody = request.body !== null
 
   let components = resolveComponents({
     binding,
@@ -103,10 +110,17 @@ export async function signRequest(
     providedComponents: resolvedOpts.components
   })
 
+  if (
+    request.headers.has("content-type") &&
+    !includesComponent(components, "content-type")
+  ) {
+    components.push({ name: "content-type" })
+  }
+
   let signedRequest = request
 
   // Set content-digest header if required by components
-  if (components.includes("content-digest")) {
+  if (includesComponent(components, "content-digest")) {
     signedRequest = await setContentDigestHeader(
       signedRequest,
       digestMode,
@@ -114,7 +128,7 @@ export async function signRequest(
     )
   } else if (binding === "request-bound" && hasBody) {
     // Auto-add content-digest for request-bound with body
-    components = [...components, "content-digest"]
+    components = [...components, { name: "content-digest" }]
     signedRequest = await setContentDigestHeader(
       signedRequest,
       digestMode,
@@ -126,7 +140,7 @@ export async function signRequest(
     created,
     expires,
     keyid,
-    ...(resolvedOpts.tag ? { tag: resolvedOpts.tag } : {}),
+    tag: resolvedOpts[SIGNATURE_TAG] ?? TAG_DIRECT,
     ...(nonce ? { nonce } : {})
   }
 
@@ -169,6 +183,19 @@ export async function signRequest(
   )
 
   return new Request(signedRequest, { headers })
+}
+
+/** Internal delegated profile entrypoint; intentionally absent from package exports. */
+export function signDelegatedRequest(
+  input: RequestInfo,
+  signer: EthHttpSigner,
+  options?: SignOptions
+): Promise<Request> {
+  const internalOptions: InternalSignOptions = {
+    ...options,
+    [SIGNATURE_TAG]: TAG_DELEGATED
+  }
+  return signRequest(input, signer, internalOptions)
 }
 
 export async function signedFetch(

@@ -37,15 +37,19 @@ describe("assertLabel", () => {
 describe("parseSignatureInputDictionary", () => {
   test("parses single member", () => {
     const input =
-      'eth=("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="erc8128:1:0x0000000000000000000000000000000000000001"'
+      'eth=("@authority" "@method" "@path");created=1700000000;expires=1700000060;keyid="eip155:1:0x0000000000000000000000000000000000000001"'
     const result = parseSignatureInputDictionary(input)
     expect(result).toHaveLength(1)
     expect(result[0].label).toBe("eth")
-    expect(result[0].components).toEqual(["@authority", "@method", "@path"])
+    expect(result[0].components).toEqual([
+      { name: "@authority" },
+      { name: "@method" },
+      { name: "@path" }
+    ])
     expect(result[0].params.created).toBe(1700000000)
     expect(result[0].params.expires).toBe(1700000060)
     expect(result[0].params.keyid).toBe(
-      "erc8128:1:0x0000000000000000000000000000000000000001"
+      "eip155:1:0x0000000000000000000000000000000000000001"
     )
   })
 
@@ -106,9 +110,9 @@ describe("parseSignatureInputDictionary", () => {
     )
   })
 
-  test("preserves raw signatureParamsValue", () => {
+  test("canonicalizes signatureParamsValue", () => {
     const input =
-      'eth=("@authority" "@method");created=100;expires=200;keyid="k"'
+      'eth=(  "@authority"   "@method"  );created=100;expires=200;keyid="k"'
     const result = parseSignatureInputDictionary(input)
     expect(result[0].signatureParamsValue).toBe(
       '("@authority" "@method");created=100;expires=200;keyid="k"'

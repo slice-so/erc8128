@@ -3,7 +3,7 @@
  * Uses the same local RPC as sign-verify.test.ts for consistency.
  */
 import { describe, expect, test } from "bun:test"
-import { createPublicClient, http } from "viem"
+import { bytesToHex, recoverMessageAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import {
   createSignerClient,
@@ -14,10 +14,6 @@ import {
   verifyRequest
 } from "."
 
-const publicClient = createPublicClient({
-  transport: http("http://localhost:8787")
-})
-
 const account = privateKeyToAccount(
   "0x0123456789012345678901234567890123456789012345678901234567890123"
 )
@@ -26,9 +22,17 @@ const signer: EthHttpSigner = {
   chainId: 1,
   address: account.address,
   signMessage: async (message) => {
-    return account.signMessage({ message: { raw: message } })
+    return account.signMessage({ message: { raw: bytesToHex(message) } })
   }
 }
+
+const verifyMessage = async ({
+  address,
+  message,
+  signature
+}: Parameters<import(".").VerifyMessageFn>[0]) =>
+  (await recoverMessageAddress({ message, signature })).toLowerCase() ===
+  address.toLowerCase()
 
 const seen = new Set<string>()
 const nonceStore: NonceStore = {
@@ -53,21 +57,26 @@ describe("docs: signRequest + verifyRequest example", () => {
 
     const result = await verifyRequest({
       request: signed,
-      verifyMessage: publicClient.verifyMessage,
+      verifyMessage,
       nonceStore
     })
 
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
 
-    expect(result.address.toLowerCase()).toBe(account.address.toLowerCase())
-    expect(result.chainId).toBe(1)
+    expect(result.principal.address.toLowerCase()).toBe(
+      account.address.toLowerCase()
+    )
+    expect(result.principal.chainId).toBe(1)
     expect(result.label).toBe("eth")
-    expect(result.components).toEqual([
+    expect(result.components.map(({ name }) => name)).toEqual([
+      "@scheme",
       "@authority",
       "@method",
       "@path",
-      "content-digest"
+      "@query",
+      "content-digest",
+      "content-type"
     ])
   })
 })
@@ -87,7 +96,7 @@ describe("docs: createSignerClient example", () => {
 
     const result = await verifyRequest({
       request: signed,
-      verifyMessage: publicClient.verifyMessage,
+      verifyMessage,
       nonceStore: { consume: async () => true }
     })
     expect(result.ok).toBe(true)
@@ -107,7 +116,7 @@ describe("docs: createVerifierClient example", () => {
     )
 
     const verifier = createVerifierClient({
-      verifyMessage: publicClient.verifyMessage,
+      verifyMessage,
       nonceStore: { consume: async () => true }
     })
     const result = await verifier.verifyRequest({ request: signed })

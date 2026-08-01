@@ -1,4 +1,9 @@
-import type { Address, Hex } from "./core"
+import type {
+  Address,
+  ComponentIdentifier,
+  CoveredComponent,
+  Hex
+} from "./core"
 import type { ServerConfig } from "./policy"
 
 export type BindingMode = "request-bound" | "class-bound"
@@ -7,8 +12,6 @@ export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
 
 export type SignOptions = {
   label?: string // default: "eth"
-  /** RFC 9421 signature role, independent from the dictionary label. */
-  tag?: string
   binding?: BindingMode // default: "request-bound"
   replay?: ReplayMode // default: "non-replayable"
 
@@ -19,7 +22,7 @@ export type SignOptions = {
   nonce?: string | (() => Promise<string>)
 
   contentDigest?: ContentDigestMode
-  components?: string[]
+  components?: CoveredComponent[]
 }
 
 export interface EthHttpSigner {
@@ -43,7 +46,7 @@ export type SignatureParams = {
 
 export type SelectedSignature = {
   label: string
-  components: string[]
+  components: ComponentIdentifier[]
   params: {
     keyid: string
     created: number
@@ -57,9 +60,9 @@ export type SelectedSignature = {
 
 export type ParsedSignatureInputMember = {
   label: string
-  components: string[]
+  components: ComponentIdentifier[]
   params: SignatureParams
-  signatureParamsValue: string // raw member value after "label=" (trimmed)
+  signatureParamsValue: string // canonical Inner List value after "label="
 }
 
 /**

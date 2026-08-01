@@ -7,8 +7,8 @@ function makeHeaders(label: string, keyid: string, sigB64 = "AAAA") {
   return { sigInput, sig }
 }
 
-const EIP_KEYID = "erc8128:1:0x0000000000000000000000000000000000000001"
-const NON_EIP_KEYID = "not-erc8128:1:0x0000000000000000000000000000000000000001"
+const EIP_KEYID = "eip155:1:0x0000000000000000000000000000000000000001"
+const NON_EIP_KEYID = "legacy:1:0x0000000000000000000000000000000000000001"
 
 describe("selectSignatureFromHeaders", () => {
   test("selects by preferred label", () => {
@@ -123,7 +123,7 @@ describe("selectSignatureFromHeaders", () => {
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
-    expect(result.selected[0].components).toEqual([
+    expect(result.selected[0].components.map(({ name }) => name)).toEqual([
       "@authority",
       "@method",
       "@path"
@@ -135,8 +135,8 @@ describe("selectSignatureFromHeaders", () => {
   })
 
   test("selects first member when multiple exist and no label pref", () => {
-    const first = makeHeaders("alpha", EIP_KEYID, "FIRST")
-    const second = makeHeaders("beta", EIP_KEYID, "SECOND")
+    const first = makeHeaders("alpha", EIP_KEYID, "RklSU1Q=")
+    const second = makeHeaders("beta", EIP_KEYID, "U0VDT05E")
     const result = selectSignatureFromHeaders({
       signatureInputHeader: `${first.sigInput}, ${second.sigInput}`,
       signatureHeader: `${first.sig}, ${second.sig}`,
@@ -145,5 +145,17 @@ describe("selectSignatureFromHeaders", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
     expect(result.selected[0].label).toBe("alpha")
+  })
+
+  test("skips a malformed candidate before a later valid member", () => {
+    const good = makeHeaders("good", EIP_KEYID)
+    const result = selectSignatureFromHeaders({
+      signatureInputHeader: `broken=not-an-inner-list, ${good.sigInput}`,
+      signatureHeader: `broken=:!!!!:, ${good.sig}`,
+      policy: {}
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("unreachable")
+    expect(result.selected.map(({ label }) => label)).toEqual(["good"])
   })
 })

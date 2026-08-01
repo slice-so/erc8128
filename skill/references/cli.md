@@ -60,7 +60,7 @@ erc8128 curl [options] <url>
 | `--replay <mode>` | `non-replayable` \| `replayable` |
 | `--ttl <seconds>` | Signature TTL (default: 60) |
 | `--components <comp>` | Components to sign (repeatable, comma-separated) |
-| `--keyid <keyid>` | Expected key id (`erc8128:<chainId>:<address>`) used to validate the signer and infer `chainId` |
+| `--keyid <keyid>` | Expected key id (`eip155:<chainId>:<address>`) used to validate the signer and infer `chainId` |
 
 ## Examples
 
@@ -92,7 +92,7 @@ erc8128 curl -X POST \
 erc8128 curl -X POST \
   -d @body.json \
   --keyfile ~/.keys/bot.key \
-  --keyid erc8128:8453:0xabc... \
+  --keyid eip155:8453:0xabc... \
   https://api.example.com/orders
 ```
 
@@ -147,7 +147,7 @@ Store defaults in `.erc8128rc.json` (cwd, home, or `--config`):
   "replay": "non-replayable",
   "ttl": 120,
   "keyfile": "~/.keys/bot.key",
-  "keyid": "erc8128:8453:0xabc...",
+  "keyid": "eip155:8453:0xabc...",
   "headers": ["Content-Type: application/json"],
   "components": ["x-idempotency-key"]
 }

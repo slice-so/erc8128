@@ -56,10 +56,11 @@ const signedRequest = await client.signRequest('https://api.example.com/orders')
 ### Verify requests
 
 ```typescript
-import { createVerifierClient } from '@slicekit/erc8128'
+import { createUniversalAccountVerifier, createVerifierClient } from '@slicekit/erc8128'
 import type { NonceStore } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
+import { verifySmartAccount } from './verifySmartAccount'
 
 // NonceStore interface for replay protection
 const nonceStore: NonceStore = {
@@ -70,15 +71,19 @@ const nonceStore: NonceStore = {
 }
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
+const verifyMessage = createUniversalAccountVerifier({
+  getCode: ({ address }) => publicClient.getCode({ address }),
+  verifySmartAccount
+})
 const verifier = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
+  verifyMessage,
   nonceStore
 })
 
 const result = await verifier.verifyRequest({ request: request })
 
 if (result.ok) {
-  console.log(`Authenticated: ${result.address} on chain ${result.chainId}`)
+  console.log(`Authenticated: ${result.principal.address} on chain ${result.principal.chainId}`)
 } else {
   console.log(`Failed: ${result.reason}`)
 }
@@ -139,12 +144,17 @@ erc8128 curl --dry-run -d @body.json --keyfile ~/.keys/bot.key https://api.examp
 ### Express middleware
 
 ```typescript
-import { createVerifierClient } from '@slicekit/erc8128'
+import { createUniversalAccountVerifier, createVerifierClient } from '@slicekit/erc8128'
 import type { NonceStore } from '@slicekit/erc8128'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
+import { verifySmartAccount } from './verifySmartAccount'
 
 const publicClient = createPublicClient({ chain: mainnet, transport: http() })
+const verifyMessage = createUniversalAccountVerifier({
+  getCode: ({ address }) => publicClient.getCode({ address }),
+  verifySmartAccount
+})
 
 // Implement NonceStore (Redis example)
 const nonceStore: NonceStore = {
@@ -155,7 +165,7 @@ const nonceStore: NonceStore = {
 }
 
 const verifier = createVerifierClient({
-  verifyMessage: publicClient.verifyMessage,
+  verifyMessage,
   nonceStore
 })
 
@@ -168,7 +178,10 @@ async function erc8128Auth(req, res, next) {
     return res.status(401).json({ error: result.reason })
   }
 
-  req.auth = { address: result.address, chainId: result.chainId }
+  req.auth = {
+    address: result.principal.address,
+    chainId: result.principal.chainId
+  }
   next()
 }
 ```
@@ -202,7 +215,7 @@ const client = createSignerClient(signer)
 | `missing_headers` | Required `Signature` / `Signature-Input` headers not found |
 | `expired` | Signature TTL has elapsed |
 | `replay` | Nonce already consumed (replay attempt) |
-| `bad_keyid` | `keyid` doesn't match `erc8128:<chainId>:<address>` format |
+| `bad_keyid` | `keyid` doesn't match `eip155:<chainId>:<address>` format |
 | `bad_signature_check` | Signature doesn't match the claimed address |
 | `digest_mismatch` | Body was modified after signing |
 
