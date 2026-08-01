@@ -288,7 +288,7 @@ async function verifyDelegatedCandidate(args: {
     return {
       ok: false,
       reason:
-        error instanceof Erc8128Error && error.message.includes("too large")
+        error instanceof Erc8128Error && error.code === "DELEGATION_TOO_LARGE"
           ? "delegation_too_large"
           : "bad_delegation_field"
     }
@@ -405,25 +405,25 @@ async function verifyDelegatedCandidate(args: {
     grantCandidate.signatureParamsValue,
     grantCandidate.sigB64
   ].join("\u0000")
-  let validGrant = args.grantVerificationResults.get(cacheKey)
-  if (validGrant === undefined) {
+  const memoizedGrant = args.grantVerificationResults.get(cacheKey)
+  if (memoizedGrant === "unavailable") {
+    return { ok: false, reason: "grant_verification_unavailable" }
+  }
+  if (memoizedGrant === false) {
+    return { ok: false, reason: "bad_grant_signature" }
+  }
+  let validGrant = memoizedGrant === true
+  if (!validGrant) {
     try {
-      validGrant = await delegationPolicy.grantCache?.get(cacheKey)
-      if (validGrant === true) {
+      if ((await delegationPolicy.grantCache?.get(cacheKey)) === true) {
+        validGrant = true
         args.grantVerificationResults.set(cacheKey, true)
       }
     } catch {
       // Cache availability must not replace authoritative grant verification.
-      validGrant = undefined
     }
   }
-  if (validGrant !== true) {
-    if (validGrant === "unavailable") {
-      return { ok: false, reason: "grant_verification_unavailable" }
-    }
-    if (validGrant === false) {
-      return { ok: false, reason: "bad_grant_signature" }
-    }
+  if (!validGrant) {
     const grantSignatureBytes = base64Decode(grantCandidate.sigB64)
     if (!grantSignatureBytes?.length) {
       return { ok: false, reason: "bad_grant_signature" }
@@ -450,7 +450,6 @@ async function verifyDelegatedCandidate(args: {
       args.grantVerificationResults.set(cacheKey, false)
       return { ok: false, reason: "bad_grant_signature" }
     }
-    validGrant = true
     args.grantVerificationResults.set(cacheKey, true)
     const ttl = Math.min(
       delegationPolicy.grantCacheTtlSec ?? DEFAULT_GRANT_CACHE_TTL_SEC,

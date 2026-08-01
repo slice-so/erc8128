@@ -76,7 +76,7 @@ export type DelegationExtensionHandler = (
   | Promise<boolean | "unavailable" | { ok: boolean; detail?: string }>
 
 export interface DelegationGrantCache {
-  get(key: string): boolean | undefined | Promise<boolean | undefined>
+  get(key: string): true | undefined | Promise<true | undefined>
   set(key: string, expiresAt: number): void | Promise<void>
 }
 

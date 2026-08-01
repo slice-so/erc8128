@@ -117,7 +117,10 @@ export function parseDelegationField(
   fieldValue: string
 ): ParsedDelegationField {
   if (fieldValue.length > MAX_FIELD_BYTES) {
-    throw new Erc8128Error("PARSE_ERROR", "Delegation field is too large.")
+    throw new Erc8128Error(
+      "DELEGATION_TOO_LARGE",
+      "Delegation field is too large."
+    )
   }
   const members = parseSfDictionary(fieldValue)
   const rootValue = requireStringItem(members.root, "root")

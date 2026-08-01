@@ -8,6 +8,7 @@ export class Erc8128Error extends Error {
       | "DIGEST_REQUIRED"
       | "BAD_DERIVED_VALUE"
       | "BAD_HEADER_VALUE"
+      | "DELEGATION_TOO_LARGE"
       | "PARSE_ERROR",
     message: string
   ) {
