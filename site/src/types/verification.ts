@@ -6,14 +6,18 @@ import type {
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 type SuccessfulVerification = Extract<VerifyResult, { ok: true }>
+type SuccessfulDirectVerification = Extract<
+  VerifyResult,
+  { ok: true; delegated: false }
+>
 
 export type CacheStrategy = "secondary-storage" | "database"
 
 export type CachedVerification = Omit<
-  SuccessfulVerification,
-  "ok" | "replayable"
+  SuccessfulDirectVerification,
+  "ok" | "replay"
 > & {
-  replayable: true
+  replay: "replayable"
 }
 
 export interface VerificationCacheStore {
@@ -65,7 +69,6 @@ export type VerificationHttpPayloadValue =
   | boolean
   | string[]
   | SuccessfulVerification["principal"]
-  | SuccessfulVerification["delegation"]
   | SuccessfulVerification["components"]
   | SuccessfulVerification["params"]
   | undefined

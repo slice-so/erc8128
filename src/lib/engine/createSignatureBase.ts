@@ -1,7 +1,7 @@
 import type {
   ComponentIdentifier,
   CoveredComponent,
-  SignatureParams
+  ParsedSignatureParams
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import { sanitizeUrl, utf8Encode } from "../utilities"
@@ -11,10 +11,7 @@ import {
   serializeComponentIdentifier
 } from "./componentIdentifier"
 import { parseSignatureInputHeader } from "./createSignatureInput"
-import {
-  quoteSfString,
-  serializeSignatureParamsInnerList
-} from "./serializations"
+import { quoteSfString } from "./serializations"
 import {
   canonicalizeSfDictionary,
   parseSfDictionary,
@@ -28,7 +25,7 @@ export function parseSignatureBase(base: string): {
     name: string
     value: string
   }>
-  params: SignatureParams
+  params: ParsedSignatureParams
 } | null {
   if (
     base.length === 0 ||
@@ -97,8 +94,7 @@ export function parseSignatureBase(base: string): {
             entries[index]?.component ?? { name: "" }
           )
       ) ||
-      serializeSignatureParamsInnerList(member.components, member.params) !==
-        signatureParams.value
+      member.signatureParamsValue !== signatureParams.value
     ) {
       return null
     }

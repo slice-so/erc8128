@@ -11,12 +11,11 @@ const EIP_KEYID = "eip155:1:0x0000000000000000000000000000000000000001"
 const NON_EIP_KEYID = "legacy:1:0x0000000000000000000000000000000000000001"
 
 describe("selectSignatureFromHeaders", () => {
-  test("selects by preferred label", () => {
+  test("correlates the two fields by their transport label", () => {
     const { sigInput, sig } = makeHeaders("eth", EIP_KEYID)
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
-      signatureHeader: sig,
-      policy: { label: "eth" }
+      signatureHeader: sig
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
@@ -29,84 +28,57 @@ describe("selectSignatureFromHeaders", () => {
     const good = makeHeaders("good", EIP_KEYID, "GGGG")
     const result = selectSignatureFromHeaders({
       signatureInputHeader: `${bad.sigInput}, ${good.sigInput}`,
-      signatureHeader: `${bad.sig}, ${good.sig}`,
-      policy: {}
+      signatureHeader: `${bad.sig}, ${good.sig}`
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
     expect(result.selected[0].label).toBe("bad")
   })
 
-  test("strictLabel returns label_not_found when label not present", () => {
-    const { sigInput, sig } = makeHeaders("foo", EIP_KEYID)
-    const result = selectSignatureFromHeaders({
-      signatureInputHeader: sigInput,
-      signatureHeader: sig,
-      policy: { label: "eth", strictLabel: true }
-    })
-    expect(result.ok).toBe(false)
-    if (result.ok) throw new Error("unreachable")
-    expect(result.result).toEqual({ ok: false, reason: "label_not_found" })
-  })
-
-  test("returns label_not_found when no member has matching Signature entry", () => {
+  test("returns signature_input_invalid without a correlated member", () => {
     const { sigInput } = makeHeaders("eth", NON_EIP_KEYID)
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
-      signatureHeader: "other=:AAAA:",
-      policy: {}
+      signatureHeader: "other=:AAAA:"
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("unreachable")
-    expect(result.result).toEqual({ ok: false, reason: "label_not_found" })
-  })
-
-  test("strictLabel enforces preferred label has a Signature entry", () => {
-    const sigInput = `eth=("@authority");created=100;expires=200;keyid="${EIP_KEYID}", other=("@authority");created=100;expires=200;keyid="${EIP_KEYID}"`
-    const sig = "other=:AAAA:"
-    const result = selectSignatureFromHeaders({
-      signatureInputHeader: sigInput,
-      signatureHeader: sig,
-      policy: { label: "eth", strictLabel: true }
+    expect(result.result).toEqual({
+      ok: false,
+      reason: "signature_input_invalid"
     })
-    expect(result.ok).toBe(false)
-    if (result.ok) throw new Error("unreachable")
-    expect(result.result).toEqual({ ok: false, reason: "label_not_found" })
   })
 
-  test("returns bad_signature_input for malformed Signature-Input", () => {
+  test("returns signature_input_invalid for malformed Signature-Input", () => {
     const result = selectSignatureFromHeaders({
       signatureInputHeader: "not-a-dictionary",
-      signatureHeader: "eth=:AAAA:",
-      policy: {}
+      signatureHeader: "eth=:AAAA:"
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("unreachable")
     expect(result.result.ok).toBe(false)
     if (result.result.ok) throw new Error("unreachable")
-    expect(result.result.reason).toBe("bad_signature_input")
+    expect(result.result.reason).toBe("signature_input_invalid")
   })
 
-  test("returns bad_signature_input for malformed Signature", () => {
+  test("returns signature_input_invalid for malformed Signature", () => {
     const sigInput = `eth=("@authority");created=100;expires=200;keyid="${EIP_KEYID}"`
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
-      signatureHeader: "not-a-dictionary",
-      policy: {}
+      signatureHeader: "not-a-dictionary"
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("unreachable")
     expect(result.result.ok).toBe(false)
     if (result.result.ok) throw new Error("unreachable")
-    expect(result.result.reason).toBe("bad_signature_input")
+    expect(result.result.reason).toBe("signature_input_invalid")
   })
 
-  test("selects preferred label even with non-compliant keyid", () => {
+  test("leaves key identifier validation to profile candidate evaluation", () => {
     const { sigInput, sig } = makeHeaders("eth", NON_EIP_KEYID)
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
-      signatureHeader: sig,
-      policy: { label: "eth" }
+      signatureHeader: sig
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
@@ -118,8 +90,7 @@ describe("selectSignatureFromHeaders", () => {
     const sig = "eth=:dGVzdA==:"
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
-      signatureHeader: sig,
-      policy: { label: "eth" }
+      signatureHeader: sig
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
@@ -134,13 +105,12 @@ describe("selectSignatureFromHeaders", () => {
     expect(result.selected[0].sigB64).toBe("dGVzdA==")
   })
 
-  test("selects first member when multiple exist and no label pref", () => {
+  test("preserves wire order when multiple members exist", () => {
     const first = makeHeaders("alpha", EIP_KEYID, "RklSU1Q=")
     const second = makeHeaders("beta", EIP_KEYID, "U0VDT05E")
     const result = selectSignatureFromHeaders({
       signatureInputHeader: `${first.sigInput}, ${second.sigInput}`,
-      signatureHeader: `${first.sig}, ${second.sig}`,
-      policy: {}
+      signatureHeader: `${first.sig}, ${second.sig}`
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")
@@ -151,8 +121,7 @@ describe("selectSignatureFromHeaders", () => {
     const good = makeHeaders("good", EIP_KEYID)
     const result = selectSignatureFromHeaders({
       signatureInputHeader: `broken=not-an-inner-list, ${good.sigInput}`,
-      signatureHeader: `broken=:!!!!:, ${good.sig}`,
-      policy: {}
+      signatureHeader: `broken=:!!!!:, ${good.sig}`
     })
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("unreachable")

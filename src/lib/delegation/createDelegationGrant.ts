@@ -7,6 +7,7 @@ import type {
   SignDelegationGrantArgs
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
+import { componentIdentifierEquals } from "../engine/componentIdentifier"
 import { createSignatureBaseMinimal } from "../engine/createSignatureBase"
 import { parseSignatureInputHeader } from "../engine/createSignatureInput"
 import { serializeSignatureParamsInnerList } from "../engine/serializations"
@@ -20,7 +21,7 @@ import {
   TAG_DELEGATION
 } from "./delegationField"
 
-export const maximumDelegationGrantSignatureBytes = 4_096
+export const maximumDelegationGrantSignatureBytes = 65_536
 
 export function buildDelegationGrant(
   args: DelegationGrantBuildArgs
@@ -100,14 +101,20 @@ export async function signDelegationGrant(
 }
 
 export function validateDelegationGrantArtifact(grant: DelegationGrant): void {
+  const signature = base64Decode(grant.grantSignatureB64)
   if (
     grant.fieldValue.length === 0 ||
     grant.grantSignatureInput.length === 0 ||
     grant.grantSignatureB64.length === 0 ||
-    base64Decode(grant.grantSignatureB64) === null
+    new TextEncoder().encode(grant.grantSignatureInput).length > 65_536 ||
+    signature === null ||
+    signature.length === 0 ||
+    signature.length > maximumDelegationGrantSignatureBytes ||
+    base64Encode(signature) !== grant.grantSignatureB64
   ) {
     throw new Erc8128Error("PARSE_ERROR", "Invalid DelegationGrant artifact.")
   }
+  parseDelegationField(grant.fieldValue)
 }
 
 export function getDelegationGrantSignatureBase(
@@ -122,9 +129,12 @@ export function getDelegationGrantSignatureBase(
     input === undefined ||
     input.params.tag !== TAG_DELEGATION ||
     input.params.nonce !== undefined ||
+    input.params.alg !== undefined ||
+    !Number.isInteger(input.params.created) ||
+    !Number.isInteger(input.params.expires) ||
+    input.params.expires <= input.params.created ||
     input.components.length !== 1 ||
-    input.components[0]?.name !== DELEGATION_FIELD_NAME ||
-    input.components[0]?.params?.sf !== true ||
+    !componentIdentifierEquals(input.components[0], DELEGATION_COMPONENT) ||
     input.params.keyid !== formatKeyId(field.root.chainId, field.root.address)
   ) {
     throw new Erc8128Error(

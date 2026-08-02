@@ -8,18 +8,25 @@ import type {
   SignOptions
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
-import {
-  parseSignatureHeader,
-  parseSignatureInputHeader
-} from "../engine/createSignatureInput"
+import { parseSignatureInputHeader } from "../engine/createSignatureInput"
 import {
   appendDictionaryMember,
   serializeSignatureHeader,
   serializeSignatureInputHeader
 } from "../engine/serializations"
+import {
+  allocateSignatureLabel,
+  collectSignatureLabels
+} from "../engine/signatureLabels"
+import { invokeFetch } from "../invokeFetch"
 import { formatKeyId, keyIdEquals } from "../keyId"
+import {
+  redirectMethod,
+  redirectStatuses,
+  unsignedRedirectHeaders
+} from "../redirects"
 import { sanitizeUrl, unixNow } from "../utilities"
-import { validateDelegationGrantArtifact } from "./createDelegationGrant"
+import { getDelegationGrantSignatureBase } from "./createDelegationGrant"
 import {
   DELEGATION_COMPONENT,
   DELEGATION_FIELD_NAME,
@@ -28,7 +35,6 @@ import {
   TAG_DELEGATION
 } from "./delegationField"
 
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 const REQUEST_INIT_KEYS = new Set([
   "method",
   "headers",
@@ -53,7 +59,7 @@ export function createDelegatedSignerClient(
   >
 ): SignerClient {
   const resolvedGrant = grant
-  validateDelegationGrantArtifact(resolvedGrant)
+  getDelegationGrantSignatureBase(resolvedGrant)
   const field = parseDelegationField(resolvedGrant.fieldValue)
   const [grantInput] = parseSignatureInputHeader(
     `grant=${resolvedGrant.grantSignatureInput}`
@@ -123,13 +129,13 @@ export function createDelegatedSignerClient(
 
     const headers = new Headers(request.headers)
     headers.set(DELEGATION_FIELD_NAME, field.fieldValue)
-    const usedLabels = collectLabels(
+    const usedLabels = collectSignatureLabels(
       headers.get("signature-input"),
       headers.get("signature")
     )
-    const grantLabel = allocateLabel("grant", usedLabels)
+    const grantLabel = allocateSignatureLabel("grant", usedLabels)
     usedLabels.add(grantLabel)
-    const requestLabel = allocateLabel(
+    const requestLabel = allocateSignatureLabel(
       options?.label ?? defaults?.label ?? "eth",
       usedLabels
     )
@@ -182,14 +188,7 @@ export function createDelegatedSignerClient(
     options?: FetchOptions
   ) => {
     const split = splitInitAndOptions<FetchOptions>(initOrOptions, options)
-    const fetchImpl =
-      split.options?.fetch ?? defaults?.fetch ?? globalThis.fetch
-    if (typeof fetchImpl !== "function") {
-      throw new Erc8128Error(
-        "UNSUPPORTED_REQUEST",
-        "No fetch implementation available."
-      )
-    }
+    const fetchImpl = split.options?.fetch ?? defaults?.fetch
     let nextInput: RequestInfo = input
     let nextInit = split.init
     let signingOptions = split.options
@@ -203,10 +202,11 @@ export function createDelegatedSignerClient(
         signed.method === "GET" || signed.method === "HEAD"
           ? undefined
           : await signed.clone().arrayBuffer()
-      const response = await fetchImpl(
+      const response = await invokeFetch(
+        fetchImpl,
         new Request(signed, { redirect: "manual" })
       )
-      if (!REDIRECT_STATUSES.has(response.status)) return response
+      if (!redirectStatuses.has(response.status)) return response
       const location = response.headers.get("location")
       if (!location) return response
       if (redirects === 10) {
@@ -222,7 +222,7 @@ export function createDelegatedSignerClient(
       }
       nextInit = {
         method,
-        headers: unsignedHeaders(signed.headers),
+        headers: unsignedRedirectHeaders(signed.headers, true),
         ...(method === "GET" || method === "HEAD"
           ? {}
           : { body: redirectedBody })
@@ -258,38 +258,6 @@ function splitInitAndOptions<T extends SignOptions>(
   return { options: initOrOptions as T | undefined }
 }
 
-function collectLabels(
-  signatureInput: string | null,
-  signature: string | null
-): Set<string> {
-  try {
-    return new Set([
-      ...(signatureInput === null
-        ? []
-        : parseSignatureInputHeader(signatureInput).map(({ label }) => label)),
-      ...(signature === null ? [] : parseSignatureHeader(signature).keys())
-    ])
-  } catch {
-    throw new Erc8128Error(
-      "PARSE_ERROR",
-      "Existing signature dictionaries are malformed."
-    )
-  }
-}
-
-function allocateLabel(preferred: string, used: Set<string>): string {
-  const base = /^[a-z*][a-z0-9_.*-]*$/.test(preferred) ? preferred : "sig"
-  if (!used.has(base)) return base
-  for (let index = 1; index < 100; index += 1) {
-    const candidate = `${base}${index}`
-    if (!used.has(candidate)) return candidate
-  }
-  throw new Erc8128Error(
-    "INVALID_OPTIONS",
-    "No collision-free signature label available."
-  )
-}
-
 function assertAudience(urlValue: string, audiences: string[]): void {
   const origin = normalizeAudienceOrigin(sanitizeUrl(urlValue).origin)
   if (!audiences.includes(origin)) {
@@ -298,19 +266,4 @@ function assertAudience(urlValue: string, audiences: string[]): void {
       `Origin ${origin} is outside the delegation audience.`
     )
   }
-}
-
-function redirectMethod(status: number, method: string): string {
-  if (status === 303 && method !== "HEAD") return "GET"
-  if ((status === 301 || status === 302) && method === "POST") return "GET"
-  return method
-}
-
-function unsignedHeaders(input: Headers): Headers {
-  const headers = new Headers(input)
-  headers.delete("signature")
-  headers.delete("signature-input")
-  headers.delete("content-digest")
-  headers.delete(DELEGATION_FIELD_NAME)
-  return headers
 }

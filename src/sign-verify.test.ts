@@ -2,18 +2,26 @@ import { describe, expect, test } from "bun:test"
 import { recoverMessageAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { VerificationUnavailableError } from "./lib/Erc8128Error"
+import { parseSignatureInputHeader } from "./lib/engine/createSignatureInput"
 import { bytesToHex } from "./lib/utilities"
-import { signRequest } from "./sign"
+import { signedFetch, signRequest } from "./sign"
 import { BoundedMemoryNonceStore } from "./stores"
 import { verifyRequest } from "./verify"
 
 const account = privateKeyToAccount(`0x${"11".repeat(32)}`)
+const secondAccount = privateKeyToAccount(`0x${"22".repeat(32)}`)
 const now = Math.floor(Date.now() / 1_000)
 const signer = {
   address: account.address,
   chainId: 1,
   signMessage: (message: Uint8Array) =>
     account.signMessage({ message: { raw: bytesToHex(message) } })
+}
+const secondSigner = {
+  address: secondAccount.address,
+  chainId: 1,
+  signMessage: (message: Uint8Array) =>
+    secondAccount.signMessage({ message: { raw: bytesToHex(message) } })
 }
 
 const universalVerify = async ({
@@ -25,6 +33,28 @@ const universalVerify = async ({
   address.toLowerCase()
 
 describe("ERC-8128 direct signing and verification", () => {
+  test("rejects missing signature fields before buffering request content", async () => {
+    const request = new Request("https://api.example/orders", {
+      body: "untrusted body",
+      method: "POST"
+    })
+    let bodyRead = false
+    Object.defineProperty(request, "clone", {
+      value: () => {
+        bodyRead = true
+        throw new Error("Body must not be read.")
+      }
+    })
+    expect(
+      await verifyRequest({
+        request,
+        nonceStore: new BoundedMemoryNonceStore(),
+        verifyMessage: universalVerify
+      })
+    ).toEqual({ ok: false, reason: "signature_missing" })
+    expect(bodyRead).toBe(false)
+  })
+
   test("round trips the mandatory tag, CAIP-10 key, and request floor", async () => {
     const signed = await signRequest(
       "https://api.example/orders?cursor=1",
@@ -61,6 +91,24 @@ describe("ERC-8128 direct signing and verification", () => {
     ])
   })
 
+  test("allocates collision-free transport labels when composing signatures", async () => {
+    const first = await signRequest("https://api.example/composed", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "composed-first-1"
+    })
+    const second = await signRequest(first, signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "composed-second-1"
+    })
+    expect(
+      parseSignatureInputHeader(
+        second.headers.get("signature-input") ?? ""
+      ).map(({ label }) => label)
+    ).toEqual(["eth", "eth1"])
+  })
+
   test("recomputes the digest over exact received bytes", async () => {
     const signed = await signRequest(
       new Request("https://api.example/orders", {
@@ -83,10 +131,10 @@ describe("ERC-8128 direct signing and verification", () => {
         policy: { now: () => now },
         verifyMessage: universalVerify
       })
-    ).resolves.toEqual({ ok: false, reason: "digest_mismatch" })
+    ).resolves.toEqual({ ok: false, reason: "bad_content_digest" })
   })
 
-  test("covers the digest and content type for received empty content", async () => {
+  test("covers content type without requiring a digest for empty content", async () => {
     const signed = await signRequest(
       new Request("https://api.example/empty", {
         body: "",
@@ -97,9 +145,9 @@ describe("ERC-8128 direct signing and verification", () => {
       { created: now, expires: now + 60, nonce: "empty-content-123" }
     )
     const signatureInput = signed.headers.get("signature-input")
-    expect(signatureInput).toContain('"content-digest"')
+    expect(signatureInput).not.toContain('"content-digest"')
     expect(signatureInput).toContain('"content-type"')
-    expect(signed.headers.get("content-digest")).toBeTruthy()
+    expect(signed.headers.get("content-digest")).toBeNull()
   })
 
   test("rejects unsigned received fields under explicit class-bound policy", async () => {
@@ -122,15 +170,16 @@ describe("ERC-8128 direct signing and verification", () => {
       ])
     })
     const signedWithoutDigest = await signRequest(
-      new Request("https://api.example/write", {
-        body: "received",
-        method: "POST"
-      }),
+      "https://api.example/write",
       signer,
       { ...classBoundOptions, nonce: "class-bound-body" }
     )
+    const injectedBody = new Request(signedWithoutDigest, {
+      body: "received",
+      method: "POST"
+    })
 
-    for (const request of [injectedType, signedWithoutDigest]) {
+    for (const request of [injectedType, injectedBody]) {
       const result = await verifyRequest({
         request,
         nonceStore: new BoundedMemoryNonceStore(),
@@ -204,7 +253,165 @@ describe("ERC-8128 direct signing and verification", () => {
         policy: { now: () => now },
         verifyMessage: universalVerify
       })
-    ).toEqual({ ok: false, reason: "tag_not_found" })
+    ).toEqual({ ok: false, reason: "no_acceptable_signature" })
+  })
+
+  test("rejects the unsupported alg parameter before cryptography", async () => {
+    const signed = await signRequest("https://api.example/me", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "unsupported-alg-1"
+    })
+    const headers = new Headers(signed.headers)
+    headers.set(
+      "signature-input",
+      (headers.get("signature-input") ?? "").replace(
+        ';tag="erc8128"',
+        ';tag="erc8128";alg="eip191"'
+      )
+    )
+    let cryptoChecks = 0
+    expect(
+      await verifyRequest({
+        request: new Request(signed, { headers }),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: () => now },
+        verifyMessage: async () => {
+          cryptoChecks += 1
+          return true
+        }
+      })
+    ).toEqual({ ok: false, reason: "unsupported_algorithm" })
+    expect(cryptoChecks).toBe(0)
+  })
+
+  test("rejects requests that exceed the shared candidate budget", async () => {
+    const requests = await Promise.all(
+      Array.from({ length: 9 }, (_, index) =>
+        signRequest("https://api.example/many", signer, {
+          created: now,
+          expires: now + 60,
+          label: `candidate${index}`,
+          nonce: `candidate-nonce-${index}`
+        })
+      )
+    )
+    const headers = new Headers(requests[0]?.headers)
+    headers.set(
+      "signature-input",
+      requests
+        .map((request) => request.headers.get("signature-input"))
+        .join(", ")
+    )
+    headers.set(
+      "signature",
+      requests.map((request) => request.headers.get("signature")).join(", ")
+    )
+    let cryptoChecks = 0
+    expect(
+      await verifyRequest({
+        request: new Request(requests[0], { headers }),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: () => now },
+        verifyMessage: async () => {
+          cryptoChecks += 1
+          return true
+        }
+      })
+    ).toEqual({ ok: false, reason: "signature_too_large" })
+    expect(cryptoChecks).toBe(0)
+  })
+
+  test("prefers the first unavailable outcome when no candidate succeeds", async () => {
+    const first = await signRequest("https://api.example/unavailable", signer, {
+      created: now,
+      expires: now + 60,
+      label: "first",
+      nonce: "first-failure-01"
+    })
+    const second = await signRequest(
+      "https://api.example/unavailable",
+      secondSigner,
+      {
+        created: now,
+        expires: now + 60,
+        label: "second",
+        nonce: "second-unavailable"
+      }
+    )
+    const headers = new Headers(first.headers)
+    headers.set(
+      "signature-input",
+      `${first.headers.get("signature-input")}, ${second.headers.get("signature-input")}`
+    )
+    headers.set(
+      "signature",
+      `${first.headers.get("signature")}, ${second.headers.get("signature")}`
+    )
+    expect(
+      await verifyRequest({
+        request: new Request(first, { headers }),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: () => now },
+        verifyMessage: async ({ address }) => {
+          if (address.toLowerCase() === secondAccount.address.toLowerCase()) {
+            throw new VerificationUnavailableError()
+          }
+          return false
+        }
+      })
+    ).toEqual({
+      ok: false,
+      reason: "signature_verification_unavailable"
+    })
+  })
+
+  test("reconstructs and re-signs direct requests across redirects", async () => {
+    const observed: Request[] = []
+    const fetchImpl: typeof fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        observed.push(request.clone())
+        return observed.length === 1
+          ? new Response(null, {
+              headers: { location: "https://next.example/continued" },
+              status: 307
+            })
+          : new Response(null, { status: 204 })
+      },
+      { preconnect: () => {} }
+    )
+
+    const response = await signedFetch(
+      new Request("https://api.example/start", {
+        body: "redirected body",
+        headers: { "content-type": "text/plain" },
+        method: "POST"
+      }),
+      signer,
+      {
+        created: now,
+        expires: now + 60,
+        fetch: fetchImpl,
+        nonce: "direct-redirect-1"
+      }
+    )
+
+    expect(response.status).toBe(204)
+    expect(observed.map(({ url }) => url)).toEqual([
+      "https://api.example/start",
+      "https://next.example/continued"
+    ])
+    expect(await observed[1]?.text()).toBe("redirected body")
+    expect(observed[0]?.headers.get("signature-input")).not.toBe(
+      observed[1]?.headers.get("signature-input")
+    )
+    const nonce = (request: Request) =>
+      parseSignatureInputHeader(request.headers.get("signature-input") ?? "")[0]
+        ?.params.nonce
+    expect(nonce(observed[0] as Request)).toBe("direct-redirect-1")
+    expect(nonce(observed[1] as Request)).not.toBe("direct-redirect-1")
   })
 
   test("skips a failing candidate and consumes only the valid candidate nonce", async () => {

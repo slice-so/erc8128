@@ -10,7 +10,10 @@ import {
 } from "./lib/delegation/delegationField"
 import { Erc8128Error, VerificationUnavailableError } from "./lib/Erc8128Error"
 import { verifyCanonicalEoaSignature } from "./lib/ecdsa"
-import { includesComponent } from "./lib/engine/componentIdentifier"
+import {
+  componentIdentifierEquals,
+  includesComponent
+} from "./lib/engine/componentIdentifier"
 import { verifyContentDigest } from "./lib/engine/contentDigest"
 import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
 import { selectSignatureFromHeaders } from "./lib/engine/signatureHeaders"
@@ -24,6 +27,7 @@ import {
 import {
   base64Decode,
   bytesToHex,
+  hexToBytes,
   readBodyBytes,
   sanitizeUrl,
   unixNow
@@ -41,7 +45,7 @@ import type {
   VerifyResult
 } from "./types"
 
-const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 3
+const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 8
 const DEFAULT_GRANT_MAX_VALIDITY_SEC = 30 * 24 * 60 * 60
 const DEFAULT_GRANT_CACHE_TTL_SEC = 60
 const GRANT_CACHE_DISCRIMINATOR = "erc8128-delegation/1"
@@ -56,11 +60,48 @@ export async function verifyRequest(
   const now = policy.now?.() ?? unixNow()
   const skew = policy.clockSkewSec ?? 0
   const url = sanitizeUrl(request.url)
+  const signatureInputHeader = request.headers.get("signature-input")
+  const signatureHeader = request.headers.get("signature")
+  if (!signatureInputHeader || !signatureHeader) {
+    return { ok: false, reason: "signature_missing" }
+  }
+  const selected = selectSignatureFromHeaders({
+    signatureInputHeader,
+    signatureHeader
+  })
+  if (!selected.ok) return selected.result
+
+  const grantCandidates = selected.selected.filter(
+    (candidate) =>
+      candidate.params.tag === TAG_DELEGATION &&
+      parseKeyId(candidate.params.keyid) !== null
+  )
+  const principalPolicy = policy.principal ?? "either"
+  const requestCandidates = selected.selected.filter(
+    (candidate) =>
+      candidate.params.tag === TAG_DIRECT ||
+      candidate.params.tag === TAG_DELEGATED
+  )
+  if (requestCandidates.length === 0) {
+    return { ok: false, reason: "no_acceptable_signature" }
+  }
+
+  const maximum = positiveInteger(
+    policy.maxSignatureVerifications,
+    DEFAULT_MAX_SIGNATURE_VERIFICATIONS
+  )
+  if (requestCandidates.length > maximum) {
+    return { ok: false, reason: "signature_too_large" }
+  }
+
+  // Bound and classify the signature fields before buffering request content.
+  // This preserves the profile's cheap-check ordering for unauthenticated input.
   const bodyBytes =
     request.body === null ? new Uint8Array() : await readBodyBytes(request)
   const shape = {
     hasQuery: url.search.length > 0,
-    hasBody: request.body !== null,
+    hasBody: bodyBytes.length > 0,
+    hasContentDigest: request.headers.has("content-digest"),
     hasContentType: request.headers.has("content-type")
   }
   const requestBoundExtras = normalizeComponentsList(
@@ -89,43 +130,30 @@ export async function verifyRequest(
     }
   }
 
-  const signatureInputHeader = request.headers.get("signature-input")
-  const signatureHeader = request.headers.get("signature")
-  if (!signatureInputHeader || !signatureHeader) {
-    return { ok: false, reason: "missing_headers" }
-  }
-  const selected = selectSignatureFromHeaders({
-    signatureInputHeader,
-    signatureHeader,
-    policy: { label: policy.label, strictLabel: policy.strictLabel }
-  })
-  if (!selected.ok) return selected.result
-
-  const grantCandidates = selected.selected.filter(
-    (candidate) => candidate.params.tag === TAG_DELEGATION
-  )
-  const principalPolicy = policy.principal ?? "either"
-  const requestCandidates = selected.selected.filter((candidate) => {
-    if (candidate.params.tag === TAG_DIRECT)
-      return principalPolicy !== "delegated"
-    if (candidate.params.tag === TAG_DELEGATED)
-      return principalPolicy !== "direct"
-    return false
-  })
-  if (requestCandidates.length === 0) {
-    return { ok: false, reason: "tag_not_found" }
-  }
-
-  const maximum = positiveInteger(
-    policy.maxSignatureVerifications,
-    DEFAULT_MAX_SIGNATURE_VERIFICATIONS
-  )
   const grantVerificationResults = new Map<string, boolean | "unavailable">()
-  let lastFailure: Failure = { ok: false, reason: "bad_signature" }
-  for (const candidate of requestCandidates.slice(0, maximum)) {
+  let firstFailure: Failure | null = null
+  let firstUnavailable: Failure | null = null
+  for (const candidate of requestCandidates) {
+    if (
+      candidate.params.tag === TAG_DELEGATED &&
+      policy.delegation === undefined
+    ) {
+      firstFailure ??= { ok: false, reason: "unsupported_delegation" }
+      continue
+    }
+    const disallowedPrincipalClass =
+      candidate.params.tag === TAG_DIRECT && principalPolicy === "delegated"
+    if (disallowedPrincipalClass) {
+      firstFailure ??= { ok: false, reason: "principal_not_allowed" }
+      continue
+    }
     const key = parseKeyId(candidate.params.keyid)
     if (key === null) {
-      lastFailure = { ok: false, reason: "bad_keyid" }
+      firstFailure ??= { ok: false, reason: "invalid_keyid" }
+      continue
+    }
+    if (candidate.params.alg !== undefined) {
+      firstFailure ??= { ok: false, reason: "unsupported_algorithm" }
       continue
     }
     const entry = { candidate, key }
@@ -161,9 +189,13 @@ export async function verifyRequest(
             skew
           })
     if (outcome.ok) return outcome
-    lastFailure = outcome
+    firstFailure ??= outcome
+    if (isUnavailableFailure(outcome)) firstUnavailable ??= outcome
   }
-  return lastFailure
+  return (
+    firstUnavailable ??
+    firstFailure ?? { ok: false, reason: "no_acceptable_signature" }
+  )
 }
 
 async function verifyDirectCandidate(args: {
@@ -182,7 +214,9 @@ async function verifyDirectCandidate(args: {
 }): Promise<VerifyResult> {
   const { candidate, key } = args.candidate
   const requiredWhenPresent = normalizeComponentsList([
-    ...(args.shape.hasBody ? (["content-digest"] as const) : []),
+    ...(args.shape.hasBody || args.shape.hasContentDigest
+      ? (["content-digest"] as const)
+      : []),
     ...(args.shape.hasContentType ? (["content-type"] as const) : []),
     ...(args.policy.requiredCoveredComponentsWhenPresent ?? []).filter(
       (component) =>
@@ -200,13 +234,7 @@ async function verifyDirectCandidate(args: {
   })
   const attempt = built.attempts[0]
   if (!attempt) {
-    return {
-      ok: false,
-      reason:
-        built.sawClassBound && args.classBoundPolicies.length > 0
-          ? "class_bound_not_allowed"
-          : "not_request_bound"
-    }
+    return { ok: false, reason: "insufficient_coverage" }
   }
   const common = await validateRequestCandidate({
     ...args,
@@ -248,7 +276,7 @@ async function verifyDirectCandidate(args: {
     label: candidate.label,
     components: candidate.components,
     params: candidate.params,
-    replayable: common.replayable,
+    replay: common.replayable ? "replayable" : "non-replayable",
     binding: attempt.kind
   }
 }
@@ -278,8 +306,23 @@ async function verifyDelegatedCandidate(args: {
   }
   const grantCandidate = args.grantCandidates[0]
   if (!grantCandidate) return { ok: false, reason: "delegation_grant_missing" }
+
+  if (grantCandidate.params.alg !== undefined) {
+    return { ok: false, reason: "unsupported_algorithm" }
+  }
+  if (
+    grantCandidate.params.nonce !== undefined ||
+    grantCandidate.components.length !== 1 ||
+    !componentIdentifierEquals(
+      grantCandidate.components[0],
+      DELEGATION_COMPONENT
+    )
+  ) {
+    return { ok: false, reason: "bad_grant_signature" }
+  }
+
   const fieldWire = args.request.headers.get(DELEGATION_FIELD_NAME)
-  if (!fieldWire) return { ok: false, reason: "delegation_grant_missing" }
+  if (!fieldWire) return { ok: false, reason: "bad_delegation_field" }
 
   let field: ParsedDelegationField
   try {
@@ -296,20 +339,8 @@ async function verifyDelegatedCandidate(args: {
   if (!keyIdEquals(grantCandidate.params.keyid, identityKey(field.root))) {
     return { ok: false, reason: "grant_root_mismatch" }
   }
-  if (
-    !keyIdEquals(
-      args.candidate.candidate.params.keyid,
-      identityKey(field.delegate)
-    )
-  ) {
-    return { ok: false, reason: "delegate_mismatch" }
-  }
-  if (
-    grantCandidate.params.nonce !== undefined ||
-    grantCandidate.components.length !== 1 ||
-    !includesComponent(grantCandidate.components, DELEGATION_COMPONENT)
-  ) {
-    return { ok: false, reason: "bad_delegation_field" }
+  if (args.policy.principal === "direct") {
+    return { ok: false, reason: "principal_not_allowed" }
   }
 
   const grantTimeFailure = validateGrantTime({
@@ -322,11 +353,39 @@ async function verifyDelegatedCandidate(args: {
   })
   if (grantTimeFailure) return grantTimeFailure
   const requestParams = args.candidate.candidate.params
+  const requestTimeFailure = runTimeChecks({
+    now: args.now,
+    skew: args.skew,
+    maxValiditySec: args.policy.maxValiditySec,
+    created: requestParams.created,
+    expires: requestParams.expires
+  })
+  if (requestTimeFailure) return requestTimeFailure
   if (
     requestParams.created < grantCandidate.params.created - args.skew ||
     requestParams.expires > grantCandidate.params.expires
   ) {
     return { ok: false, reason: "request_outside_grant_window" }
+  }
+
+  if (!keyIdEquals(requestParams.keyid, identityKey(field.delegate))) {
+    return { ok: false, reason: "delegate_mismatch" }
+  }
+
+  const missingRequestBaseline = args.requestBoundRequired.some(
+    (component) =>
+      !includesComponent(args.candidate.candidate.components, component)
+  )
+  if (missingRequestBaseline) {
+    return { ok: false, reason: "insufficient_coverage" }
+  }
+  const missingDelegation = !includesComponent(
+    args.candidate.candidate.components,
+    DELEGATION_COMPONENT
+  )
+  if (missingDelegation) return { ok: false, reason: "delegation_not_covered" }
+  if (!field.replayable && !requestParams.nonce) {
+    return { ok: false, reason: "delegation_nonce_required" }
   }
   if (
     field.maxAge !== undefined &&
@@ -334,25 +393,36 @@ async function verifyDelegatedCandidate(args: {
   ) {
     return { ok: false, reason: "delegation_max_age_exceeded" }
   }
-  if (!field.replayable && !requestParams.nonce) {
-    return { ok: false, reason: "delegation_nonce_required" }
-  }
-
-  const required = [
-    ...args.requestBoundRequired,
-    ...field.components,
-    DELEGATION_COMPONENT
-  ]
-  const missingDelegation = !includesComponent(
-    args.candidate.candidate.components,
-    DELEGATION_COMPONENT
-  )
-  if (missingDelegation) return { ok: false, reason: "delegation_not_covered" }
-  const missingFloor = required.some(
+  const missingFloor = field.components.some(
     (component) =>
       !includesComponent(args.candidate.candidate.components, component)
   )
   if (missingFloor) return { ok: false, reason: "delegation_components_floor" }
+
+  for (const extensionName of field.critical) {
+    if (field.extensions[extensionName] === undefined) {
+      return { ok: false, reason: "bad_delegation_field" }
+    }
+    if (delegationPolicy.extensions?.[extensionName] === undefined) {
+      return { ok: false, reason: "unsupported_critical_extension" }
+    }
+  }
+
+  const attempt: Attempt<ParsedKeyId> = {
+    candidate: args.candidate,
+    kind: "request-bound",
+    policyLength: args.requestBoundRequired.length + field.components.length + 1
+  }
+  const common = await validateRequestCandidate({
+    ...args,
+    attempt,
+    allowReplayable: field.replayable && (args.policy.replayable ?? false),
+    missingNonceReason:
+      field.replayable && !(args.policy.replayable ?? false)
+        ? "replayable_not_allowed"
+        : "nonce_required"
+  })
+  if ("failure" in common) return common.failure
 
   let expectedAudience: string
   try {
@@ -363,18 +433,6 @@ async function verifyDelegatedCandidate(args: {
   if (!field.audiences.includes(expectedAudience)) {
     return { ok: false, reason: "audience_mismatch" }
   }
-
-  const attempt: Attempt<ParsedKeyId> = {
-    candidate: args.candidate,
-    kind: "request-bound",
-    policyLength: required.length
-  }
-  const common = await validateRequestCandidate({
-    ...args,
-    attempt,
-    allowReplayable: field.replayable && (args.policy.replayable ?? false)
-  })
-  if ("failure" in common) return common.failure
 
   const delegateOutcome =
     field.delegateKeyType === "eoa"
@@ -508,16 +566,11 @@ async function verifyDelegatedCandidate(args: {
     principal: field.root,
     signer: field.delegate,
     delegated: true,
-    delegation: {
-      id: field.id,
-      audiences: field.audiences,
-      grantExpires: grantCandidate.params.expires,
-      extensions: field.extensions
-    },
+    delegationId: hexToBytes(field.id),
     label: args.candidate.candidate.label,
     components: args.candidate.candidate.components,
     params: requestParams,
-    replayable: common.replayable,
+    replay: common.replayable ? "replayable" : "non-replayable",
     binding: "request-bound"
   }
 }
@@ -531,6 +584,7 @@ async function validateRequestCandidate(args: {
   policy: NonNullable<VerifyRequestArgs["policy"]>
   now: number
   skew: number
+  missingNonceReason?: "nonce_required" | "replayable_not_allowed"
 }): Promise<
   | {
       signatureBase: Uint8Array
@@ -556,16 +610,20 @@ async function validateRequestCandidate(args: {
     nonceStore: args.nonceStore,
     nonceKey: args.policy.nonceKey,
     maxNonceWindowSec: args.policy.maxNonceWindowSec,
-    clockSkewSec: args.skew
+    clockSkewSec: args.skew,
+    missingNonceReason: args.missingNonceReason
   })
   if (failure) return { failure }
 
-  if (includesComponent(candidate.components, "content-digest")) {
-    if (!args.request.headers.has("content-digest")) {
-      return { failure: { ok: false, reason: "digest_required" } }
-    }
+  if (
+    args.bodyBytes.length > 0 &&
+    !args.request.headers.has("content-digest")
+  ) {
+    return { failure: { ok: false, reason: "content_digest_required" } }
+  }
+  if (args.request.headers.has("content-digest")) {
     if (!(await verifyContentDigest(args.request, args.bodyBytes))) {
-      return { failure: { ok: false, reason: "digest_mismatch" } }
+      return { failure: { ok: false, reason: "bad_content_digest" } }
     }
   }
   let signatureBase: Uint8Array
@@ -580,7 +638,10 @@ async function validateRequestCandidate(args: {
   }
   const signatureBytes = base64Decode(candidate.sigB64)
   if (!signatureBytes?.length) {
-    return { failure: { ok: false, reason: "bad_signature_bytes" } }
+    return { failure: { ok: false, reason: "bad_signature" } }
+  }
+  if (signatureBytes.length > 65_536) {
+    return { failure: { ok: false, reason: "signature_too_large" } }
   }
   return {
     signatureBase,
@@ -607,7 +668,7 @@ async function validateReplayableInvalidation(
 ): Promise<Failure | null> {
   if (candidate.params.nonce) return null
   if (!policy.replayableNotBefore && !policy.replayableInvalidated) {
-    return { ok: false, reason: "replayable_invalidation_required" }
+    return { ok: false, reason: "replayable_not_allowed" }
   }
   const [notBefore, invalidated] = await Promise.all([
     policy.replayableNotBefore?.(candidate.params.keyid),
@@ -617,16 +678,16 @@ async function validateReplayableInvalidation(
     })
   ])
   if (typeof notBefore === "number" && candidate.params.created < notBefore) {
-    return { ok: false, reason: "replayable_not_before" }
+    return { ok: false, reason: "replayable_not_allowed" }
   }
-  return invalidated ? { ok: false, reason: "replayable_invalidated" } : null
+  return invalidated ? { ok: false, reason: "replayable_not_allowed" } : null
 }
 
 async function consumeNonce(plan: NoncePlan): Promise<Failure | null> {
   if (!plan.replayKey || !plan.replayStore) return null
   return (await plan.replayStore.consume(plan.replayKey, plan.replayTtlSeconds))
     ? null
-    : { ok: false, reason: "replay" }
+    : { ok: false, reason: "nonce_reused" }
 }
 
 function validateGrantTime(args: {
@@ -636,7 +697,13 @@ function validateGrantTime(args: {
   skew: number
   maxValidity: number
 }): Failure | null {
-  if (args.expires <= args.created) return { ok: false, reason: "bad_time" }
+  if (
+    !Number.isInteger(args.created) ||
+    !Number.isInteger(args.expires) ||
+    args.expires <= args.created
+  ) {
+    return { ok: false, reason: "invalid_time" }
+  }
   if (args.now + args.skew < args.created) {
     return { ok: false, reason: "grant_not_yet_valid" }
   }
@@ -695,8 +762,17 @@ function positiveInteger(value: number | undefined, fallback: number): number {
     : fallback
 }
 
+function isUnavailableFailure(failure: Failure): boolean {
+  return (
+    failure.reason === "signature_verification_unavailable" ||
+    failure.reason === "grant_verification_unavailable" ||
+    failure.reason === "critical_extension_unavailable"
+  )
+}
+
 type RequestShape = {
   hasQuery: boolean
   hasBody: boolean
+  hasContentDigest: boolean
   hasContentType: boolean
 }

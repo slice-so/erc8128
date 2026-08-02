@@ -34,10 +34,6 @@ export type RoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]> & {
 }
 
 export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
-  /** Preferred label to verify (default "eth"). If not found, verifier can fall back to first label unless strictLabel=true. */
-  label?: string
-  strictLabel?: boolean // default false
-  /** Require the exact RFC 9421 signature role. Untagged candidates never match. */
   /** Select direct, delegated, or either principal class. */
   principal?: "direct" | "delegated" | "either"
   /** Explicit direct-account verification policy. */
@@ -68,7 +64,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
     signature: Hex
   }) => boolean | Promise<boolean>
 
-  /** Maximum number of signatures to verify (default 3). */
+  /** Maximum number of request-signature candidates to verify (default 8). */
   maxSignatureVerifications?: number
 
   /** Time policy */

@@ -40,7 +40,8 @@ if (result.ok) {
   result.delegated // Whether a delegation authenticated the principal
   result.label     // Signature label
   result.components // Signed components
-  result.replayable // true if nonce-less
+  result.replay      // "non-replayable" or "replayable"
+  if (result.delegated) result.delegationId // 32-byte grant identifier
   result.binding   // "request-bound" or "class-bound"
 } else {
   // Failure — check reason
@@ -85,7 +86,7 @@ Replay protection store for non-replayable requests.
 
 - **Type:** [`VerifyPolicy`](/api/types#verifypolicy)
 
-Verification policy with rules for validation. Signatures are verified in the order they appear in `Signature-Input` after filtering to ERC-8128 keyIds and allowed policies. Use `maxSignatureVerifications` to cap how many candidates are tried (default: 3). If `replayable: true`, you must provide either `replayableNotBefore` or `replayableInvalidated`.
+Verification policy with rules for validation. Signatures are verified in the order they appear in `Signature-Input` after filtering to ERC-8128 tags and CAIP-10 key identifiers. Use `maxSignatureVerifications` to cap how many request candidates are tried (default: 8). If `replayable: true`, you must provide either `replayableNotBefore` or `replayableInvalidated`.
 
 ### setHeaders (optional)
 
@@ -105,8 +106,6 @@ const result = await verifyRequest({
   verifyMessage,
   nonceStore,
   policy: {
-  label: 'eth',
-  strictLabel: true,
   replayable: false,
   maxValiditySec: 60,
   maxNonceWindowSec: 60,

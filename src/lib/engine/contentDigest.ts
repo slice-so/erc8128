@@ -33,7 +33,16 @@ export async function setContentDigestHeader(
       "content-digest is required but missing."
     )
   }
-  if (existing && mode === "auto") return request
+  if (existing && (mode === "auto" || mode === "require")) {
+    const resolvedBodyBytes = bodyBytes ?? (await readBodyBytes(request))
+    if (!(await verifyContentDigest(request, resolvedBodyBytes))) {
+      throw new Erc8128Error(
+        "BAD_HEADER_VALUE",
+        "content-digest does not match the request content."
+      )
+    }
+    return request
+  }
 
   const resolvedBodyBytes = bodyBytes ?? (await readBodyBytes(request))
   const digest = await sha256(resolvedBodyBytes)

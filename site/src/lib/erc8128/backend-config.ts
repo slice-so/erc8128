@@ -92,8 +92,7 @@ function shouldCheckVerificationCache<CfHostMetadata, Cf>(
 
   const selected = selectSignatureFromHeaders({
     signatureInputHeader,
-    signatureHeader,
-    policy: {}
+    signatureHeader
   })
   if (!selected.ok) {
     return false
@@ -372,7 +371,7 @@ export function createVerificationRuntime(
         return {
           result: {
             ok: false,
-            reason: "not_request_bound",
+            reason: "no_acceptable_signature",
             detail: `No ERC-8128 policy is configured for ${request.method.toUpperCase()} ${pathname}`
           },
           responseHeaders,
@@ -424,7 +423,12 @@ export function createVerificationRuntime(
         }
       })
 
-      if (result.ok && result.replayable && signatureHeader) {
+      if (
+        result.ok &&
+        !result.delegated &&
+        result.replay === "replayable" &&
+        signatureHeader
+      ) {
         const ttlSec = result.params.expires - Math.floor(Date.now() / 1000)
         if (ttlSec > 0) {
           await runtimeConfig.verificationCache.set(
@@ -433,11 +437,10 @@ export function createVerificationRuntime(
               principal: result.principal,
               signer: result.signer,
               delegated: result.delegated,
-              ...(result.delegation ? { delegation: result.delegation } : {}),
               label: result.label,
               components: result.components,
               params: result.params,
-              replayable: true,
+              replay: "replayable",
               binding: result.binding
             },
             ttlSec

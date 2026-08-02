@@ -22,7 +22,7 @@ const verifier = createVerifierClient({
 
 const result = await verifier.verifyRequest({
   request,
-  policy: { strictLabel: true },
+  policy: { maxValiditySec: 60 },
 })
 ```
 

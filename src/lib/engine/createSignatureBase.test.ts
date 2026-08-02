@@ -80,7 +80,7 @@ describe("createSignatureBaseMinimal", () => {
     expect(text).toContain('"@query": ?foo=bar&baz=1')
   })
 
-  test("@query is empty string when no query", () => {
+  test("@query is ? when no query", () => {
     const req = makeRequest("https://example.com/path")
     const base = createSignatureBaseMinimal({
       request: req,
@@ -88,7 +88,7 @@ describe("createSignatureBaseMinimal", () => {
       signatureParamsValue: '("@query");created=100;expires=200;keyid="k"'
     })
     const text = decodeBase(base)
-    expect(text).toContain('"@query": ')
+    expect(text).toContain('"@query": ?')
   })
 
   test("includes header component values", () => {

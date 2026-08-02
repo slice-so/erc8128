@@ -20,6 +20,7 @@ export function buildAttempts<Key>(
   options: {
     hasQuery: boolean
     hasBody: boolean
+    hasContentDigest?: boolean
     hasContentType?: boolean
     requestBoundExtras: import("../types").ComponentIdentifier[]
     requestBoundRequired: import("../types").ComponentIdentifier[]
@@ -30,6 +31,7 @@ export function buildAttempts<Key>(
   const {
     hasQuery,
     hasBody,
+    hasContentDigest,
     hasContentType,
     requestBoundExtras,
     requestBoundRequired,
@@ -46,7 +48,7 @@ export function buildAttempts<Key>(
     }
     const isRequestBound = isRequestBoundForThisRequest(
       candidate.components,
-      { hasQuery, hasBody, hasContentType },
+      { hasQuery, hasBody, hasContentDigest, hasContentType },
       requestBoundExtras
     )
     if (isRequestBound) {
@@ -92,12 +94,12 @@ export function runTimeChecks(options: {
     !Number.isInteger(expires) ||
     expires <= created
   ) {
-    return { ok: false, reason: "bad_time" }
+    return { ok: false, reason: "invalid_time" }
   }
   const createdSec = created
   const expiresSec = expires
-  if (now + skew < createdSec) return { ok: false, reason: "not_yet_valid" }
-  if (now - skew > expiresSec) return { ok: false, reason: "expired" }
+  if (now + skew < createdSec || now - skew > expiresSec)
+    return { ok: false, reason: "invalid_time" }
 
   // Enforce a bounded validity window by default.
   // Note: treat null/undefined/NaN as "use default" (no bypass).
@@ -106,7 +108,7 @@ export function runTimeChecks(options: {
       ? maxValiditySec
       : DEFAULT_MAX_VALIDITY_SEC
   if (expiresSec - createdSec > maxValidity)
-    return { ok: false, reason: "validity_too_long" }
+    return { ok: false, reason: "request_validity_too_long" }
 
   return null
 }
@@ -119,6 +121,7 @@ export function runNonceChecks(options: {
   nonceKey: ((keyid: string, nonce: string) => string) | undefined
   maxNonceWindowSec: number | null | undefined
   clockSkewSec: number
+  missingNonceReason?: "nonce_required" | "replayable_not_allowed"
 }): {
   failure: Extract<VerifyResult, { ok: false }> | null
   plan: NoncePlan
@@ -136,7 +139,10 @@ export function runNonceChecks(options: {
   const hasNonce = typeof params.nonce === "string" && params.nonce.length > 0
   if (!hasNonce && !allowReplayable) {
     return {
-      failure: { ok: false, reason: "replayable_not_allowed" },
+      failure: {
+        ok: false,
+        reason: options.missingNonceReason ?? "nonce_required"
+      },
       plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }
     }
   }
@@ -160,7 +166,7 @@ export function runNonceChecks(options: {
       params.expires - params.created > maxNonceWindowSec
     ) {
       return {
-        failure: { ok: false, reason: "nonce_window_too_long" },
+        failure: { ok: false, reason: "request_validity_too_long" },
         plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }
       }
     }
@@ -181,7 +187,7 @@ export function runNonceChecks(options: {
       return {
         failure: {
           ok: false,
-          reason: "bad_signature_input",
+          reason: "signature_input_invalid",
           detail: "nonce must be 16-128 printable ASCII bytes"
         },
         plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }

@@ -21,6 +21,7 @@ const COMPONENT_PARAMETER_NAMES = new Set([
   "name"
 ])
 const SIGNATURE_PARAMETER_NAMES = new Set([
+  "alg",
   "created",
   "expires",
   "keyid",
@@ -193,28 +194,20 @@ function parseSignatureParams(member: SfInnerList): SignatureParams {
     }
   }
   const created = values.created
+  const alg = values.alg
   const expires = values.expires
   const keyid = values.keyid
   const nonce = values.nonce
   const tag = values.tag
-  if (
-    !Number.isInteger(created) ||
-    !Number.isInteger(expires) ||
-    typeof keyid !== "string" ||
-    (nonce !== undefined && typeof nonce !== "string") ||
-    (tag !== undefined && typeof tag !== "string")
-  ) {
-    throw new Erc8128Error(
-      "PARSE_ERROR",
-      "Missing or invalid created/expires/keyid in Signature-Input."
-    )
-  }
   return {
-    created: created as number,
-    expires: expires as number,
-    keyid,
-    ...(nonce === undefined ? {} : { nonce: nonce as string }),
-    ...(tag === undefined ? {} : { tag: tag as string })
+    created: Number.isInteger(created) ? (created as number) : Number.NaN,
+    expires: Number.isInteger(expires) ? (expires as number) : Number.NaN,
+    keyid: typeof keyid === "string" ? keyid : "",
+    ...(alg === undefined ? {} : { alg }),
+    ...(nonce === undefined
+      ? {}
+      : { nonce: typeof nonce === "string" ? nonce : "\u0000" }),
+    ...(typeof tag === "string" ? { tag } : {})
   }
 }
 

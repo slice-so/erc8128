@@ -54,6 +54,20 @@ describe("parseSignatureBase", () => {
     })
   })
 
+  it("preserves legal signature-parameter order and unsupported alg for policy checks", () => {
+    const reordered = base.replace(
+      `;nonce="nonce";keyid="${params.keyid}"`,
+      `;keyid="${params.keyid}";nonce="nonce";alg="eip191"`
+    )
+    expect(parseSignatureBase(reordered)?.params).toEqual({
+      created: params.created,
+      expires: params.expires,
+      keyid: params.keyid,
+      nonce: params.nonce,
+      alg: "eip191"
+    })
+  })
+
   it("rejects duplicates, noncanonical params, escaping, and trailing data", () => {
     const cases = [
       base.replace('"@authority":', '"@method":'),

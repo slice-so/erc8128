@@ -13,8 +13,18 @@ import {
   serializeSignatureInputHeader,
   serializeSignatureParamsInnerList
 } from "./lib/engine/serializations"
+import {
+  allocateSignatureLabel,
+  collectSignatureLabels
+} from "./lib/engine/signatureLabels"
+import { invokeFetch } from "./lib/invokeFetch"
 import { formatKeyId } from "./lib/keyId"
 import { resolveNonce } from "./lib/nonce"
+import {
+  redirectMethod,
+  redirectStatuses,
+  unsignedRedirectHeaders
+} from "./lib/redirects"
 import {
   base64Encode,
   hexToBytes,
@@ -82,7 +92,13 @@ export async function signRequest(
   const resolvedOpts = (signOpts ?? {}) as InternalSignOptions
   const request = toRequest(input, init)
 
-  const label = resolvedOpts.label ?? "eth"
+  const label = allocateSignatureLabel(
+    resolvedOpts.label ?? "eth",
+    collectSignatureLabels(
+      request.headers.get("signature-input"),
+      request.headers.get("signature")
+    )
+  )
   const binding = resolvedOpts.binding ?? "request-bound"
   const replay = resolvedOpts.replay ?? "non-replayable"
   const digestMode = resolvedOpts.contentDigest ?? "auto"
@@ -101,7 +117,7 @@ export async function signRequest(
   const hasQuery = url.search.length > 0
   const bodyBytes =
     request.body === null ? new Uint8Array() : await readBodyBytes(request)
-  const hasBody = request.body !== null
+  const hasBody = bodyBytes.length > 0
 
   let components = resolveComponents({
     binding,
@@ -116,6 +132,12 @@ export async function signRequest(
   ) {
     components.push({ name: "content-type" })
   }
+  if (
+    request.headers.has("content-digest") &&
+    !includesComponent(components, "content-digest")
+  ) {
+    components.push({ name: "content-digest" })
+  }
 
   let signedRequest = request
 
@@ -126,8 +148,8 @@ export async function signRequest(
       digestMode,
       bodyBytes
     )
-  } else if (binding === "request-bound" && hasBody) {
-    // Auto-add content-digest for request-bound with body
+  } else if (hasBody) {
+    // Every signed request with content carries and covers its digest.
     components = [...components, { name: "content-digest" }]
     signedRequest = await setContentDigestHeader(
       signedRequest,
@@ -163,24 +185,35 @@ export async function signRequest(
 
   const sigHex = await signer.signMessage(M)
   const sigBytes = hexToBytes(sigHex)
-  if (sigBytes.length === 0)
+  if (sigBytes.length === 0 || sigBytes.length > 65_536)
     throw new Erc8128Error(
       "UNSUPPORTED_REQUEST",
-      "Signer returned empty signature."
+      "Signer returned a signature outside the supported size."
     )
 
   const sigB64 = base64Encode(sigBytes)
   const signatureHeader = serializeSignatureHeader(label, sigB64)
 
   const headers = new Headers(signedRequest.headers)
-  headers.set(
-    "Signature-Input",
-    appendDictionaryMember(headers.get("Signature-Input"), signatureInputHeader)
+  const combinedSignatureInput = appendDictionaryMember(
+    headers.get("Signature-Input"),
+    signatureInputHeader
   )
-  headers.set(
-    "Signature",
-    appendDictionaryMember(headers.get("Signature"), signatureHeader)
+  const combinedSignature = appendDictionaryMember(
+    headers.get("Signature"),
+    signatureHeader
   )
+  if (
+    new TextEncoder().encode(combinedSignatureInput).length > 65_536 ||
+    new TextEncoder().encode(combinedSignature).length > 65_536
+  ) {
+    throw new Erc8128Error(
+      "UNSUPPORTED_REQUEST",
+      "Signature fields exceed the supported size."
+    )
+  }
+  headers.set("Signature-Input", combinedSignatureInput)
+  headers.set("Signature", combinedSignature)
 
   return new Request(signedRequest, { headers })
 }
@@ -230,12 +263,42 @@ export async function signedFetch(
     resolvedOpts = opts
   }
 
-  const req = await signRequest(input, init, signer, resolvedOpts)
-  const f = resolvedOpts?.fetch ?? globalThis.fetch
-  if (typeof f !== "function")
-    throw new Erc8128Error(
-      "UNSUPPORTED_REQUEST",
-      "No fetch implementation available. Provide opts.fetch."
+  let nextInput = input
+  let nextInit = init
+  let signingOptions = resolvedOpts
+  for (let redirects = 0; redirects <= 10; redirects += 1) {
+    const signed = await signRequest(
+      nextInput,
+      nextInit,
+      signer,
+      signingOptions
     )
-  return f(req)
+    const redirectedBody =
+      signed.method === "GET" || signed.method === "HEAD"
+        ? undefined
+        : await signed.clone().arrayBuffer()
+    const response = await invokeFetch(
+      signingOptions?.fetch,
+      new Request(signed, { redirect: "manual" })
+    )
+    if (!redirectStatuses.has(response.status)) return response
+    const location = response.headers.get("location")
+    if (!location) return response
+    if (redirects === 10) {
+      throw new Erc8128Error("UNSUPPORTED_REQUEST", "Too many redirects.")
+    }
+    const target = new URL(location, signed.url)
+    const method = redirectMethod(response.status, signed.method)
+    nextInput = target.href
+    if (typeof signingOptions?.nonce === "string") {
+      const { nonce: _usedNonce, ...redirectOptions } = signingOptions
+      signingOptions = redirectOptions
+    }
+    nextInit = {
+      method,
+      headers: unsignedRedirectHeaders(signed.headers),
+      ...(method === "GET" || method === "HEAD" ? {} : { body: redirectedBody })
+    }
+  }
+  throw new Erc8128Error("UNSUPPORTED_REQUEST", "Redirect processing failed.")
 }

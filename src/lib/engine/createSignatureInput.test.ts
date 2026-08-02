@@ -104,10 +104,11 @@ describe("parseSignatureInputDictionary", () => {
     ).toThrow(Erc8128Error)
   })
 
-  test("throws on missing created/expires/keyid", () => {
-    expect(() => parseSignatureInputDictionary('eth=("@authority")')).toThrow(
-      Erc8128Error
-    )
+  test("retains invalid profile parameters for precise verification errors", () => {
+    const [parsed] = parseSignatureInputDictionary('eth=("@authority")')
+    expect(parsed?.params.keyid).toBe("")
+    expect(parsed?.params.created).toBeNaN()
+    expect(parsed?.params.expires).toBeNaN()
   })
 
   test("canonicalizes signatureParamsValue", () => {

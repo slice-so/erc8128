@@ -29,14 +29,6 @@ function reasonToStatus(reason: string): ContentfulStatusCode {
     return 503
   }
 
-  if (
-    reason === "missing_headers" ||
-    reason === "bad_signature_input" ||
-    reason === "bad_keyid"
-  ) {
-    return 400
-  }
-
   return 401
 }
 
@@ -63,13 +55,13 @@ export function buildVerifyResultResponse(args: {
         principal: verifyResult.principal,
         signer: verifyResult.signer,
         delegated: verifyResult.delegated,
-        ...(verifyResult.delegation
-          ? { delegation: verifyResult.delegation }
+        ...(verifyResult.delegated
+          ? { delegationId: bytesToHex(verifyResult.delegationId) }
           : {}),
         label: verifyResult.label,
         components: verifyResult.components,
         binding: verifyResult.binding,
-        replayable: verifyResult.replayable,
+        replayable: verifyResult.replay === "replayable",
         params: verifyResult.params,
         ...withCachedVerification(metadata)
       },
@@ -90,6 +82,12 @@ export function buildVerifyResultResponse(args: {
     },
     headers: copyHeaders(responseHeaders)
   }
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return `0x${Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("")}`
 }
 
 export function buildVerifyExceptionResponse(args: {

@@ -57,15 +57,30 @@ describe("setContentDigestHeader", () => {
     expect(header).toMatch(/^sha-256=:[A-Za-z0-9+/]+=*:$/)
   })
 
-  test("mode=auto preserves existing header", async () => {
+  test("mode=auto preserves a verified existing header", async () => {
+    const req = await setContentDigestHeader(
+      new Request("https://example.com", {
+        method: "POST",
+        body: "hello"
+      }),
+      "recompute"
+    )
+    const result = await setContentDigestHeader(req, "auto")
+    expect(result.headers.get("content-digest")).toBe(
+      req.headers.get("content-digest")
+    )
+    expect(result).toBe(req)
+  })
+
+  test("mode=auto rejects a mismatched existing header", async () => {
     const req = new Request("https://example.com", {
       method: "POST",
       body: "hello",
       headers: { "content-digest": "sha-256=:existing:" }
     })
-    const result = await setContentDigestHeader(req, "auto")
-    expect(result.headers.get("content-digest")).toBe("sha-256=:existing:")
-    expect(result).toBe(req)
+    await expect(setContentDigestHeader(req, "auto")).rejects.toThrow(
+      "does not match"
+    )
   })
 
   test("mode=recompute overwrites existing header", async () => {

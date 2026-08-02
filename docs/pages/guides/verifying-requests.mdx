@@ -49,7 +49,7 @@ const verifier = createVerifierClient({
 
 const result = await verifier.verifyRequest({
   request,
-  policy: { strictLabel: true },
+  policy: { maxValiditySec: 60 },
 })
 ```
 
@@ -129,42 +129,13 @@ const result = await verifyRequest({
 
 :::
 
-### Label Selection
+### Label Correlation
 
-When multiple signatures exist on a request:
-
-:::code-group
-
-```typescript [Default (Prefer Label)]
-// Prefer "eth" label, fall back to first valid
-const result = await verifyRequest({
-  request,
-  verifyMessage: verifyMessageFn,
-  nonceStore,
-  policy: {
-  label: 'eth',
-  },
-})
-```
-
-```typescript [Strict (Require Label)]
-// Require exact label match
-const result = await verifyRequest({
-  request,
-  verifyMessage: verifyMessageFn,
-  nonceStore,
-  policy: {
-  label: 'user',
-  strictLabel: true,  // Fail if "user" label not found
-  },
-})
-```
-
-:::
+RFC 9421 labels only correlate `Signature-Input` and `Signature` members. ERC-8128 candidates are selected by their signed `tag` and CAIP-10 `keyid`, never by label.
 
 ### Component Policies
 
-By default, the verifier enforces that signatures are **request-bound** — covering `@authority`, `@method`, `@path`, plus `@query` and `content-digest` when the request has a query string or body. This rejects all class-bound signatures. Non-replayable request-bound signatures always pass when their components match the required policy. Other cases depend on the configured policies and signature params (e.g. `replayable`, class-bound policy, timing, nonce window).
+By default, the verifier enforces that signatures are **request-bound** — covering `@scheme`, `@authority`, `@method`, `@path`, and `@query` unconditionally. A received non-empty body also requires a covered, recomputed `content-digest`, and a received `content-type` is always covered. This rejects all class-bound signatures unless a route explicitly enables a weaker policy. Other cases depend on the configured replay, timing, and nonce policies.
 
 Use `additionalRequestBoundComponents` to require additional components alongside the default request-bound set. Use `classBoundPolicies` to opt into class-bound signatures by listing acceptable component sets (order does not matter):
 

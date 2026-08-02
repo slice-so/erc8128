@@ -11,12 +11,12 @@ import type {
 import { Erc8128Error } from "../Erc8128Error"
 import { base64Decode, base64Encode } from "../utilities"
 
-const MAX_FIELD_LENGTH = 16_384
+const MAX_FIELD_LENGTH = 65_536
 const MAX_DICTIONARY_MEMBERS = 64
 const MAX_INNER_LIST_ITEMS = 64
 const MAX_PARAMETERS = 32
 const MAX_STRING_LENGTH = 4_096
-const MAX_BINARY_LENGTH = 8_192
+const MAX_BINARY_LENGTH = 65_536
 
 export function parseSfDictionary(value: string): SfDictionary {
   if (value.length === 0 || value.length > MAX_FIELD_LENGTH) {

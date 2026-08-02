@@ -7,6 +7,7 @@ import { Erc8128Error } from "../Erc8128Error"
 import { serializeSfMember } from "./structuredFields"
 
 const PARAMETER_NAMES = ["sf", "bs", "tr", "req", "key", "name"] as const
+const parameterNameSet = new Set<string>(PARAMETER_NAMES)
 
 export function normalizeComponentIdentifier(
   component: CoveredComponent
@@ -14,11 +15,17 @@ export function normalizeComponentIdentifier(
   const name = (typeof component === "string" ? component : component.name)
     .trim()
     .toLowerCase()
-  if (!name || /[\r\n"]/u.test(name)) {
+  if (!/^@[a-z][a-z0-9-]*$|^[!#$%&'*+.^_`|~0-9a-z-]+$/.test(name)) {
     throw new Erc8128Error("INVALID_OPTIONS", "Invalid component name.")
   }
   if (typeof component === "string" || component.params === undefined) {
     return { name }
+  }
+  if (Object.keys(component.params).some((key) => !parameterNameSet.has(key))) {
+    throw new Erc8128Error(
+      "INVALID_OPTIONS",
+      "Unsupported component parameter."
+    )
   }
   const params: NonNullable<ComponentIdentifier["params"]> = {}
   for (const parameter of PARAMETER_NAMES) {

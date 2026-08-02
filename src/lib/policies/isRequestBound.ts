@@ -6,7 +6,12 @@ import {
 
 export function isRequestBoundForThisRequest(
   components: ComponentIdentifier[],
-  reqShape: { hasQuery: boolean; hasBody: boolean; hasContentType?: boolean },
+  reqShape: {
+    hasQuery: boolean
+    hasBody: boolean
+    hasContentDigest?: boolean
+    hasContentType?: boolean
+  },
   extraComponents?: CoveredComponent[]
 ): boolean {
   const needed = requiredRequestBoundComponents(reqShape, extraComponents)
@@ -14,7 +19,12 @@ export function isRequestBoundForThisRequest(
 }
 
 export function requiredRequestBoundComponents(
-  reqShape: { hasQuery: boolean; hasBody: boolean; hasContentType?: boolean },
+  reqShape: {
+    hasQuery: boolean
+    hasBody: boolean
+    hasContentDigest?: boolean
+    hasContentType?: boolean
+  },
   extraComponents?: CoveredComponent[]
 ): ComponentIdentifier[] {
   const needed = normalizeComponentIdentifiers([
@@ -25,7 +35,8 @@ export function requiredRequestBoundComponents(
     "@query"
   ])
   // If body present, must include content-digest
-  if (reqShape.hasBody) needed.push({ name: "content-digest" })
+  if (reqShape.hasBody || reqShape.hasContentDigest)
+    needed.push({ name: "content-digest" })
   if (reqShape.hasContentType) needed.push({ name: "content-type" })
 
   if (extraComponents) {

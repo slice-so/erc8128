@@ -1,4 +1,4 @@
-import type { Address, ComponentIdentifier, Hex, SfMember } from "./core"
+import type { Address, ComponentIdentifier, Hex } from "./core"
 import type { VerifyPolicy } from "./policy"
 import type {
   BindingMode,
@@ -52,46 +52,45 @@ export type VerifyResult =
       ok: true
       principal: { address: Address; chainId: number }
       signer: { address: Address; chainId: number }
-      delegated: boolean
-      delegation?: {
-        id: Hex
-        audiences: string[]
-        grantExpires: number
-        extensions: Record<string, SfMember>
-      }
+      delegated: false
       label: string
       components: ComponentIdentifier[]
       params: SignatureParams
-      replayable: boolean
+      replay: ReplayMode
       binding: BindingMode
+    }
+  | {
+      ok: true
+      principal: { address: Address; chainId: number }
+      signer: { address: Address; chainId: number }
+      delegated: true
+      delegationId: Uint8Array
+      label: string
+      components: ComponentIdentifier[]
+      params: SignatureParams
+      replay: ReplayMode
+      binding: "request-bound"
     }
   | { ok: false; reason: VerifyFailReason; detail?: string }
 
 export type VerifyFailReason =
-  | "missing_headers"
-  | "label_not_found"
-  | "tag_not_found"
-  | "bad_signature_input"
-  | "bad_signature"
-  | "bad_keyid"
-  | "bad_time"
-  | "not_yet_valid"
-  | "expired"
-  | "validity_too_long"
+  | "signature_missing"
+  | "no_acceptable_signature"
+  | "signature_input_invalid"
+  | "signature_too_large"
+  | "invalid_keyid"
+  | "invalid_time"
+  | "request_validity_too_long"
+  | "insufficient_coverage"
+  | "content_digest_required"
+  | "bad_content_digest"
   | "nonce_required"
+  | "nonce_reused"
   | "replayable_not_allowed"
-  | "replayable_invalidation_required"
-  | "replayable_not_before"
-  | "replayable_invalidated"
-  | "class_bound_not_allowed"
-  | "not_request_bound"
-  | "nonce_window_too_long"
-  | "replay"
-  | "digest_mismatch"
-  | "digest_required"
-  | "alg_not_allowed"
-  | "bad_signature_bytes"
-  | "bad_signature_check"
+  | "unsupported_algorithm"
+  | "bad_signature"
+  | "signature_verification_unavailable"
+  | "principal_not_allowed"
   | "unsupported_delegation"
   | "delegation_grant_missing"
   | "delegation_grant_ambiguous"
@@ -111,7 +110,6 @@ export type VerifyFailReason =
   | "delegation_components_floor"
   | "unsupported_critical_extension"
   | "delegation_extension_rejected"
-  | "signature_verification_unavailable"
   | "grant_verification_unavailable"
   | "critical_extension_unavailable"
 

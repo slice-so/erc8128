@@ -43,8 +43,12 @@ const BASE_MEMBERS = new Set([
   "crit"
 ])
 const MAX_AUDIENCES = 16
+const MAX_COMPONENTS = 16
+const MAX_CRITICAL = 16
+const MAX_DICTIONARY_MEMBERS = 32
 const MAX_EXTENSIONS = 16
-const MAX_FIELD_BYTES = 8_192
+const MAX_FIELD_BYTES = 16_384
+const encoder = new TextEncoder()
 
 export function formatDelegationField(args: DelegationGrantBuildArgs): string {
   const root = formatIdentity(args.root)
@@ -73,6 +77,9 @@ export function formatDelegationField(args: DelegationGrantBuildArgs): string {
       throw invalid(`Extension conflicts with ${name}.`)
   }
   const critical = Array.from(new Set(args.critical ?? [])).sort()
+  if (critical.length > MAX_CRITICAL) {
+    throw invalid("Delegation has too many critical extensions.")
+  }
   for (const name of critical) {
     if (extensions[name] === undefined) {
       throw invalid(`Critical extension ${name} is missing.`)
@@ -107,22 +114,35 @@ export function formatDelegationField(args: DelegationGrantBuildArgs): string {
     ...extensions
   }
   const fieldValue = serializeSfDictionary(members)
-  if (fieldValue.length > MAX_FIELD_BYTES) {
+  if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
     throw invalid("Delegation field exceeds the supported size.")
   }
-  return fieldValue
+  try {
+    return parseDelegationField(fieldValue).fieldValue
+  } catch (error) {
+    if (error instanceof Erc8128Error) {
+      throw invalid(error.message)
+    }
+    throw error
+  }
 }
 
 export function parseDelegationField(
   fieldValue: string
 ): ParsedDelegationField {
-  if (fieldValue.length > MAX_FIELD_BYTES) {
+  if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
     throw new Erc8128Error(
       "DELEGATION_TOO_LARGE",
       "Delegation field is too large."
     )
   }
   const members = parseSfDictionary(fieldValue)
+  if (Object.keys(members).length > MAX_DICTIONARY_MEMBERS) {
+    throw new Erc8128Error(
+      "DELEGATION_TOO_LARGE",
+      "Delegation has too many dictionary members."
+    )
+  }
   const rootValue = requireStringItem(members.root, "root")
   const delegateMember = requireItem(members.delegate, "delegate")
   if (typeof delegateMember.value !== "string") {
@@ -169,7 +189,10 @@ export function parseDelegationField(
   const replayable = optionalBoolean(members.replayable, "replayable") ?? false
   const components = optionalComponentList(members.components)
   const critical = members.crit ? requireStringList(members.crit, "crit") : []
-  if (new Set(critical).size !== critical.length) {
+  if (
+    critical.length > MAX_CRITICAL ||
+    new Set(critical).size !== critical.length
+  ) {
     throw parseError("Critical extension names must be unique.")
   }
 
@@ -395,13 +418,22 @@ function optionalComponentList(
         "@method",
         "@path",
         "@query",
-        "content-digest"
+        "@signature-params",
+        "content-digest",
+        "content-type",
+        DELEGATION_FIELD_NAME
       ].includes(component.name)
     ) {
       throw parseError("components must not restate the delegated baseline.")
     }
     return component
   })
+  if (components.length > MAX_COMPONENTS) {
+    throw new Erc8128Error(
+      "DELEGATION_TOO_LARGE",
+      "Delegation has too many component requirements."
+    )
+  }
   if (
     new Set(components.map(serializeComponentIdentifier)).size !==
     components.length

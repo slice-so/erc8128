@@ -2,7 +2,8 @@ import type {
   Address,
   ComponentIdentifier,
   CoveredComponent,
-  Hex
+  Hex,
+  SfBareItem
 } from "./core"
 import type { ServerConfig } from "./policy"
 
@@ -44,6 +45,11 @@ export type SignatureParams = {
   tag?: string
 }
 
+export type ParsedSignatureParams = SignatureParams & {
+  /** RFC 9421 parameter retained so the ERC profile can reject it explicitly. */
+  alg?: SfBareItem
+}
+
 export type SelectedSignature = {
   label: string
   components: ComponentIdentifier[]
@@ -53,6 +59,7 @@ export type SelectedSignature = {
     expires: number
     nonce?: string
     tag?: string
+    alg?: SfBareItem
   }
   signatureParamsValue: string
   sigB64: string
@@ -61,7 +68,7 @@ export type SelectedSignature = {
 export type ParsedSignatureInputMember = {
   label: string
   components: ComponentIdentifier[]
-  params: SignatureParams
+  params: ParsedSignatureParams
   signatureParamsValue: string // canonical Inner List value after "label="
 }
 

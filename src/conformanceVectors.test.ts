@@ -41,7 +41,7 @@ type ConformanceVector = {
     signer: Address
     delegated: boolean
     binding: "request-bound"
-    replayable: false
+    replay: "non-replayable"
   }
 }
 
@@ -51,7 +51,7 @@ const vectors: ConformanceVector[] = fixture.vectors.map((vector) => {
   }
   if (
     vector.expected.binding !== "request-bound" ||
-    vector.expected.replayable !== false
+    vector.expected.replay !== "non-replayable"
   ) {
     throw new Error(`Unsupported conformance posture: ${vector.id}`)
   }
@@ -92,7 +92,7 @@ const vectors: ConformanceVector[] = fixture.vectors.map((vector) => {
       signer: vector.expected.signer as Address,
       delegated: vector.expected.delegated,
       binding: vector.expected.binding,
-      replayable: vector.expected.replayable
+      replay: vector.expected.replay
     }
   }
 })
@@ -166,11 +166,19 @@ test.each(vectors)("verifies conformance vector $id", async (vector) => {
     request,
     nonceStore: new BoundedMemoryNonceStore(),
     policy: {
-      now: () => 1_760_000_020,
+      now: () => 1_700_000_001,
+      clockSkewSec: 30,
       principal: vector.kind,
       ...(vector.kind === "direct"
         ? { accountVerification: "eoa-only" as const }
-        : { delegation: { audience: "https://api.example" } })
+        : {
+            delegation: {
+              audience: "https://api.example",
+              extensions: {
+                "erc8128-revocation": async () => true
+              }
+            }
+          })
     },
     verifyMessage: async ({ address, message, signature }) =>
       (
@@ -190,5 +198,5 @@ test.each(vectors)("verifies conformance vector $id", async (vector) => {
   )
   expect(result.delegated).toBe(vector.expected.delegated)
   expect(result.binding).toBe(vector.expected.binding)
-  expect(result.replayable).toBe(vector.expected.replayable)
+  expect(result.replay).toBe(vector.expected.replay)
 })
