@@ -29,10 +29,12 @@
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
-    }
+    },
+    "./conformance-vectors.json": "./conformance-vectors.json"
   },
   "files": [
-    "./dist"
+    "./dist",
+    "./conformance-vectors.json"
   ],
   "dependencies": {
     "@noble/hashes": "^2.2.0",

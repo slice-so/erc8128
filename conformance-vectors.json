@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "vectors": [
+    {
+      "id": "direct-request-v1",
+      "kind": "direct",
+      "request": {
+        "method": "POST",
+        "url": "https://api.example/orders?cursor=1",
+        "headers": {
+          "content-digest": "sha-256=:DWOWy8gMX7eseBfk4bxnA4broRp3roQzklyzyElFBzo=:",
+          "content-type": "application/json",
+          "signature": "eth=:c6nvMuV6T25iqPNrDnBW2nhjIPl5QXyPwMJoLCCmd0MdsGZsmzcPj2ZpUxnFRHlFUbKGBPk0XoxMFSqsfPsp+Rw=:",
+          "signature-input": "eth=(\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"content-digest\" \"content-type\");created=1760000000;expires=1760000060;nonce=\"direct-vector-0001\";tag=\"erc8128\";keyid=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\""
+        },
+        "body": "{\"quantity\":2,\"sku\":\"slice-1\"}"
+      },
+      "requestSignature": {
+        "label": "eth",
+        "signatureBase": "\"@scheme\": https\n\"@authority\": api.example\n\"@method\": POST\n\"@path\": /orders\n\"@query\": ?cursor=1\n\"content-digest\": sha-256=:DWOWy8gMX7eseBfk4bxnA4broRp3roQzklyzyElFBzo=:\n\"content-type\": application/json\n\"@signature-params\": (\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"content-digest\" \"content-type\");created=1760000000;expires=1760000060;nonce=\"direct-vector-0001\";tag=\"erc8128\";keyid=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\"",
+        "eip191Hash": "0xad3b709b4984bb5cbfabfd178415086924b5d38a8f767c9b28bd1749a7d78c67",
+        "signature": "0x73a9ef32e57a4f6e62a8f36b0e7056da786320f979417c8fc0c2682c20a677431db0666c9b370f8f66695319c544794551b28604f9345e8c4c152aac7cfb29f91c"
+      },
+      "expected": {
+        "principal": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+        "signer": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+        "delegated": false,
+        "binding": "request-bound",
+        "replayable": false
+      }
+    },
+    {
+      "id": "delegated-request-v1",
+      "kind": "delegated",
+      "request": {
+        "method": "GET",
+        "url": "https://api.example/orders?cursor=2",
+        "headers": {
+          "erc-8128-delegation": "root=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\", delegate=\"eip155:8453:0x1563915e194d8cfba1943570603f7606a3115508\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM=:, max-age=60, replayable=?0, components=(\"x-tenant\")",
+          "signature": "grant=:QDKbn4pA8F6GmM2j/QRxVACjxlQ0SPLWMCq8RZ1rtCYC0mklRM4VEb50QTdwVJ7OtiAZHigG8MtQlzBMFndIIhw=:, eth=:1RnKmUnVDiF5Wx2asRbVZC/X+W7JleM8UC7g7b8lZV5rJSbki+t8KVRjPMdDloFkQReeeh8Dg31gn0M00eidMBw=:",
+          "signature-input": "grant=(\"erc-8128-delegation\";sf);created=1760000000;expires=1760000600;tag=\"erc8128-delegation\";keyid=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\", eth=(\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"x-tenant\" \"erc-8128-delegation\";sf);created=1760000010;expires=1760000055;nonce=\"delegated-vector-0001\";tag=\"erc8128-delegated\";keyid=\"eip155:8453:0x1563915e194d8cfba1943570603f7606a3115508\"",
+          "x-tenant": "store-7"
+        }
+      },
+      "requestSignature": {
+        "label": "eth",
+        "signatureBase": "\"@scheme\": https\n\"@authority\": api.example\n\"@method\": GET\n\"@path\": /orders\n\"@query\": ?cursor=2\n\"x-tenant\": store-7\n\"erc-8128-delegation\";sf: root=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\", delegate=\"eip155:8453:0x1563915e194d8cfba1943570603f7606a3115508\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM=:, max-age=60, replayable=?0, components=(\"x-tenant\")\n\"@signature-params\": (\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"x-tenant\" \"erc-8128-delegation\";sf);created=1760000010;expires=1760000055;nonce=\"delegated-vector-0001\";tag=\"erc8128-delegated\";keyid=\"eip155:8453:0x1563915e194d8cfba1943570603f7606a3115508\"",
+        "eip191Hash": "0x59be8db88aafad05225b03bc7043a548e7e04d19b5aa3fc7905ab42a6687c8f5",
+        "signature": "0xd519ca9949d50e21795b1d9ab116d5642fd7f96ec995e33c502ee0edbf25655e6b2526e48beb7c2954633cc74396816441179e7a1f03837d609f4334d1e89d301c"
+      },
+      "grantSignature": {
+        "signatureBase": "\"erc-8128-delegation\";sf: root=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\", delegate=\"eip155:8453:0x1563915e194d8cfba1943570603f7606a3115508\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM=:, max-age=60, replayable=?0, components=(\"x-tenant\")\n\"@signature-params\": (\"erc-8128-delegation\";sf);created=1760000000;expires=1760000600;tag=\"erc8128-delegation\";keyid=\"eip155:8453:0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a\"",
+        "eip191Hash": "0xba0f15b68e4e728ce1f65726ceb66cc20a254e72fb51ce99efb9e5d5e5021070",
+        "signature": "0x40329b9f8a40f05e8698cda3fd04715400a3c6543448f2d6302abc459d6bb42602d2692544ce1511be74413770549eceb620191e2806f0cb5097304c167748221c"
+      },
+      "expected": {
+        "principal": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
+        "signer": "0x1563915e194D8CfBA1943570603F7606A3115508",
+        "delegated": true,
+        "binding": "request-bound",
+        "replayable": false
+      }
+    }
+  ]
+}
