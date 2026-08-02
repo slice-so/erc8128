@@ -8,6 +8,7 @@ export {
   buildDelegationGrant,
   completeDelegationGrant,
   getDelegationGrantSignatureBase,
+  maximumDelegationGrantSignatureBytes,
   signDelegationGrant
 } from "./lib/delegation/createDelegationGrant"
 export { createDelegatedSignerClient } from "./lib/delegation/delegatedSignerClient"

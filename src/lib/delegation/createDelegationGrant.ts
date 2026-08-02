@@ -20,6 +20,8 @@ import {
   TAG_DELEGATION
 } from "./delegationField"
 
+export const maximumDelegationGrantSignatureBytes = 4_096
+
 export function buildDelegationGrant(
   args: DelegationGrantBuildArgs
 ): PreparedDelegationGrant {
@@ -61,7 +63,10 @@ export function completeDelegationGrant(
 ): DelegationGrant {
   const signatureBytes =
     signature instanceof Uint8Array ? signature : hexToBytes(signature)
-  if (signatureBytes.length === 0 || signatureBytes.length > 4_096) {
+  if (
+    signatureBytes.length === 0 ||
+    signatureBytes.length > maximumDelegationGrantSignatureBytes
+  ) {
     throw new Erc8128Error(
       "INVALID_OPTIONS",
       "Grant signature has an unsupported size."
