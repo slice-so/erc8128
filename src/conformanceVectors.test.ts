@@ -81,6 +81,46 @@ test("verifies the updated direct conformance vector", async () => {
 })
 
 describe("direct conformance classifications", () => {
+  test("ignores foreign non-Byte-Sequence Signature members", async () => {
+    const request = vectorRequest()
+    const headers = new Headers(request.headers)
+    headers.set("signature", `${headers.get("signature")}, cdn="not-bytes"`)
+
+    expect((await verifyDirect(new Request(request, { headers }))).ok).toBe(
+      true
+    )
+  })
+
+  test("scopes SF-valid non-Byte-Sequence members to their candidates", async () => {
+    const signatureInput = vector.request.headers["signature-input"]
+    const signature = vector.request.headers.signature
+    const memberValue = signatureInput.slice(signatureInput.indexOf("=") + 1)
+    const invalidMembers = [
+      'request="not-bytes"',
+      "request=cdn",
+      "request=::",
+      "request=:AA==:;vendor"
+    ]
+
+    for (const invalidMember of invalidMembers) {
+      const request = vectorRequest()
+      const headers = new Headers(request.headers)
+      headers.set("signature", invalidMember)
+      expect(await verifyDirect(new Request(request, { headers }))).toEqual({
+        ok: false,
+        reason: "signature_input_invalid"
+      })
+    }
+
+    const request = vectorRequest()
+    const headers = new Headers(request.headers)
+    headers.set("signature-input", `first=${memberValue}, ${signatureInput}`)
+    headers.set("signature", `first="not-bytes", ${signature}`)
+    expect((await verifyDirect(new Request(request, { headers }))).ok).toBe(
+      true
+    )
+  })
+
   test("atomically admits exactly one concurrent submission", async () => {
     const store = new BoundedMemoryNonceStore()
     const results = await Promise.all(
@@ -114,6 +154,15 @@ describe("direct conformance classifications", () => {
         mutate((headers) =>
           headers.set(
             "signature-input",
+            signatureInput().replace(";created=1700000000", "")
+          )
+        ),
+        "invalid_time"
+      ],
+      [
+        mutate((headers) =>
+          headers.set(
+            "signature-input",
             signatureInput().replace(
               /keyid="[^"]+"/,
               'keyid="eip155:01:0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"'
@@ -133,6 +182,27 @@ describe("direct conformance classifications", () => {
           )
         ),
         "invalid_time"
+      ],
+      [
+        mutate((headers) =>
+          headers.set(
+            "signature-input",
+            signatureInput().replace(/nonce="[^"]+"/, "nonce=token")
+          )
+        ),
+        "invalid_nonce"
+      ],
+      [
+        mutate((headers) =>
+          headers.set(
+            "signature-input",
+            signatureInput().replace(
+              /nonce="[^"]+"/,
+              `nonce="${"n".repeat(129)}"`
+            )
+          )
+        ),
+        "invalid_nonce"
       ],
       [
         mutate((headers) =>

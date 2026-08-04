@@ -46,6 +46,41 @@ describe("selectSignatureFromHeaders", () => {
     expect(result.selected[0]?.sigB64).toBeUndefined()
   })
 
+  test("treats SF-valid non-Byte-Sequence members as uncorrelated", () => {
+    const { sigInput } = makeHeaders("eth", EIP_KEYID)
+    for (const signatureHeader of [
+      'eth="not-bytes"',
+      "eth=token",
+      "eth=::",
+      "eth=:AA==:;vendor"
+    ]) {
+      const result = selectSignatureFromHeaders({
+        signatureInputHeader: sigInput,
+        signatureHeader
+      })
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("unreachable")
+      expect(result.selected[0]?.sigB64).toBeUndefined()
+    }
+  })
+
+  test("maps the 64-member Dictionary cap to signature_too_large", () => {
+    const signatureInputHeader = Array.from(
+      { length: 65 },
+      (_, index) => makeHeaders(`s${index}`, EIP_KEYID).sigInput
+    ).join(", ")
+    const result = selectSignatureFromHeaders({
+      signatureInputHeader,
+      signatureHeader: "s0=:AAAA:"
+    })
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.result).toMatchObject({
+      ok: false,
+      reason: "signature_too_large"
+    })
+  })
+
   test("returns signature_input_invalid for malformed Signature-Input", () => {
     const result = selectSignatureFromHeaders({
       signatureInputHeader: "eth=(",
@@ -62,7 +97,7 @@ describe("selectSignatureFromHeaders", () => {
     const sigInput = `eth=("@authority");created=100;expires=200;keyid="${EIP_KEYID}"`
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
-      signatureHeader: "not-a-dictionary"
+      signatureHeader: "eth=:!!!!:"
     })
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error("unreachable")

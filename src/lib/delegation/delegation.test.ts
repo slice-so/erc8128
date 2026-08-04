@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { type Hex, recoverAddress } from "viem"
+import { type Hex, hashDomain, hashStruct, recoverAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { BoundedMemoryNonceStore } from "../../stores"
 import type {
@@ -9,7 +9,11 @@ import type {
   NonceStore
 } from "../../types"
 import { verifyRequest } from "../../verify"
+import { hashEthereumMessage } from "../ecdsa"
+import { createSignatureBaseMinimal } from "../engine/createSignatureBase"
+import { parseSignatureInputHeader } from "../engine/createSignatureInput"
 import { formatErc8128ProblemDetails } from "../problemDetails"
+import { bytesToHex } from "../utilities"
 import { completeDelegationGrant } from "./createDelegationGrant"
 import { createDelegatedSignerClient } from "./delegatedSignerClient"
 import { resolveDelegationChain } from "./delegationChain"
@@ -145,6 +149,39 @@ describe("EIP-712 Delegation grants", () => {
   })
 
   test("matches the fixed grant digests and signatures", async () => {
+    const g0TypedData = getDelegationTypedData(g0Grant)
+    const g1TypedData = getDelegationTypedData(g1Grant)
+    const types = {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" }
+      ],
+      ...g0TypedData.types
+    } as const
+    expect(
+      hashDomain({
+        domain: {
+          ...g0TypedData.domain,
+          chainId: BigInt(g0TypedData.domain.chainId)
+        },
+        types
+      })
+    ).toBe("0xe75cfb820d01daf33b6457696c96272bcf1383d1e3b6da5d7ee1e9e993a5ce73")
+    expect(
+      hashStruct({
+        data: g0TypedData.message,
+        primaryType: g0TypedData.primaryType,
+        types
+      })
+    ).toBe("0x7cefd4d1cce7b03b79be8d638f5909e38750c665d4db0c28d4392fa55851225a")
+    expect(
+      hashStruct({
+        data: g1TypedData.message,
+        primaryType: g1TypedData.primaryType,
+        types
+      })
+    ).toBe("0x1cfbf6c5aa0cd9c2782845217b275001605d2287d60362c2d6c661a9006cf5e1")
     expect(hashDelegation(g0Grant)).toBe(
       "0xf2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366"
     )
@@ -210,6 +247,22 @@ describe("Delegated Request Signatures", () => {
     expect(request.headers.get("signature")).toBe(
       "request=:gJVoCxIQDQlHUvCcT1CnW8kAosnj3JLRWw8lj7uIjehaICXcn5uqJErUYy5CY3rRf/xjUZwq4zdEoqPR7MraeBs=:"
     )
+    const candidate = parseSignatureInputHeader(
+      request.headers.get("signature-input") ?? ""
+    )[0]
+    if (candidate === undefined)
+      throw new Error("Request candidate is missing.")
+    expect(
+      bytesToHex(
+        hashEthereumMessage(
+          createSignatureBaseMinimal({
+            request,
+            components: candidate.components,
+            signatureParamsValue: candidate.signatureParamsValue
+          })
+        )
+      )
+    ).toBe("0x781250bf278f8d0cd450927532935236e456b23a43d850647769953b96f668d3")
     expect(request.headers.get("signature-input")).not.toContain(
       "authorization="
     )
@@ -232,6 +285,22 @@ describe("Delegated Request Signatures", () => {
     expect(request.headers.get("signature")).toBe(
       "request=:BFdolKrFYQUmMwPv6ZFiZTMkrtayqRD7naU2mNYuHP13HE+kBmmU+5wawoPE0TpA78GJFz3DU2LeeC7cLKpYBxw=:"
     )
+    const candidate = parseSignatureInputHeader(
+      request.headers.get("signature-input") ?? ""
+    )[0]
+    if (candidate === undefined)
+      throw new Error("Request candidate is missing.")
+    expect(
+      bytesToHex(
+        hashEthereumMessage(
+          createSignatureBaseMinimal({
+            request,
+            components: candidate.components,
+            signatureParamsValue: candidate.signatureParamsValue
+          })
+        )
+      )
+    ).toBe("0x533f834cb1f17536741f048a19d8458a881abc0b7ad16f65d2f6c6e62005bdc7")
     const result = await verify(request)
     expect(result).toMatchObject({
       ok: true,

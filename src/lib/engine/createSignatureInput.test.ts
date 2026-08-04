@@ -154,12 +154,12 @@ describe("parseSignatureDictionary", () => {
     expect(result.get("b")).toBe("BBBB")
   })
 
-  test("throws on missing = in member", () => {
-    expect(() => parseSignatureDictionary("garbage")).toThrow(Erc8128Error)
+  test("skips a bare SF-valid member", () => {
+    expect(parseSignatureDictionary("garbage")).toEqual(new Map())
   })
 
-  test("throws on invalid binary item (no colons)", () => {
-    expect(() => parseSignatureDictionary("eth=hello")).toThrow(Erc8128Error)
+  test("skips an SF-valid Token member", () => {
+    expect(parseSignatureDictionary("eth=hello")).toEqual(new Map())
   })
 
   test("throws on invalid base64 in binary item", () => {

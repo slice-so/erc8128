@@ -5,6 +5,7 @@ import type {
   SfItem,
   SignatureParams
 } from "../../types"
+import { TAG_DELEGATED, TAG_DIRECT } from "../delegation/delegationField"
 import { Erc8128Error } from "../Erc8128Error"
 import {
   normalizeComponentIdentifier,
@@ -47,20 +48,26 @@ export function parseSignatureInputDictionary(
           "Signature-Input members must be Inner Lists."
         )
       }
+      const profileTag = member.params?.tag
+      const profileCandidate =
+        profileTag === TAG_DIRECT || profileTag === TAG_DELEGATED
+      if (
+        member.items.length > 32 ||
+        Object.keys(member.params ?? {}).length > 16
+      ) {
+        if (profileCandidate) {
+          throw new Erc8128Error(
+            "LIMIT_EXCEEDED",
+            "Signature candidate exceeds its component or parameter limit."
+          )
+        }
+        continue
+      }
       const components = member.items.map(parseComponentIdentifier)
       if (components.length === 0) {
         throw new Erc8128Error(
           "PARSE_ERROR",
           "Signature component list is empty."
-        )
-      }
-      if (
-        components.length > 32 ||
-        Object.keys(member.params ?? {}).length > 16
-      ) {
-        throw new Erc8128Error(
-          "LIMIT_EXCEEDED",
-          "Signature candidate exceeds its component or parameter limit."
         )
       }
       if (
@@ -107,10 +114,7 @@ export function parseSignatureDictionary(
       Object.keys(member.params ?? {}).length !== 0 ||
       member.value.value.length === 0
     ) {
-      throw new Erc8128Error(
-        "PARSE_ERROR",
-        "Signature members must be non-empty Byte Sequences."
-      )
+      continue
     }
     signatures.set(label, bytesToBase64(member.value.value))
   }

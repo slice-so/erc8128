@@ -222,6 +222,12 @@ async function verifyDirectCandidate(
   })
   if ("failure" in common) return common.failure
 
+  const invalidationFailure = await validateReplayableInvalidation(
+    args.policy,
+    candidate
+  )
+  if (invalidationFailure) return invalidationFailure
+
   const proof =
     args.policy.accountVerification === "eoa-only"
       ? verifyCanonicalEoaSignature({
@@ -244,11 +250,6 @@ async function verifyDirectCandidate(
   }
   if (!proof) return { ok: false, reason: "bad_signature" }
 
-  const invalidationFailure = await validateReplayableInvalidation(
-    args.policy,
-    candidate
-  )
-  if (invalidationFailure) return invalidationFailure
   const nonceFailure = await consumeNonce(common.noncePlan)
   if (nonceFailure) return nonceFailure
   return {
@@ -403,6 +404,12 @@ async function verifyDelegatedCandidate(
   })
   if ("failure" in common) return common.failure
 
+  const invalidationFailure = await validateReplayableInvalidation(
+    args.policy,
+    args.candidate.candidate
+  )
+  if (invalidationFailure) return invalidationFailure
+
   const leafProof = leaf.delegateIsEOA
     ? verifyCanonicalEoaSignature({
         address: args.candidate.key.address,
@@ -467,11 +474,6 @@ async function verifyDelegatedCandidate(
   if (requiredScopes.some((scope) => !chain.effectiveScope.includes(scope))) {
     return { ok: false, reason: "insufficient_scope" }
   }
-  const invalidationFailure = await validateReplayableInvalidation(
-    args.policy,
-    args.candidate.candidate
-  )
-  if (invalidationFailure) return invalidationFailure
   const nonceFailure = await consumeNonce(common.noncePlan)
   if (nonceFailure) return nonceFailure
 

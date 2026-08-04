@@ -27,10 +27,15 @@ export function parseSfDictionary(value: string): SfDictionary {
 
   const parser = new StructuredFieldParser(value)
   const dictionary: SfDictionary = {}
+  let memberCount = 0
   parser.skipOptionalWhitespace()
   while (!parser.done()) {
-    if (Object.keys(dictionary).length >= MAX_DICTIONARY_MEMBERS) {
-      throw parseError("Structured Field Dictionary has too many members.")
+    memberCount += 1
+    if (memberCount > MAX_DICTIONARY_MEMBERS) {
+      throw new Erc8128Error(
+        "LIMIT_EXCEEDED",
+        "Structured Field Dictionary has too many members."
+      )
     }
     const key = parser.parseKey()
     let member: SfMember
@@ -283,12 +288,6 @@ class StructuredFieldParser {
         this.advance()
         break
       }
-      if (items.length >= MAX_INNER_LIST_ITEMS) {
-        throw new Erc8128Error(
-          "LIMIT_EXCEEDED",
-          "Structured Field Inner List has too many items."
-        )
-      }
       items.push(this.parseItem())
       if (this.peek() !== " " && this.peek() !== ")") {
         throw parseError("Inner List items must be separated by spaces.")
@@ -299,15 +298,7 @@ class StructuredFieldParser {
 
   parseParameters(): SfParameters {
     const parameters: SfParameters = {}
-    let count = 0
     while (this.peek() === ";") {
-      count += 1
-      if (count > MAX_PARAMETERS) {
-        throw new Erc8128Error(
-          "LIMIT_EXCEEDED",
-          "Too many Structured Field parameters."
-        )
-      }
       this.advance()
       const key = this.parseKey()
       if (this.peek() === "=") {

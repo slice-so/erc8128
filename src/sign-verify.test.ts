@@ -484,6 +484,44 @@ describe("ERC-8128 direct signing and verification", () => {
     expect(result.ok).toBe(true)
   })
 
+  test("does not let foreign member limits mask a valid candidate", async () => {
+    const signed = await signRequest("https://api.example/coexist", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "coexisting-limit-member"
+    })
+    const components = Array.from(
+      { length: 33 },
+      (_, index) => `"x-foreign-${index}"`
+    ).join(" ")
+    const parameters = Array.from(
+      { length: 17 },
+      (_, index) => `;vendor${index}`
+    ).join("")
+
+    for (const foreign of [
+      `cdn=(${components})`,
+      `cdn=("@method")${parameters}`
+    ]) {
+      const headers = new Headers(signed.headers)
+      headers.set(
+        "signature-input",
+        `${foreign}, ${headers.get("signature-input")}`
+      )
+      headers.set("signature", `cdn=:AA==:, ${headers.get("signature")}`)
+      expect(
+        (
+          await verifyRequest({
+            request: new Request(signed, { headers }),
+            nonceStore: new BoundedMemoryNonceStore(),
+            policy: { now: () => now },
+            verifyMessage: universalVerify
+          })
+        ).ok
+      ).toBe(true)
+    }
+  })
+
   test("classifies invalid nonce and request-window failures before nonce use", async () => {
     const nonceStore = {
       consumes: 0,

@@ -182,6 +182,14 @@ describe("delegated negative and classification vectors", () => {
     for (const malformed of [
       replaceHeader(request, "erc-8128-delegation", null),
       replaceHeader(request, "erc-8128-delegation", "g1=:AA==:"),
+      replaceHeader(
+        request,
+        "erc-8128-delegation",
+        (request.headers.get("erc-8128-delegation") ?? "").replace(
+          "g0=",
+          "g01="
+        )
+      ),
       replaceHeader(request, "erc-8128-delegation", "g0=token")
     ]) {
       await expectFailure(malformed, "bad_delegation_field", 401)
