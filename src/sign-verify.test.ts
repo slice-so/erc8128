@@ -3,6 +3,7 @@ import { recoverMessageAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { VerificationUnavailableError } from "./lib/Erc8128Error"
 import { parseSignatureInputHeader } from "./lib/engine/createSignatureInput"
+import { formatErc8128ProblemDetails } from "./lib/problemDetails"
 import { bytesToHex } from "./lib/utilities"
 import { signedFetch, signRequest } from "./sign"
 import { BoundedMemoryNonceStore } from "./stores"
@@ -320,6 +321,113 @@ describe("ERC-8128 direct signing and verification", () => {
       })
     ).toEqual({ ok: false, reason: "signature_too_large" })
     expect(cryptoChecks).toBe(0)
+  })
+
+  test("maps covered-component and signature-parameter overflows to signature_too_large", async () => {
+    const componentOverflow = Array.from(
+      { length: 33 },
+      (_, index) => `"x-component-${index}"`
+    ).join(" ")
+    const parameterOverflow = Array.from(
+      { length: 17 },
+      (_, index) => `;vendor${index}`
+    ).join("")
+
+    for (const signatureInput of [
+      `request=(${componentOverflow});created=${now};expires=${now + 60};keyid="eip155:1:${account.address.toLowerCase()}";tag="erc8128"`,
+      `request=("@method");created=${now};expires=${now + 60};keyid="eip155:1:${account.address.toLowerCase()}";tag="erc8128"${parameterOverflow}`
+    ]) {
+      const request = new Request("https://api.example/limits", {
+        headers: {
+          signature: "request=:AA==:",
+          "signature-input": signatureInput
+        }
+      })
+      const result = await verifyRequest({
+        request,
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: () => now },
+        verifyMessage: universalVerify
+      })
+      expect(result).toMatchObject({
+        ok: false,
+        reason: "signature_too_large"
+      })
+      if (result.ok) throw new Error("Expected an oversized signature.")
+      expect(formatErc8128ProblemDetails(result).status).toBe(400)
+    }
+  })
+
+  test("ignores a foreign well-formed member with an unknown parameter", async () => {
+    const signed = await signRequest("https://api.example/coexist", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "coexisting-signature"
+    })
+    const headers = new Headers(signed.headers)
+    headers.set(
+      "signature-input",
+      `cdn=("@method");vendor="edge", ${headers.get("signature-input")}`
+    )
+    headers.set("signature", `cdn=:AA==:, ${headers.get("signature")}`)
+
+    const result = await verifyRequest({
+      request: new Request(signed, { headers }),
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: { now: () => now },
+      verifyMessage: universalVerify
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  test("classifies invalid nonce and request-window failures before nonce use", async () => {
+    const nonceStore = {
+      consumes: 0,
+      async consume() {
+        this.consumes += 1
+        return true
+      }
+    }
+    const valid = await signRequest("https://api.example/timing", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "valid-direct-nonce"
+    })
+    const invalidNonceHeaders = new Headers(valid.headers)
+    invalidNonceHeaders.set(
+      "signature-input",
+      (invalidNonceHeaders.get("signature-input") ?? "").replace(
+        'nonce="valid-direct-nonce"',
+        'nonce=""'
+      )
+    )
+    const future = await signRequest("https://api.example/timing", signer, {
+      created: now + 100,
+      expires: now + 160,
+      nonce: "future-direct-nonce"
+    })
+    const expired = await signRequest("https://api.example/timing", signer, {
+      created: now - 100,
+      expires: now - 40,
+      nonce: "expired-direct-nonce"
+    })
+
+    for (const [request, reason] of [
+      [new Request(valid, { headers: invalidNonceHeaders }), "invalid_nonce"],
+      [future, "request_not_yet_valid"],
+      [expired, "request_expired"]
+    ] as const) {
+      const result = await verifyRequest({
+        request,
+        nonceStore,
+        policy: { now: () => now },
+        verifyMessage: universalVerify
+      })
+      expect(result).toMatchObject({ ok: false, reason })
+      if (result.ok) throw new Error("Expected request validation failure.")
+      expect(formatErc8128ProblemDetails(result).status).toBe(401)
+    }
+    expect(nonceStore.consumes).toBe(0)
   })
 
   test("prefers the first unavailable outcome when no candidate succeeds", async () => {

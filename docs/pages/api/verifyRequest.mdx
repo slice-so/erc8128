@@ -88,7 +88,7 @@ Replay protection store for non-replayable requests.
 
 - **Type:** [`VerifyPolicy`](/api/types#verifypolicy)
 
-Verification policy with rules for validation. Signatures are verified in the order they appear in `Signature-Input` after filtering to ERC-8128 tags and CAIP-10 key identifiers. Use `maxSignatureVerifications` to cap how many request candidates are tried (default: 8). If `replayable: true`, you must provide either `replayableNotBefore` or `replayableInvalidated`.
+Verification policy with rules for validation. Signatures are verified in the order they appear in `Signature-Input` after filtering to ERC-8128 tags and CAIP-10 key identifiers. Use `maxSignatureVerifications` to cap how many request candidates are tried (default: 8). Universal Account classification and proof callbacks share `maxAccountVerificationCalls` across all candidates; it defaults to `2 + maxChainDepth` (6 at the default chain depth). Exhaustion fails with the applicable verification-unavailable reason. If `replayable: true`, you must provide either `replayableNotBefore` or `replayableInvalidated`.
 
 ### setHeaders (optional)
 

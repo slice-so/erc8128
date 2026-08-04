@@ -51,3 +51,9 @@ default, while `{ nonce: null }` deliberately creates a Replayable request.
 Verification-unavailable failures are distinct from invalid authentication and
 can be serialized as RFC 9457 problem details. `Accept-Signature` advertises
 repairable signing posture including mandatory tags.
+
+Universal Account classification and proof calls share a per-request budget
+across direct and delegated candidates. Configure it with
+`maxAccountVerificationCalls`; the default is `2 + maxChainDepth` (6 with the
+default maximum delegation depth of 4). Budget exhaustion fails with the
+applicable verification-unavailable reason.

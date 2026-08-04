@@ -39,8 +39,8 @@ export function parseSfDictionary(value: string): SfDictionary {
     } else {
       member = { value: true, params: parser.parseParameters() }
     }
-    // RFC 9651 Dictionary duplicates use the effective last value.
-    if (dictionary[key] !== undefined) delete dictionary[key]
+    // RFC 9651 Dictionary duplicates use the effective last value while the
+    // member retains its original wire position.
     dictionary[key] = member
 
     parser.skipOptionalWhitespace()
@@ -106,10 +106,7 @@ export function sfBinary(value: Uint8Array): SfByteSequence {
 
 function serializeMember(member: SfMember): string {
   if (isInnerList(member)) {
-    if (
-      member.items.length === 0 ||
-      member.items.length > MAX_INNER_LIST_ITEMS
-    ) {
+    if (member.items.length > MAX_INNER_LIST_ITEMS) {
       throw new Erc8128Error(
         "BAD_HEADER_VALUE",
         "Structured Field Inner List has an invalid item count."
@@ -272,14 +269,16 @@ class StructuredFieldParser {
         break
       }
       if (items.length >= MAX_INNER_LIST_ITEMS) {
-        throw parseError("Structured Field Inner List has too many items.")
+        throw new Erc8128Error(
+          "LIMIT_EXCEEDED",
+          "Structured Field Inner List has too many items."
+        )
       }
       items.push(this.parseItem())
       if (this.peek() !== " " && this.peek() !== ")") {
         throw parseError("Inner List items must be separated by spaces.")
       }
     }
-    if (items.length === 0) throw parseError("Inner List must not be empty.")
     return { items, params: this.parseParameters() }
   }
 
@@ -289,7 +288,10 @@ class StructuredFieldParser {
     while (this.peek() === ";") {
       count += 1
       if (count > MAX_PARAMETERS) {
-        throw parseError("Too many Structured Field parameters.")
+        throw new Erc8128Error(
+          "LIMIT_EXCEEDED",
+          "Too many Structured Field parameters."
+        )
       }
       this.advance()
       const key = this.parseKey()

@@ -48,7 +48,7 @@ describe("selectSignatureFromHeaders", () => {
 
   test("returns signature_input_invalid for malformed Signature-Input", () => {
     const result = selectSignatureFromHeaders({
-      signatureInputHeader: "not-a-dictionary",
+      signatureInputHeader: "eth=(",
       signatureHeader: "eth=:AAAA:"
     })
     expect(result.ok).toBe(false)

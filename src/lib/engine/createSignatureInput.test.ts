@@ -76,10 +76,8 @@ describe("parseSignatureInputDictionary", () => {
     expect(result[0].params.tag).toBe("v1")
   })
 
-  test("throws on missing = in member", () => {
-    expect(() => parseSignatureInputDictionary("not-a-dictionary")).toThrow(
-      Erc8128Error
-    )
+  test("skips a bare foreign member", () => {
+    expect(parseSignatureInputDictionary("not-a-dictionary")).toEqual([])
   })
 
   test("throws on invalid label", () => {
@@ -90,18 +88,18 @@ describe("parseSignatureInputDictionary", () => {
     ).toThrow(Erc8128Error)
   })
 
-  test("throws on missing inner list open paren", () => {
-    expect(() =>
+  test("skips a non-Inner-List member", () => {
+    expect(
       parseSignatureInputDictionary(
         'eth="@authority";created=100;expires=200;keyid="k"'
       )
-    ).toThrow(Erc8128Error)
+    ).toEqual([])
   })
 
-  test("throws on empty inner list", () => {
-    expect(() =>
+  test("skips an empty component list", () => {
+    expect(
       parseSignatureInputDictionary('eth=();created=100;expires=200;keyid="k"')
-    ).toThrow(Erc8128Error)
+    ).toEqual([])
   })
 
   test("retains invalid profile parameters for precise verification errors", () => {

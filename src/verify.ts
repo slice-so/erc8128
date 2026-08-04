@@ -1,5 +1,8 @@
 import { buildAcceptSignatureHeader } from "./lib/acceptSignature"
-import { resolveDelegationChain } from "./lib/delegation/delegationChain"
+import {
+  DEFAULT_MAX_DELEGATION_CHAIN_DEPTH,
+  resolveDelegationChain
+} from "./lib/delegation/delegationChain"
 import {
   DELEGATION_COMPONENT,
   DELEGATION_FIELD_NAME,
@@ -56,6 +59,7 @@ type RequestShape = {
   hasContentDigest: boolean
   hasContentType: boolean
 }
+type AccountVerificationBudget = { remaining: number }
 
 export async function verifyRequest(
   args: VerifyRequestArgs
@@ -107,6 +111,16 @@ export async function verifyRequest(
   const classBoundPolicies = normalizeClassBoundPolicies(
     policy.classBoundPolicies
   ).map(ensureAuthority)
+  const maximumChainDepth = positiveInteger(
+    policy.delegation?.maxChainDepth,
+    DEFAULT_MAX_DELEGATION_CHAIN_DEPTH
+  )
+  const accountVerificationBudget: AccountVerificationBudget = {
+    remaining: positiveInteger(
+      policy.maxAccountVerificationCalls,
+      2 + maximumChainDepth
+    )
+  }
 
   if (args.setHeaders) {
     try {
@@ -135,7 +149,8 @@ export async function verifyRequest(
     nonceStore,
     policy,
     now,
-    skew
+    skew,
+    accountVerificationBudget
   }
   let firstFailure: Failure | null = null
   let firstUnavailable: Failure | null = null
@@ -214,12 +229,16 @@ async function verifyDirectCandidate(
           message: common.signatureBase,
           signature: common.signature
         })
-      : await callMessageVerifier(args.verifyMessage, {
-          address: key.address,
-          chainId: key.chainId,
-          message: { raw: bytesToHex(common.signatureBase) },
-          signature: common.signature
-        })
+      : await callMessageVerifier(
+          args.verifyMessage,
+          {
+            address: key.address,
+            chainId: key.chainId,
+            message: { raw: bytesToHex(common.signatureBase) },
+            signature: common.signature
+          },
+          args.accountVerificationBudget
+        )
   if (proof === "unavailable") {
     return { ok: false, reason: "signature_verification_unavailable" }
   }
@@ -385,12 +404,16 @@ async function verifyDelegatedCandidate(
         message: common.signatureBase,
         signature: common.signature
       })
-    : await callMessageVerifier(args.verifyMessage, {
-        address: args.candidate.key.address,
-        chainId: args.candidate.key.chainId,
-        message: { raw: bytesToHex(common.signatureBase) },
-        signature: common.signature
-      })
+    : await callMessageVerifier(
+        args.verifyMessage,
+        {
+          address: args.candidate.key.address,
+          chainId: args.candidate.key.chainId,
+          message: { raw: bytesToHex(common.signatureBase) },
+          signature: common.signature
+        },
+        args.accountVerificationBudget
+      )
   if (leafProof === "unavailable") {
     return { ok: false, reason: "signature_verification_unavailable" }
   }
@@ -402,7 +425,8 @@ async function verifyDelegatedCandidate(
       verifyDigest: args.verifyDigest,
       now: args.now,
       cache: delegationPolicy.grantCache,
-      cacheTtl: delegationPolicy.grantCacheTtlSec
+      cacheTtl: delegationPolicy.grantCacheTtlSec,
+      accountVerificationBudget: args.accountVerificationBudget
     })
     if (proof === "unavailable") {
       return { ok: false, reason: "grant_verification_unavailable" }
@@ -472,6 +496,7 @@ type CommonCandidateArgs = {
   policy: NonNullable<VerifyRequestArgs["policy"]>
   now: number
   skew: number
+  accountVerificationBudget: AccountVerificationBudget
 }
 
 function getRequiredWhenPresent(args: CommonCandidateArgs) {
@@ -577,6 +602,7 @@ async function verifyGrantProof(args: {
     NonNullable<VerifyRequestArgs["policy"]>["delegation"]
   >["grantCache"]
   cacheTtl: number | undefined
+  accountVerificationBudget: AccountVerificationBudget
 }): Promise<boolean | "unavailable"> {
   const digest = hashDelegation(args.link.grant)
   const cacheKey = `${digest}\u0000${args.link.signature}`
@@ -588,12 +614,16 @@ async function verifyGrantProof(args: {
   if (args.verifyDigest === undefined) return "unavailable"
   const root = parseKeyId(args.link.grant.root)
   if (root === null) return false
-  const proof = await callDigestVerifier(args.verifyDigest, {
-    address: root.address,
-    chainId: root.chainId,
-    digest,
-    signature: args.link.signature
-  })
+  const proof = await callDigestVerifier(
+    args.verifyDigest,
+    {
+      address: root.address,
+      chainId: root.chainId,
+      digest,
+      signature: args.link.signature
+    },
+    args.accountVerificationBudget
+  )
   if (proof !== true) return proof
   const ttl = Math.min(
     args.cacheTtl ?? DEFAULT_GRANT_CACHE_TTL_SEC,
@@ -640,8 +670,11 @@ function isSupportedDelegationComponent(
 
 async function callMessageVerifier(
   verify: VerifyMessageFn,
-  input: Parameters<VerifyMessageFn>[0]
+  input: Parameters<VerifyMessageFn>[0],
+  budget: AccountVerificationBudget
 ): Promise<boolean | "unavailable"> {
+  if (budget.remaining <= 0) return "unavailable"
+  budget.remaining -= 1
   try {
     return await verify(input)
   } catch (error) {
@@ -651,8 +684,11 @@ async function callMessageVerifier(
 
 async function callDigestVerifier(
   verify: VerifyDigestFn,
-  input: Parameters<VerifyDigestFn>[0]
+  input: Parameters<VerifyDigestFn>[0],
+  budget: AccountVerificationBudget
 ): Promise<boolean | "unavailable"> {
+  if (budget.remaining <= 0) return "unavailable"
+  budget.remaining -= 1
   try {
     return await verify(input)
   } catch (error) {

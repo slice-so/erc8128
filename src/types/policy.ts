@@ -67,6 +67,12 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   /** Maximum number of request-signature candidates to verify (default 8). */
   maxSignatureVerifications?: number
 
+  /**
+   * Maximum Universal Account classification/proof calls shared by all
+   * candidates (default 2 + the configured delegation-chain depth).
+   */
+  maxAccountVerificationCalls?: number
+
   /** Time policy */
   now?: () => number // unix seconds; default unixNow()
   clockSkewSec?: number // default 0; allow +/- drift when checking created/expires

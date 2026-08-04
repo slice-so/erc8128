@@ -37,47 +37,60 @@ export function parseSignatureInputDictionary(
   headerValue: string
 ): ParsedSignatureInputMember[] {
   const dictionary = parseSfDictionary(headerValue)
-  return Object.entries(dictionary).map(([label, member]) => {
-    assertLabel(label)
-    if (!("items" in member)) {
-      throw new Erc8128Error(
-        "PARSE_ERROR",
-        "Signature-Input members must be Inner Lists."
-      )
+  const candidates: ParsedSignatureInputMember[] = []
+  for (const [label, member] of Object.entries(dictionary)) {
+    try {
+      assertLabel(label)
+      if (!("items" in member)) {
+        throw new Erc8128Error(
+          "PARSE_ERROR",
+          "Signature-Input members must be Inner Lists."
+        )
+      }
+      const components = member.items.map(parseComponentIdentifier)
+      if (components.length === 0) {
+        throw new Erc8128Error(
+          "PARSE_ERROR",
+          "Signature component list is empty."
+        )
+      }
+      if (
+        components.length > 32 ||
+        Object.keys(member.params ?? {}).length > 16
+      ) {
+        throw new Erc8128Error(
+          "LIMIT_EXCEEDED",
+          "Signature candidate exceeds its component or parameter limit."
+        )
+      }
+      if (
+        new Set(components.map(serializeComponentIdentifier)).size !==
+        components.length
+      ) {
+        throw new Erc8128Error(
+          "PARSE_ERROR",
+          "Covered components must not be repeated."
+        )
+      }
+      const params = parseSignatureParams(member)
+      candidates.push({
+        label,
+        components,
+        params,
+        signatureParamsValue: serializeSfMember(member)
+      })
+    } catch (error) {
+      if (error instanceof Erc8128Error && error.code === "LIMIT_EXCEEDED") {
+        throw error
+      }
+      if (!(error instanceof Erc8128Error && error.code === "PARSE_ERROR")) {
+        throw error
+      }
+      // The Dictionary itself is syntactically valid. A member outside the
+      // RFC 9421/ERC-8128 profile is simply not an ERC-8128 candidate.
     }
-    const components = member.items.map(parseComponentIdentifier)
-    if (components.length === 0) {
-      throw new Erc8128Error(
-        "PARSE_ERROR",
-        "Signature component list is empty."
-      )
-    }
-    if (
-      components.length > 32 ||
-      Object.keys(member.params ?? {}).length > 16
-    ) {
-      throw new Erc8128Error(
-        "LIMIT_EXCEEDED",
-        "Signature candidate exceeds its component or parameter limit."
-      )
-    }
-    if (
-      new Set(components.map(serializeComponentIdentifier)).size !==
-      components.length
-    ) {
-      throw new Erc8128Error(
-        "PARSE_ERROR",
-        "Covered components must not be repeated."
-      )
-    }
-    const params = parseSignatureParams(member)
-    return {
-      label,
-      components,
-      params,
-      signatureParamsValue: serializeSfMember(member)
-    }
-  })
+  }
+  return candidates
 }
 
 export function parseSignatureDictionary(
