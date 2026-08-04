@@ -36,21 +36,21 @@
         "method": "GET",
         "url": "https://api.example/resource?x=1",
         "headers": {
-          "erc-8128-delegation": "root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, max-age=60, replayable=?0",
-          "signature-input": "request=(\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";tag=\"erc8128-delegated\", grant=(\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\";tag=\"erc8128-delegation\"",
-          "signature": "request=:RUHZvENSA8eowGBDU6oNRNh37pV6MOcwT3K+Lzp+DmxqYDWBw9/FtvijgtZOKlInir1At3pxst3Z4EfNhD8XSRw=:, grant=:UTPIpsM+31PGbjJoVcmUoGUKMBkC1o5HLqIFkTY/SYheklxUJDlUr9/4tNf+TNrG7j+fCf1O7VQAtkzSW2vJnRw=:"
+          "erc-8128-delegation": "root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, epoch=7, max-age=60",
+          "signature-input": "authorization=(\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;tag=\"erc8128-delegation\";keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", request=(\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";tag=\"erc8128-delegated\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\"",
+          "signature": "authorization=:t4Mwy2sRJrWmPYcq/24GtM6TMkMGoJyF73VYWcA8P79sFZ+YnFGymbVL2mFSKS+PFTLR+Y6foTCaAiIaEDEfNxs=:, request=:3RXM0P0oVEgrWIGFXvMiolJxXPbtXbI9ZmY75kSto+0ZpJSWaounliBX9MX4aFiWf9PV6yzn3KeLNQAaihAwzxs=:"
         }
       },
       "requestSignature": {
         "label": "request",
-        "signatureBase": "\"@scheme\": https\n\"@authority\": api.example\n\"@method\": GET\n\"@path\": /resource\n\"@query\": ?x=1\n\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, max-age=60, replayable=?0\n\"@signature-params\": (\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";tag=\"erc8128-delegated\"",
-        "eip191Hash": "0xca97fd5af01875043bb91e87d444f3037ec271c1a7c6fc18bffc9006e1ae763a",
-        "signature": "0x4541d9bc435203c7a8c0604353aa0d44d877ee957a30e7304f72be2f3a7e0e6c6a603581c3dfc5b6f8a382d64e2a52278abd40b77a71b2ddd9e047cd843f17491c"
+        "signatureBase": "\"@scheme\": https\n\"@authority\": api.example\n\"@method\": GET\n\"@path\": /resource\n\"@query\": ?x=1\n\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, epoch=7, max-age=60\n\"@signature-params\": (\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";tag=\"erc8128-delegated\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\"",
+        "eip191Hash": "0x7d71b01cd1bb49b3849872db178a9ac036215007ad5d228531af1af195e0b97d",
+        "signature": "0xdd15ccd0fd2854482b5881855ef322a252715cf6ed5db23d66663be644ada3ed19a494966a8ba7962057f4c5f86858967fd3d5eb2ce7dca78b35001a8a1030cf1b"
       },
       "grantSignature": {
-        "signatureBase": "\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, max-age=60, replayable=?0\n\"@signature-params\": (\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\";tag=\"erc8128-delegation\"",
-        "eip191Hash": "0x5f546943554e62fe133c7ec6f30ed822cf4b50891520db357c873230c0477f3e",
-        "signature": "0x5133c8a6c33edf53c66e326855c994a0650a301902d68e472ea20591363f49885e925c54243954afdff8b4d7fe4cdac6ee3f9f09fd4eed5400b64cd25b6bc99d1c"
+        "signatureBase": "\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, epoch=7, max-age=60\n\"@signature-params\": (\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;tag=\"erc8128-delegation\";keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\"",
+        "eip191Hash": "0x2dd773015e4fdcb3e078e5bd4cf6aadd24d296b7eab35050720936cd45ec5be6",
+        "signature": "0xb78330cb6b1126b5a63d872aff6e06b4ce93324306a09c85ef755859c03c3fbf6c159f989c51b299b54bda6152292f8f1532d1f98e9fa1309a02221a10311f371b"
       },
       "expected": {
         "principal": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",
@@ -61,27 +61,27 @@
       }
     },
     {
-      "id": "delegated-critical-extension-v1",
+      "id": "delegated-scope-v1",
       "kind": "delegated",
       "request": {
         "method": "GET",
         "url": "https://api.example/resource?x=1",
         "headers": {
-          "erc-8128-delegation": "root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, max-age=60, replayable=?0, crit=(\"erc8128-revocation\"), erc8128-revocation=\"0x3333333333333333333333333333333333333333\";chain-id=1;epoch=7",
-          "signature-input": "request=(\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";tag=\"erc8128-delegated\", grant=(\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\";tag=\"erc8128-delegation\"",
-          "signature": "request=:sJRslTNvGe+99EJ8CRsKvhMvgh+Qc0fF3Xj3vHiK7QAYHvZfNqwP3FyAXKmPwqp6m1Mpg4ruyc8w9g+AWMAQiRw=:, grant=:qnbkIDfvozh7cdg10JL1qM5IVoV+jU9HqSeHtBCiKIJ68fB6g7OfRF0o/Q/w2lzwyfybaWpFSdVfpwMIgea/dxs=:"
+          "erc-8128-delegation": "root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, epoch=7, max-age=60, scope=(\"account:read\")",
+          "signature-input": "authorization=(\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;tag=\"erc8128-delegation\";keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", request=(\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";tag=\"erc8128-delegated\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\"",
+          "signature": "authorization=:RZ3scxemg0Uyx44B9D6Qm/5/N0TrKhuypeMgZYTbwH9QKHRyHsuxvHBEoAIAq75ox+9IrLTXyc5V06ergaVVHRs=:, request=:bz6YbckwXsMn32l2lxNAfO4huSR+3bzhOPnMI5Tb4UJ/Zdt7lmLo55miH+vDF0Xh6guVfB5vjj6X0W++Kq3PjRw=:"
         }
       },
       "requestSignature": {
         "label": "request",
-        "signatureBase": "\"@scheme\": https\n\"@authority\": api.example\n\"@method\": GET\n\"@path\": /resource\n\"@query\": ?x=1\n\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, max-age=60, replayable=?0, crit=(\"erc8128-revocation\"), erc8128-revocation=\"0x3333333333333333333333333333333333333333\";chain-id=1;epoch=7\n\"@signature-params\": (\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";tag=\"erc8128-delegated\"",
-        "eip191Hash": "0x9f4b5a4db63392f1817494c05700892707660177b8beb05e431e95374771d1d1",
-        "signature": "0xb0946c95336f19efbdf4427c091b0abe132f821f907347c5dd78f7bc788aed00181ef65f36ac0fdc5c805ca98fc2aa7a9b5329838aeec9cf30f60f8058c010891c"
+        "signatureBase": "\"@scheme\": https\n\"@authority\": api.example\n\"@method\": GET\n\"@path\": /resource\n\"@query\": ?x=1\n\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, epoch=7, max-age=60, scope=(\"account:read\")\n\"@signature-params\": (\"@scheme\" \"@authority\" \"@method\" \"@path\" \"@query\" \"erc-8128-delegation\";sf);created=1700000000;expires=1700000060;nonce=\"ASNFZ4mrze8QMlR2mLrc_g\";tag=\"erc8128-delegated\";keyid=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\"",
+        "eip191Hash": "0x1d6b0b3ac30c4968c22018bd47a9489e239e04948f2ca8c8f1b4d054889fcc20",
+        "signature": "0x6f3e986dc9305ec327df69769713407cee21b9247eddbce138f9cc2394dbe1427f65db7b9662e8e799a21febc31745e1ea0b957c1e6f8e3e97d16fbe2aadcf8d1c"
       },
       "grantSignature": {
-        "signatureBase": "\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, max-age=60, replayable=?0, crit=(\"erc8128-revocation\"), erc8128-revocation=\"0x3333333333333333333333333333333333333333\";chain-id=1;epoch=7\n\"@signature-params\": (\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\";tag=\"erc8128-delegation\"",
-        "eip191Hash": "0xeecc0767c0ff1f2732e9a40623e7595d4622251707700fd274bd04defb4f6465",
-        "signature": "0xaa76e42037efa3387b71d835d092f5a8ce4856857e8d4f47a92787b410a228827af1f07a83b39f445d28fd0ff0da5cf0c9fc9b696a4549d55fa7030881e6bf771b"
+        "signatureBase": "\"erc-8128-delegation\";sf: root=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\", delegate=\"eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69\";key-type=\"eoa\", aud=(\"https://api.example\"), id=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:, epoch=7, max-age=60, scope=(\"account:read\")\n\"@signature-params\": (\"erc-8128-delegation\";sf);created=1699999000;expires=1700003600;tag=\"erc8128-delegation\";keyid=\"eip155:1:0x2b5ad5c4795c026514f8317c7a215e218dccd6cf\"",
+        "eip191Hash": "0xfbb488d08a478a5d94fdae436aa1cf540a7057ef182714cbe159ce355ac61b1b",
+        "signature": "0x459dec7317a6834532c78e01f43e909bfe7f3744eb2a1bb2a5e3206584dbc07f502874721ecbb1bc7044a00200abbe68c7ef48acb4d7c9ce55d3a7ab81a5551d1b"
       },
       "expected": {
         "principal": "0x2b5ad5c4795c026514f8317c7a215e218dccd6cf",

@@ -41,7 +41,11 @@ if (result.ok) {
   result.label     // Signature label
   result.components // Signed components
   result.replay      // "non-replayable" or "replayable"
-  if (result.delegated) result.delegationId // 32-byte grant identifier
+  if (result.delegated) {
+    result.delegationId // 32-byte authorization identifier
+    result.delegationEpoch
+    result.scopes
+  }
   result.binding   // "request-bound" or "class-bound"
 } else {
   // Failure — check reason

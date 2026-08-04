@@ -24,7 +24,7 @@ function reasonToStatus(reason: string): ContentfulStatusCode {
   if (
     reason === "signature_verification_unavailable" ||
     reason === "grant_verification_unavailable" ||
-    reason === "critical_extension_unavailable"
+    reason === "revocation_unavailable"
   ) {
     return 503
   }

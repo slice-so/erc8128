@@ -15,7 +15,7 @@ For request-bound signatures, the library automatically selects components based
 Example for `POST /orders?market=ETH` with body:
 
 ```
-Signature-Input: eth=("@authority" "@method" "@path" "@query" "content-digest");...
+Signature-Input: request=("@authority" "@method" "@path" "@query" "content-digest");...
 ```
 
 ## Why These Components?

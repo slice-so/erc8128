@@ -40,8 +40,9 @@ Delegation uses `buildDelegationGrant`, `completeDelegationGrant`, and
 `createDelegatedSignerClient`. A `DelegationGrant` stores the canonical
 delegation field, complete grant Signature-Input Inner List, and root signature.
 Verifiers opt in with `policy.delegation`, configure exact audiences and
-critical-extension handlers, and receive separate `principal` and `signer`
-identities.
+a trusted revocation authority/callback, and receive separate `principal` and
+`signer` identities plus standard scopes. Delegation fields are closed: unknown
+members fail authentication instead of being ignored.
 
 Verification-unavailable failures are distinct from invalid authentication and
 can be serialized as RFC 9457 problem details. `Accept-Signature` advertises

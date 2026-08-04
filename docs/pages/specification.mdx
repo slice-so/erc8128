@@ -18,12 +18,17 @@ ERC-8128 uses RFC 9421 HTTP Message Signatures with Ethereum accounts.
   strict low-s EOA recovery. Verification transport failure is distinct from an
   invalid signature.
 
-The delegation Dictionary binds root and delegate CAIP-10 identities, one to
-sixteen exact RFC 6454 audience origins, a 32-byte identifier, time and replay
-posture, additional component requirements, and critical extensions. Wildcards,
-credentials, paths, opaque origins, and insecure non-loopback origins are
-rejected.
+The closed delegation Dictionary binds root and delegate CAIP-10 identities,
+one to sixteen exact RFC 6454 audience origins, a 32-byte identifier, issuance
+epoch, time and replay posture, additional component requirements, and optional
+standard scopes. `allow-replayable=?1` permits but does not default requests to
+replayable; absence requires a nonce. Unknown members, wildcards, credentials,
+paths, opaque origins, and insecure non-loopback origins are rejected.
+
+Delegated verifiers pin the trusted revocation registry and chain in policy.
+The signer cannot select them. The verifier checks root, authorization id, and
+issuance epoch against that authority before nonce consumption.
 
 RFC 9457 helpers encode authentication failures. Invalid proof is normally 401,
 authenticated principals missing application authorization are 403, and
-unavailable signature or critical-extension verification is retryable at 503.
+unavailable signature or revocation verification is retryable at 503.

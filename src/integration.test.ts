@@ -68,7 +68,7 @@ describe("docs: signRequest + verifyRequest example", () => {
       account.address.toLowerCase()
     )
     expect(result.principal.chainId).toBe(1)
-    expect(result.label).toBe("eth")
+    expect(result.label).toBe("request")
     expect(result.components.map(({ name }) => name)).toEqual([
       "@scheme",
       "@authority",

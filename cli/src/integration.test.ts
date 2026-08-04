@@ -41,13 +41,13 @@ describe("integration tests", () => {
       expect(signature).toBeTruthy()
 
       // Verify Signature-Input format
-      expect(signatureInput).toMatch(/^eth=\(.+\);/)
+      expect(signatureInput).toMatch(/^request=\(.+\);/)
       expect(signatureInput).toContain("created=")
       expect(signatureInput).toContain("expires=")
       expect(signatureInput).toContain('keyid="eip155:')
 
       // Verify Signature format (base64 in colons)
-      expect(signature).toMatch(/^eth=:[A-Za-z0-9+/]+={0,2}:$/)
+      expect(signature).toMatch(/^request=:[A-Za-z0-9+/]+={0,2}:$/)
     })
 
     test("signs POST request with body and adds Content-Digest", async () => {

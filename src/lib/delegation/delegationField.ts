@@ -1,10 +1,8 @@
 import type {
   AccountIdentity,
-  Address,
   ComponentIdentifier,
   DelegationGrantBuildArgs,
   ParsedDelegationField,
-  RevocationExtension,
   SfDictionary,
   SfItem,
   SfMember
@@ -37,16 +35,16 @@ const BASE_MEMBERS = new Set([
   "delegate",
   "aud",
   "id",
+  "epoch",
   "max-age",
-  "replayable",
+  "allow-replayable",
   "components",
-  "crit"
+  "scope"
 ])
 const MAX_AUDIENCES = 16
 const MAX_COMPONENTS = 16
-const MAX_CRITICAL = 16
-const MAX_DICTIONARY_MEMBERS = 32
-const MAX_EXTENSIONS = 16
+const MAX_SCOPES = 16
+const MAX_SCOPE_LENGTH = 64
 const MAX_FIELD_BYTES = 16_384
 const encoder = new TextEncoder()
 
@@ -61,6 +59,9 @@ export function formatDelegationField(args: DelegationGrantBuildArgs): string {
   }
   const idBytes = args.id instanceof Uint8Array ? args.id : hexToBytes(args.id)
   if (idBytes.length !== 32) throw invalid("Delegation id must be 32 bytes.")
+  if (!Number.isSafeInteger(args.epoch) || args.epoch < 0) {
+    throw invalid("Delegation epoch must be a non-negative integer.")
+  }
   if (
     args.maxAge !== undefined &&
     (!Number.isSafeInteger(args.maxAge) || args.maxAge <= 0)
@@ -68,23 +69,7 @@ export function formatDelegationField(args: DelegationGrantBuildArgs): string {
     throw invalid("Delegation max-age must be a positive integer.")
   }
 
-  const extensions = args.extensions ?? {}
-  if (Object.keys(extensions).length > MAX_EXTENSIONS) {
-    throw invalid("Delegation has too many extension members.")
-  }
-  for (const name of Object.keys(extensions)) {
-    if (BASE_MEMBERS.has(name))
-      throw invalid(`Extension conflicts with ${name}.`)
-  }
-  const critical = Array.from(new Set(args.critical ?? [])).sort()
-  if (critical.length > MAX_CRITICAL) {
-    throw invalid("Delegation has too many critical extensions.")
-  }
-  for (const name of critical) {
-    if (extensions[name] === undefined) {
-      throw invalid(`Critical extension ${name} is missing.`)
-    }
-  }
+  const scopes = normalizeScopes(args.scopes ?? [])
 
   const members: SfDictionary = {
     root: { value: root },
@@ -96,8 +81,11 @@ export function formatDelegationField(args: DelegationGrantBuildArgs): string {
     },
     aud: { items: audiences.map((audience) => ({ value: audience })) },
     id: { value: sfBinary(idBytes) },
+    epoch: { value: args.epoch },
     ...(args.maxAge === undefined ? {} : { "max-age": { value: args.maxAge } }),
-    replayable: { value: args.replayable ?? false },
+    ...(args.allowReplayable === true
+      ? { "allow-replayable": { value: true } }
+      : {}),
     ...(args.components === undefined || args.components.length === 0
       ? {}
       : {
@@ -108,10 +96,9 @@ export function formatDelegationField(args: DelegationGrantBuildArgs): string {
             })
           }
         }),
-    ...(critical.length === 0
+    ...(scopes.length === 0
       ? {}
-      : { crit: { items: critical.map((name) => ({ value: name })) } }),
-    ...extensions
+      : { scope: { items: scopes.map((scope) => ({ value: scope })) } })
   }
   const fieldValue = serializeSfDictionary(members)
   if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
@@ -137,11 +124,10 @@ export function parseDelegationField(
     )
   }
   const members = parseSfDictionary(fieldValue)
-  if (Object.keys(members).length > MAX_DICTIONARY_MEMBERS) {
-    throw new Erc8128Error(
-      "DELEGATION_TOO_LARGE",
-      "Delegation has too many dictionary members."
-    )
+  for (const name of Object.keys(members)) {
+    if (!BASE_MEMBERS.has(name)) {
+      throw parseError(`Unsupported delegation member: ${name}.`)
+    }
   }
   const rootValue = requireStringItem(members.root, "root")
   const delegateMember = requireItem(members.delegate, "delegate")
@@ -186,28 +172,16 @@ export function parseDelegationField(
   }
 
   const maxAge = optionalPositiveInteger(members["max-age"], "max-age")
-  const replayable = optionalBoolean(members.replayable, "replayable") ?? false
+  const epoch = requireNonNegativeInteger(members.epoch, "epoch")
+  const allowReplayable =
+    optionalBoolean(members["allow-replayable"], "allow-replayable") ?? false
+  if (members["allow-replayable"] !== undefined && !allowReplayable) {
+    throw parseError("allow-replayable may only be present with ?1.")
+  }
   const components = optionalComponentList(members.components)
-  const critical = members.crit ? requireStringList(members.crit, "crit") : []
-  if (
-    critical.length > MAX_CRITICAL ||
-    new Set(critical).size !== critical.length
-  ) {
-    throw parseError("Critical extension names must be unique.")
-  }
-
-  const extensions: Record<string, SfMember> = {}
-  for (const [key, member] of Object.entries(members)) {
-    if (!BASE_MEMBERS.has(key)) extensions[key] = member
-  }
-  if (Object.keys(extensions).length > MAX_EXTENSIONS) {
-    throw parseError("Delegation has too many extensions.")
-  }
-  for (const name of critical) {
-    if (extensions[name] === undefined) {
-      throw parseError(`Critical extension ${name} is missing.`)
-    }
-  }
+  const scopes = members.scope
+    ? normalizeScopes(requireStringList(members.scope, "scope"), parseError)
+    : []
 
   return {
     fieldValue: canonicalizeSfDictionary(fieldValue),
@@ -216,11 +190,11 @@ export function parseDelegationField(
     ...(keyType === "eoa" ? { delegateKeyType: "eoa" as const } : {}),
     audiences,
     id: bytesToHex(idMember.value.value),
+    epoch,
     ...(maxAge === undefined ? {} : { maxAge }),
-    replayable,
+    allowReplayable,
     components,
-    critical,
-    extensions,
+    scopes,
     members
   }
 }
@@ -257,46 +231,6 @@ export function normalizeAudienceOrigin(input: string): string {
     throw invalid("Audience must use HTTPS except for loopback development.")
   }
   return url.origin.toLowerCase()
-}
-
-export function formatRevocationExtension(args: RevocationExtension): SfMember {
-  if (!/^0x[a-fA-F0-9]{40}$/.test(args.registry)) {
-    throw invalid("Revocation registry must be an address.")
-  }
-  if (!Number.isSafeInteger(args.chainId) || args.chainId <= 0) {
-    throw invalid("Revocation chain-id must be positive.")
-  }
-  if (!Number.isSafeInteger(args.epoch) || args.epoch < 0) {
-    throw invalid("Revocation epoch must be non-negative.")
-  }
-  return {
-    value: args.registry.toLowerCase(),
-    params: { "chain-id": args.chainId, epoch: args.epoch }
-  }
-}
-
-export function parseRevocationExtension(
-  member: SfMember
-): RevocationExtension {
-  const item = requireItem(member, "erc8128-revocation")
-  if (
-    typeof item.value !== "string" ||
-    !/^0x[a-f0-9]{40}$/.test(item.value) ||
-    !Number.isSafeInteger(item.params?.["chain-id"]) ||
-    (item.params?.["chain-id"] as number) <= 0 ||
-    !Number.isSafeInteger(item.params?.epoch) ||
-    (item.params?.epoch as number) < 0 ||
-    Object.keys(item.params ?? {}).some(
-      (key) => key !== "chain-id" && key !== "epoch"
-    )
-  ) {
-    throw parseError("Invalid erc8128-revocation extension.")
-  }
-  return {
-    registry: item.value as Address,
-    chainId: item.params?.["chain-id"] as number,
-    epoch: item.params?.epoch as number
-  }
 }
 
 export const ERC8128_REVOCATION_ABI = [
@@ -379,6 +313,21 @@ function optionalPositiveInteger(
   return item.value as number
 }
 
+function requireNonNegativeInteger(
+  member: SfMember | undefined,
+  name: string
+): number {
+  const item = requireItem(member, name)
+  if (
+    !Number.isSafeInteger(item.value) ||
+    (item.value as number) < 0 ||
+    Object.keys(item.params ?? {}).length
+  ) {
+    throw parseError(`${name} must be a non-negative integer.`)
+  }
+  return item.value as number
+}
+
 function optionalBoolean(
   member: SfMember | undefined,
   name: string
@@ -441,6 +390,33 @@ function optionalComponentList(
     throw parseError("components entries must be unique.")
   }
   return components
+}
+
+function normalizeScopes(
+  values: readonly string[],
+  error: (message: string) => Error = invalid
+): string[] {
+  const scopes = [...values]
+  if (
+    scopes.length > MAX_SCOPES ||
+    scopes.some(
+      (scope) =>
+        scope.length === 0 ||
+        scope.length > MAX_SCOPE_LENGTH ||
+        !/^[\x21\x23-\x5b\x5d-\x7e]+$/.test(scope)
+    ) ||
+    new Set(scopes).size !== scopes.length
+  ) {
+    throw error("scope entries must be unique visible ASCII strings.")
+  }
+  const sorted = [...scopes].sort()
+  if (
+    error === parseError &&
+    sorted.some((scope, index) => scope !== scopes[index])
+  ) {
+    throw error("scope entries must be sorted.")
+  }
+  return sorted
 }
 
 function isLoopback(hostname: string): boolean {

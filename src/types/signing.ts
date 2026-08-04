@@ -12,7 +12,7 @@ export type ReplayMode = "non-replayable" | "replayable"
 export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
 
 export type SignOptions = {
-  label?: string // default: "eth"
+  label?: string // default: "request"
   binding?: BindingMode // default: "request-bound"
   replay?: ReplayMode // default: "non-replayable"
 

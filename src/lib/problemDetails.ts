@@ -8,7 +8,7 @@ import { Erc8128Error } from "./Erc8128Error"
 const UNAVAILABLE_REASONS = new Set<VerifyFailReason>([
   "signature_verification_unavailable",
   "grant_verification_unavailable",
-  "critical_extension_unavailable"
+  "revocation_unavailable"
 ])
 
 const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
@@ -46,10 +46,10 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "delegation_nonce_required",
   "delegation_max_age_exceeded",
   "delegation_components_floor",
-  "unsupported_critical_extension",
-  "delegation_extension_rejected",
   "grant_verification_unavailable",
-  "critical_extension_unavailable"
+  "authorization_revoked",
+  "authorization_epoch_mismatch",
+  "revocation_unavailable"
 ])
 
 export function formatErc8128ProblemDetails(

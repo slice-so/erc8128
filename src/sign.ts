@@ -93,7 +93,7 @@ export async function signRequest(
   const request = toRequest(input, init)
 
   const label = allocateSignatureLabel(
-    resolvedOpts.label ?? "eth",
+    resolvedOpts.label ?? "request",
     collectSignatureLabels(
       request.headers.get("signature-input"),
       request.headers.get("signature")

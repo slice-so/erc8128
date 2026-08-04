@@ -3,8 +3,7 @@ import type {
   ComponentIdentifier,
   CoveredComponent,
   Hex,
-  SfDictionary,
-  SfMember
+  SfDictionary
 } from "./core"
 import type { EthHttpSigner } from "./signing"
 
@@ -23,11 +22,11 @@ export type ParsedDelegationField = {
   delegateKeyType?: "eoa"
   audiences: string[]
   id: Hex
+  epoch: number
   maxAge?: number
-  replayable: boolean
+  allowReplayable: boolean
   components: ComponentIdentifier[]
-  critical: string[]
-  extensions: Record<string, SfMember>
+  scopes: string[]
   members: SfDictionary
 }
 
@@ -37,13 +36,13 @@ export type DelegationGrantBuildArgs = {
   delegateKeyType?: "eoa"
   audiences: readonly string[]
   id: Hex | Uint8Array
+  epoch: number
   created?: number
   expires: number
   maxAge?: number
-  replayable?: boolean
+  allowReplayable?: true
   components?: readonly CoveredComponent[]
-  critical?: readonly string[]
-  extensions?: Record<string, SfMember>
+  scopes?: readonly string[]
 }
 
 export type PreparedDelegationGrant = {
@@ -58,22 +57,23 @@ export type PreparedDelegationGrant = {
   }
 }
 
-export type DelegationExtensionContext = {
+export type DelegationRevocationContext = {
+  authority: { address: Address; chainId: number }
   request: Request
   field: ParsedDelegationField
-  member: SfMember
   grant: DelegationGrant
   grantCreated: number
   grantExpires: number
 }
 
-export type DelegationExtensionHandler = (
-  context: DelegationExtensionContext
+export type DelegationRevocationVerifier = (
+  context: DelegationRevocationContext
 ) =>
-  | boolean
+  | "valid"
+  | "revoked"
+  | "epoch-mismatch"
   | "unavailable"
-  | { ok: boolean; detail?: string }
-  | Promise<boolean | "unavailable" | { ok: boolean; detail?: string }>
+  | Promise<"valid" | "revoked" | "epoch-mismatch" | "unavailable">
 
 export interface DelegationGrantCache {
   get(key: string): true | undefined | Promise<true | undefined>
@@ -83,17 +83,14 @@ export interface DelegationGrantCache {
 export type DelegationPolicy = {
   audience?: string | string[] | ((request: Request) => string)
   grantMaxValiditySec?: number
-  extensions?: Record<string, DelegationExtensionHandler>
+  revocation: {
+    authority: { address: Address; chainId: number }
+    verify: DelegationRevocationVerifier
+  }
   grantCache?: DelegationGrantCache
   grantCacheTtlSec?: number
 }
 
 export type SignDelegationGrantArgs = DelegationGrantBuildArgs & {
   signer: EthHttpSigner
-}
-
-export type RevocationExtension = {
-  registry: Address
-  chainId: number
-  epoch: number
 }

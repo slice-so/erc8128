@@ -19,7 +19,7 @@ describe("ERC-8128 problem details", () => {
     expect(
       formatErc8128ProblemDetails({
         ok: false,
-        reason: "critical_extension_unavailable"
+        reason: "revocation_unavailable"
       }).status
     ).toBe(503)
   })

@@ -384,7 +384,7 @@ async function verifyDelegatedCandidate(args: {
     DELEGATION_COMPONENT
   )
   if (missingDelegation) return { ok: false, reason: "delegation_not_covered" }
-  if (!field.replayable && !requestParams.nonce) {
+  if (!field.allowReplayable && !requestParams.nonce) {
     return { ok: false, reason: "delegation_nonce_required" }
   }
   if (
@@ -399,15 +399,6 @@ async function verifyDelegatedCandidate(args: {
   )
   if (missingFloor) return { ok: false, reason: "delegation_components_floor" }
 
-  for (const extensionName of field.critical) {
-    if (field.extensions[extensionName] === undefined) {
-      return { ok: false, reason: "bad_delegation_field" }
-    }
-    if (delegationPolicy.extensions?.[extensionName] === undefined) {
-      return { ok: false, reason: "unsupported_critical_extension" }
-    }
-  }
-
   const attempt: Attempt<ParsedKeyId> = {
     candidate: args.candidate,
     kind: "request-bound",
@@ -416,9 +407,9 @@ async function verifyDelegatedCandidate(args: {
   const common = await validateRequestCandidate({
     ...args,
     attempt,
-    allowReplayable: field.replayable && (args.policy.replayable ?? false),
+    allowReplayable: field.allowReplayable && (args.policy.replayable ?? false),
     missingNonceReason:
-      field.replayable && !(args.policy.replayable ?? false)
+      field.allowReplayable && !(args.policy.replayable ?? false)
         ? "replayable_not_allowed"
         : "nonce_required"
   })
@@ -520,38 +511,35 @@ async function verifyDelegatedCandidate(args: {
     }
   }
 
-  for (const extensionName of field.critical) {
-    const handler = delegationPolicy.extensions?.[extensionName]
-    if (!handler) return { ok: false, reason: "unsupported_critical_extension" }
-    const member = field.extensions[extensionName]
-    if (!member) return { ok: false, reason: "bad_delegation_field" }
-    try {
-      const outcome = await handler({
-        request: args.request,
-        field,
-        member,
-        grant,
-        grantCreated: grantCandidate.params.created,
-        grantExpires: grantCandidate.params.expires
-      })
-      if (outcome === "unavailable") {
-        return { ok: false, reason: "critical_extension_unavailable" }
-      }
-      if (outcome === false || (typeof outcome === "object" && !outcome.ok)) {
-        return {
-          ok: false,
-          reason: "delegation_extension_rejected",
-          ...(typeof outcome === "object" && outcome.detail
-            ? { detail: outcome.detail }
-            : {})
-        }
-      }
-    } catch (error) {
-      if (error instanceof VerificationUnavailableError) {
-        return { ok: false, reason: "critical_extension_unavailable" }
-      }
-      return { ok: false, reason: "delegation_extension_rejected" }
+  let revocationStatus: Awaited<
+    ReturnType<typeof delegationPolicy.revocation.verify>
+  >
+  try {
+    revocationStatus = await delegationPolicy.revocation.verify({
+      authority: delegationPolicy.revocation.authority,
+      request: args.request,
+      field,
+      grant,
+      grantCreated: grantCandidate.params.created,
+      grantExpires: grantCandidate.params.expires
+    })
+  } catch (error) {
+    if (error instanceof VerificationUnavailableError) {
+      return { ok: false, reason: "revocation_unavailable" }
     }
+    return { ok: false, reason: "revocation_unavailable" }
+  }
+  if (revocationStatus === "unavailable") {
+    return { ok: false, reason: "revocation_unavailable" }
+  }
+  if (revocationStatus === "revoked") {
+    return { ok: false, reason: "authorization_revoked" }
+  }
+  if (revocationStatus === "epoch-mismatch") {
+    return { ok: false, reason: "authorization_epoch_mismatch" }
+  }
+  if (revocationStatus !== "valid") {
+    return { ok: false, reason: "revocation_unavailable" }
   }
 
   const replayFailure = await validateReplayableInvalidation(
@@ -567,6 +555,8 @@ async function verifyDelegatedCandidate(args: {
     signer: field.delegate,
     delegated: true,
     delegationId: hexToBytes(field.id),
+    delegationEpoch: field.epoch,
+    scopes: field.scopes,
     label: args.candidate.candidate.label,
     components: args.candidate.candidate.components,
     params: requestParams,
@@ -766,7 +756,7 @@ function isUnavailableFailure(failure: Failure): boolean {
   return (
     failure.reason === "signature_verification_unavailable" ||
     failure.reason === "grant_verification_unavailable" ||
-    failure.reason === "critical_extension_unavailable"
+    failure.reason === "revocation_unavailable"
   )
 }
 

@@ -1,7 +1,7 @@
 # Delegated principals
 
 An ERC-8128 delegated request carries a canonical `ERC-8128-Delegation`
-Structured Field. The grant root signs that field with
+Structured Field. The root signs that authorization field with
 `tag="erc8128-delegation"`; the delegate signs the request with
 `tag="erc8128-delegated"` and covers the field using `;sf` canonicalization.
 
@@ -11,19 +11,38 @@ const prepared = buildDelegationGrant({
   delegate,
   audiences: ["https://api.example"],
   id,
+  epoch,
   expires
 })
 const grant = completeDelegationGrant(prepared, rootSignature)
 const session = createDelegatedSignerClient(delegateSigner, grant)
+
+const result = await verifyRequest({
+  request,
+  nonceStore,
+  verifyMessage,
+  policy: {
+    principal: "delegated",
+    delegation: {
+      audience: "https://api.example",
+      revocation: {
+        authority: {address: registryAddress, chainId: 8453},
+        verify: verifyRevocation
+      }
+    }
+  }
+})
 ```
 
 The verifier evaluates direct and delegated candidates in header order. A
 delegated candidate validates time nesting, identities, exact request audience,
-component posture, request signature, universal root signature, and every
-critical extension before nonce consumption. When the root attests
+component posture, standard scopes, request signature, universal root signature,
+and trusted revocation state before nonce consumption. When the root attests
 `delegate;key-type="eoa"`, request verification uses strict local ECDSA and does
 not require RPC; this optimization never applies to the root proof.
 
 Grant caches key all canonical proof artifacts and a profile discriminator.
-Audience, time, posture, nesting, and critical extensions are rechecked on every
-request.
+Audience, time, posture, nesting, scopes, and revocation are rechecked on every
+request. Delegated signers generate nonce-bearing requests by default. An
+authorization may opt into replayable requests with `allow-replayable=?1`, but
+the caller and verifier must both opt in for a nonce-less request.

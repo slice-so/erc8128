@@ -65,6 +65,8 @@ export type VerifyResult =
       signer: { address: Address; chainId: number }
       delegated: true
       delegationId: Uint8Array
+      delegationEpoch: number
+      scopes: string[]
       label: string
       components: ComponentIdentifier[]
       params: SignatureParams
@@ -108,10 +110,10 @@ export type VerifyFailReason =
   | "delegation_nonce_required"
   | "delegation_max_age_exceeded"
   | "delegation_components_floor"
-  | "unsupported_critical_extension"
-  | "delegation_extension_rejected"
   | "grant_verification_unavailable"
-  | "critical_extension_unavailable"
+  | "authorization_revoked"
+  | "authorization_epoch_mismatch"
+  | "revocation_unavailable"
 
 export type VerifyCandidate<Key = string> = {
   candidate: SelectedSignature

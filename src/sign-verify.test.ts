@@ -106,7 +106,7 @@ describe("ERC-8128 direct signing and verification", () => {
       parseSignatureInputHeader(
         second.headers.get("signature-input") ?? ""
       ).map(({ label }) => label)
-    ).toEqual(["eth", "eth1"])
+    ).toEqual(["request", "request1"])
   })
 
   test("recomputes the digest over exact received bytes", async () => {

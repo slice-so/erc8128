@@ -21,6 +21,14 @@ const delegate = privateKeyToAccount(`0x${"22".repeat(32)}`)
 const foreignRoot = privateKeyToAccount(`0x${"44".repeat(32)}`)
 const foreignDelegate = privateKeyToAccount(`0x${"55".repeat(32)}`)
 const now = Math.floor(Date.now() / 1_000)
+const verifyRevocation = async () => "valid" as const
+const revocation = {
+  authority: {
+    address: "0x7777777777777777777777777777777777777777" as const,
+    chainId: 8453
+  },
+  verify: verifyRevocation
+}
 
 const signer = (account: typeof root) => ({
   address: account.address,
@@ -30,8 +38,7 @@ const signer = (account: typeof root) => ({
 })
 
 const createGrant = async (
-  audiences: readonly string[] = ["https://api.example"],
-  extension?: { critical: string; member: { value: boolean } }
+  audiences: readonly string[] = ["https://api.example"]
 ) => {
   const prepared = buildDelegationGrant({
     root: { address: root.address, chainId: 8453 },
@@ -39,16 +46,11 @@ const createGrant = async (
     delegateKeyType: "eoa",
     audiences,
     id: `0x${"33".repeat(32)}`,
+    epoch: 0,
     created: now,
     expires: now + 600,
     maxAge: 60,
-    components: ["x-tenant"],
-    ...(extension
-      ? {
-          critical: [extension.critical],
-          extensions: { [extension.critical]: extension.member }
-        }
-      : {})
+    components: ["x-tenant"]
   })
   return completeDelegationGrant(
     prepared,
@@ -80,6 +82,7 @@ const createGrantVariant = async ({
     delegate: { address: delegateAccount.address, chainId: 8453 },
     delegateKeyType: "eoa",
     expires: now + 600,
+    epoch: 0,
     id: `0x${"33".repeat(32)}`,
     maxAge: 60,
     root: { address: rootAccount.address, chainId: 8453 }
@@ -113,14 +116,14 @@ const combineGrantAndCandidates = (
   headers.set(
     "signature-input",
     [
-      `grant=${grant.grantSignatureInput}`,
+      `authorization=${grant.grantSignatureInput}`,
       ...candidates.map(({ input, label }) => `${label}=${input}`)
     ].join(", ")
   )
   headers.set(
     "signature",
     [
-      `grant=:${grant.grantSignatureB64}:`,
+      `authorization=:${grant.grantSignatureB64}:`,
       ...candidates.map(({ label, signature }) => `${label}=:${signature}:`)
     ].join(", ")
   )
@@ -137,8 +140,103 @@ describe("ERC-8128 delegation", () => {
     })
     expect(field.delegateKeyType).toBe("eoa")
     expect(field.audiences).toEqual(["https://api.example"])
+    expect(field.epoch).toBe(0)
+    expect(field.allowReplayable).toBe(false)
+    expect(field.scopes).toEqual([])
+    expect(grant.fieldValue).not.toContain("allow-replayable")
     expect(field.components).toEqual([{ name: "x-tenant" }])
     expect(getDelegationGrantSignatureBase(grant)).toBeInstanceOf(Uint8Array)
+  })
+
+  test("uses a closed dictionary with canonical replay and scope members", () => {
+    const fieldValue = buildDelegationGrant({
+      root: { address: root.address, chainId: 8453 },
+      delegate: { address: delegate.address, chainId: 8453 },
+      audiences: ["https://api.example"],
+      id: `0x${"33".repeat(32)}`,
+      epoch: 7,
+      created: now,
+      expires: now + 600,
+      allowReplayable: true,
+      scopes: ["wallet:permissions:read", "id:authorizations:read"]
+    }).fieldValue
+    const field = parseDelegationField(fieldValue)
+
+    expect(field.epoch).toBe(7)
+    expect(field.allowReplayable).toBe(true)
+    expect(field.scopes).toEqual([
+      "id:authorizations:read",
+      "wallet:permissions:read"
+    ])
+    expect(fieldValue).toContain("allow-replayable")
+    expect(fieldValue).toContain(
+      'scope=("id:authorizations:read" "wallet:permissions:read")'
+    )
+    expect(() =>
+      parseDelegationField(`${fieldValue}, future-member="ignored"`)
+    ).toThrow("Unsupported delegation member")
+    expect(() =>
+      parseDelegationField(
+        fieldValue.replace("allow-replayable", "allow-replayable=?0")
+      )
+    ).toThrow("may only be present with ?1")
+  })
+
+  test("defaults requests to non-replayable even when replay is authorized", async () => {
+    const prepared = buildDelegationGrant({
+      root: { address: root.address, chainId: 8453 },
+      delegate: { address: delegate.address, chainId: 8453 },
+      delegateKeyType: "eoa",
+      audiences: ["https://api.example"],
+      id: `0x${"33".repeat(32)}`,
+      epoch: 0,
+      created: now,
+      expires: now + 600,
+      allowReplayable: true
+    })
+    const authorization = completeDelegationGrant(
+      prepared,
+      await root.signMessage({
+        message: { raw: bytesToHex(prepared.signatureBase) }
+      })
+    )
+    const client = createDelegatedSignerClient(signer(delegate), authorization)
+    const defaultRequest = await client.signRequest(
+      "https://api.example/orders",
+      { created: now, expires: now + 45 }
+    )
+    const defaultCandidate = parseSignatureInputHeader(
+      defaultRequest.headers.get("signature-input") ?? ""
+    ).find(({ params }) => params.tag === "erc8128-delegated")
+    expect(defaultCandidate?.params.nonce).toBeString()
+
+    const replayableRequest = await client.signRequest(
+      "https://api.example/orders",
+      { created: now, expires: now + 45, replay: "replayable" }
+    )
+    const replayableCandidate = parseSignatureInputHeader(
+      replayableRequest.headers.get("signature-input") ?? ""
+    ).find(({ params }) => params.tag === "erc8128-delegated")
+    expect(replayableCandidate?.params.nonce).toBeUndefined()
+    const result = await verifyRequest({
+      request: replayableRequest,
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: {
+        now: () => now,
+        principal: "delegated",
+        replayable: true,
+        replayableNotBefore: async () => 0,
+        delegation: { audience: "https://api.example", revocation }
+      },
+      verifyMessage: async ({ address, message, signature }) =>
+        (
+          await recoverMessageAddress({
+            message,
+            signature: signature as Hex
+          })
+        ).toLowerCase() === address.toLowerCase()
+    })
+    expect(result).toMatchObject({ ok: true, replay: "replayable" })
   })
 
   test("rejects baseline components and delegation fields that exceed profile bounds", () => {
@@ -155,6 +253,7 @@ describe("ERC-8128 delegation", () => {
           delegate: { address: delegate.address, chainId: 8453 },
           audiences: ["https://api.example"],
           id: `0x${"33".repeat(32)}`,
+          epoch: 0,
           created: now,
           expires: now + 600,
           components: [component]
@@ -170,6 +269,7 @@ describe("ERC-8128 delegation", () => {
           (_, index) => `https://api-${index}.example`
         ),
         id: `0x${"33".repeat(32)}`,
+        epoch: 0,
         created: now,
         expires: now + 600
       })
@@ -180,6 +280,7 @@ describe("ERC-8128 delegation", () => {
       delegate: { address: delegate.address, chainId: 8453 },
       audiences: ["https://api.example"],
       id: `0x${"33".repeat(32)}`,
+      epoch: 0,
       created: now,
       expires: now + 600,
       components: ["x-tenant"]
@@ -243,7 +344,7 @@ describe("ERC-8128 delegation", () => {
         policy: {
           now: () => now,
           principal: "delegated",
-          delegation: { audience: "https://api.example" }
+          delegation: { audience: "https://api.example", revocation }
         },
         verifyMessage: async () => {
           cryptoChecks += 1
@@ -276,6 +377,11 @@ describe("ERC-8128 delegation", () => {
       }),
       { created: now, expires: now + 45, nonce: "0123456789abcdef" }
     )
+    expect(
+      parseSignatureInputHeader(
+        request.headers.get("signature-input") ?? ""
+      ).map(({ label }) => label)
+    ).toEqual(["authorization", "request"])
     let universalChecks = 0
     const result = await verifyRequest({
       request,
@@ -283,7 +389,7 @@ describe("ERC-8128 delegation", () => {
       policy: {
         now: () => now,
         principal: "delegated",
-        delegation: { audience: "https://api.example" }
+        delegation: { audience: "https://api.example", revocation }
       },
       verifyMessage: async ({ address, message, signature }) => {
         universalChecks += 1
@@ -340,7 +446,7 @@ describe("ERC-8128 delegation", () => {
         policy: {
           now: () => now,
           principal: "direct",
-          delegation: { audience: "https://api.example" }
+          delegation: { audience: "https://api.example", revocation }
         },
         verifyMessage
       })
@@ -411,7 +517,7 @@ describe("ERC-8128 delegation", () => {
         policy: {
           now: () => now,
           principal: "delegated",
-          delegation: { audience: "https://api.example" }
+          delegation: { audience: "https://api.example", revocation }
         },
         verifyMessage: async ({ address, message, signature }) =>
           (
@@ -447,7 +553,7 @@ describe("ERC-8128 delegation", () => {
         policy: {
           now: () => now,
           principal: "delegated",
-          delegation: { audience: "https://api.example" }
+          delegation: { audience: "https://api.example", revocation }
         },
         verifyMessage: async () => true
       })
@@ -487,6 +593,7 @@ describe("ERC-8128 delegation", () => {
           principal: "delegated",
           delegation: {
             audience: "https://api.example",
+            revocation,
             grantCache: {
               get: (key) => cache.get(key),
               set: (key) => {
@@ -544,6 +651,7 @@ describe("ERC-8128 delegation", () => {
           principal: "delegated",
           delegation: {
             audience: "https://api.example",
+            revocation,
             grantCache: {
               get: (key) => cache.get(key),
               set: (key) => {
@@ -607,7 +715,7 @@ describe("ERC-8128 delegation", () => {
           nonceKey: (_keyId, nonce) => nonce,
           now: () => now,
           principal: "delegated",
-          delegation: { audience: "https://api.example" }
+          delegation: { audience: "https://api.example", revocation }
         },
         verifyMessage: async ({ address, message, signature }) =>
           (
@@ -622,11 +730,8 @@ describe("ERC-8128 delegation", () => {
     }
   })
 
-  test("verifies one grant at most once across mixed request candidates", async () => {
-    const grant = await createGrant(["https://api.example"], {
-      critical: "test-extension",
-      member: { value: true }
-    })
+  test("uses the trusted revocation authority before nonce consumption", async () => {
+    const grant = await createGrant(["https://api.example"])
     const signed = await createDelegatedSignerClient(
       signer(delegate),
       grant
@@ -657,6 +762,7 @@ describe("ERC-8128 delegation", () => {
 
     let rootChecks = 0
     let nonceConsumes = 0
+    let observedAuthority: { address: string; chainId: number } | undefined
     const result = await verifyRequest({
       request: new Request(signed, { headers }),
       nonceStore: {
@@ -670,7 +776,13 @@ describe("ERC-8128 delegation", () => {
         principal: "delegated",
         delegation: {
           audience: "https://api.example",
-          extensions: { "test-extension": () => false }
+          revocation: {
+            ...revocation,
+            verify: async ({ authority }) => {
+              observedAuthority = authority
+              return "revoked" as const
+            }
+          }
         }
       },
       verifyMessage: async ({ address, message, signature }) => {
@@ -688,10 +800,53 @@ describe("ERC-8128 delegation", () => {
 
     expect(result).toMatchObject({
       ok: false,
-      reason: "delegation_extension_rejected"
+      reason: "authorization_revoked"
     })
+    expect(observedAuthority).toEqual(revocation.authority)
     expect(rootChecks).toBe(1)
     expect(nonceConsumes).toBe(0)
+  })
+
+  test("distinguishes epoch mismatch and unavailable revocation", async () => {
+    const authorization = await createGrant()
+    const request = await createDelegatedSignerClient(
+      signer(delegate),
+      authorization
+    ).signRequest(
+      new Request("https://api.example/orders", {
+        headers: { "x-tenant": "store-1" }
+      }),
+      {
+        created: now,
+        expires: now + 45,
+        nonce: "revocation-status-test"
+      }
+    )
+    for (const [status, reason] of [
+      ["epoch-mismatch", "authorization_epoch_mismatch"],
+      ["unavailable", "revocation_unavailable"]
+    ] as const) {
+      const result = await verifyRequest({
+        request,
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: {
+          now: () => now,
+          principal: "delegated",
+          delegation: {
+            audience: "https://api.example",
+            revocation: { ...revocation, verify: async () => status }
+          }
+        },
+        verifyMessage: async ({ address, message, signature }) =>
+          (
+            await recoverMessageAddress({
+              message,
+              signature: signature as Hex
+            })
+          ).toLowerCase() === address.toLowerCase()
+      })
+      expect(result).toMatchObject({ ok: false, reason })
+    }
   })
 
   test("refuses a destination outside the exact audience", async () => {

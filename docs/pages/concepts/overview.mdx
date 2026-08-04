@@ -70,8 +70,8 @@ Example:
 POST /orders HTTP/1.1
 Host: api.example.com
 Content-Type: application/json
-Signature-Input: eth=("@scheme" "@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";tag="erc8128";keyid="eip155:1:0x1234...abcd"
-Signature: eth=:MEUCIQDXtPCJ5...base64...:
+Signature-Input: request=("@scheme" "@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";tag="erc8128";keyid="eip155:1:0x1234...abcd"
+Signature: request=:MEUCIQDXtPCJ5...base64...:
 Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 
 {"amount": "100"}

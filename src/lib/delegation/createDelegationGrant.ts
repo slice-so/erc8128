@@ -123,7 +123,7 @@ export function getDelegationGrantSignatureBase(
   validateDelegationGrantArtifact(grant)
   const field = parseDelegationField(grant.fieldValue)
   const [input] = parseSignatureInputHeader(
-    `grant=${grant.grantSignatureInput}`
+    `authorization=${grant.grantSignatureInput}`
   )
   if (
     input === undefined ||

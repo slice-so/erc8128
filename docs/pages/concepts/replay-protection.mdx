@@ -28,7 +28,7 @@ ERC-8128 provides three complementary protections:
 Every signature has `created` and `expires` timestamps:
 
 ```
-Signature-Input: eth=(...);created=1618884473;expires=1618884533;...
+Signature-Input: request=(...);created=1618884473;expires=1618884533;...
 ```
 
 :::code-group
@@ -74,7 +74,7 @@ const result = await verifyRequest({
 For non-replayable requests, a unique nonce ensures each request can only be used once:
 
 ```
-Signature-Input: eth=(...);nonce="a1b2c3d4-e5f6-7890";...
+Signature-Input: request=(...);nonce="a1b2c3d4-e5f6-7890";...
 ```
 
 :::code-group

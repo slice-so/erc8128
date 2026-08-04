@@ -62,7 +62,7 @@ export function createDelegatedSignerClient(
   getDelegationGrantSignatureBase(resolvedGrant)
   const field = parseDelegationField(resolvedGrant.fieldValue)
   const [grantInput] = parseSignatureInputHeader(
-    `grant=${resolvedGrant.grantSignatureInput}`
+    `authorization=${resolvedGrant.grantSignatureInput}`
   )
   if (
     grantInput === undefined ||
@@ -133,10 +133,13 @@ export function createDelegatedSignerClient(
       headers.get("signature-input"),
       headers.get("signature")
     )
-    const grantLabel = allocateSignatureLabel("grant", usedLabels)
-    usedLabels.add(grantLabel)
+    const authorizationLabel = allocateSignatureLabel(
+      "authorization",
+      usedLabels
+    )
+    usedLabels.add(authorizationLabel)
     const requestLabel = allocateSignatureLabel(
-      options?.label ?? defaults?.label ?? "eth",
+      options?.label ?? defaults?.label ?? "request",
       usedLabels
     )
     headers.set(
@@ -144,7 +147,7 @@ export function createDelegatedSignerClient(
       appendDictionaryMember(
         headers.get("signature-input"),
         serializeSignatureInputHeader(
-          grantLabel,
+          authorizationLabel,
           resolvedGrant.grantSignatureInput
         )
       )
@@ -153,16 +156,26 @@ export function createDelegatedSignerClient(
       "signature",
       appendDictionaryMember(
         headers.get("signature"),
-        serializeSignatureHeader(grantLabel, resolvedGrant.grantSignatureB64)
+        serializeSignatureHeader(
+          authorizationLabel,
+          resolvedGrant.grantSignatureB64
+        )
       )
     )
 
+    const replay = options?.replay ?? "non-replayable"
+    if (replay === "replayable" && !field.allowReplayable) {
+      throw new Erc8128Error(
+        "INVALID_OPTIONS",
+        "Delegation does not authorize replayable requests."
+      )
+    }
     return signDelegatedRequest(new Request(request, { headers }), session, {
       ...defaults,
       ...options,
       label: requestLabel,
       binding: "request-bound",
-      replay: field.replayable ? "replayable" : "non-replayable",
+      replay,
       created,
       expires,
       components: [

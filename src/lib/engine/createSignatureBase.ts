@@ -83,7 +83,9 @@ export function parseSignatureBase(base: string): {
     return null
   }
   try {
-    const [member] = parseSignatureInputHeader(`eth=${signatureParams.value}`)
+    const [member] = parseSignatureInputHeader(
+      `request=${signatureParams.value}`
+    )
     if (
       member === undefined ||
       member.components.length !== entries.length ||

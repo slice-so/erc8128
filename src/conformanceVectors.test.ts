@@ -174,8 +174,12 @@ test.each(vectors)("verifies conformance vector $id", async (vector) => {
         : {
             delegation: {
               audience: "https://api.example",
-              extensions: {
-                "erc8128-revocation": async () => true
+              revocation: {
+                authority: {
+                  address: "0x3333333333333333333333333333333333333333",
+                  chainId: 1
+                },
+                verify: async () => "valid" as const
               }
             }
           })

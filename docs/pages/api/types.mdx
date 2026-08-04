@@ -64,7 +64,7 @@ Options for [signRequest](/api/signRequest) and [signedFetch](/api/signedFetch).
 
 ```typescript
 type SignOptions = {
-  /** Signature label (default: "eth") */
+  /** Signature label (default: "request") */
   label?: string
   
   /** Binding mode (default: "request-bound") */
@@ -148,6 +148,12 @@ Policy for [verifyRequest](/api/verifyRequest).
 
 ```typescript
 type VerifyPolicy = {
+  /** Select direct, delegated, or either principal class. */
+  principal?: "direct" | "delegated" | "either"
+
+  /** Direct-account verification policy (default: "universal"). */
+  accountVerification?: "universal" | "eoa-only"
+
   /**
    * Extra components required in addition to the default request-bound set.
    * Use this for custom headers like 'x-idempotency-key'.
@@ -196,8 +202,32 @@ type VerifyPolicy = {
   
   /** Custom key generator for nonce storage */
   nonceKey?: (keyid: string, nonce: string) => string
+
+  /** Required to accept delegated signatures. */
+  delegation?: DelegationPolicy
 }
 ```
+
+```typescript
+type DelegationPolicy = {
+  audience?: string | string[] | ((request: Request) => string)
+  grantMaxValiditySec?: number
+  revocation: {
+    authority: {address: Address; chainId: number}
+    verify: (context: DelegationRevocationContext) =>
+      | "valid"
+      | "revoked"
+      | "epoch-mismatch"
+      | "unavailable"
+      | Promise<"valid" | "revoked" | "epoch-mismatch" | "unavailable">
+  }
+  grantCache?: DelegationGrantCache
+  grantCacheTtlSec?: number
+}
+```
+
+The revocation authority is trusted verifier configuration, not signed input.
+Unknown delegation Dictionary members are rejected before this callback runs.
 
 ---
 
@@ -260,6 +290,8 @@ type VerifyResult =
       signer: { address: Address; chainId: number }
       delegated: true
       delegationId: Uint8Array
+      delegationEpoch: number
+      scopes: string[]
       label: string
       components: ComponentIdentifier[]
       params: SignatureParams
@@ -280,8 +312,10 @@ type VerifyResult =
 | `ok` | `true` | Verification succeeded |
 | `principal` | `AccountIdentity` | Authenticated root or direct account |
 | `signer` | `AccountIdentity` | Account that signed the request |
-| `delegated` | `boolean` | Whether a grant authenticated the principal |
-| `delegationId` | `Uint8Array` | The 32-byte grant identifier on delegated results |
+| `delegated` | `boolean` | Whether a delegation authorization authenticated the principal |
+| `delegationId` | `Uint8Array` | The 32-byte authorization identifier on delegated results |
+| `delegationEpoch` | `number` | The root issuance epoch signed into the authorization |
+| `scopes` | `string[]` | Standard case-sensitive authorization scopes |
 | `label` | `string` | Signature label that was verified |
 | `components` | `ComponentIdentifier[]` | Structurally parsed signed components |
 | `params` | `SignatureParams` | Parsed signature parameters |
@@ -354,10 +388,10 @@ type VerifyFailReason =
   | "delegation_nonce_required"
   | "delegation_max_age_exceeded"
   | "delegation_components_floor"
-  | "unsupported_critical_extension"
-  | "delegation_extension_rejected"
+  | "authorization_revoked"
+  | "authorization_epoch_mismatch"
   | "grant_verification_unavailable"
-  | "critical_extension_unavailable"
+  | "revocation_unavailable"
 ```
 
 ---
