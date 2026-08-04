@@ -5,6 +5,7 @@ import { VerificationUnavailableError } from "./lib/Erc8128Error"
 import { parseSignatureInputHeader } from "./lib/engine/createSignatureInput"
 import { formatErc8128ProblemDetails } from "./lib/problemDetails"
 import { bytesToHex } from "./lib/utilities"
+import { runNonceChecks } from "./lib/verifyUtils"
 import { signedFetch, signRequest } from "./sign"
 import { BoundedMemoryNonceStore } from "./stores"
 import { verifyRequest } from "./verify"
@@ -90,6 +91,65 @@ describe("ERC-8128 direct signing and verification", () => {
       "@path",
       "@query"
     ])
+  })
+
+  test("preserves received legal component-parameter order", async () => {
+    const signed = await signRequest(
+      new Request("https://api.example/ordered", {
+        headers: { "x-dictionary": "a=1" }
+      }),
+      signer,
+      {
+        components: [{ name: "x-dictionary", params: { key: "a", sf: true } }],
+        created: now,
+        expires: now + 60,
+        nonce: "ordered-component-params"
+      }
+    )
+    expect(signed.headers.get("signature-input")).toContain(
+      '"x-dictionary";key="a";sf'
+    )
+
+    const result = await verifyRequest({
+      request: signed,
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: { now: () => now },
+      verifyMessage: universalVerify
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  test("binds significant internal field whitespace", async () => {
+    const signed = await signRequest(
+      new Request("https://api.example/whitespace", {
+        headers: { "x-note": "alpha   beta" }
+      }),
+      signer,
+      {
+        components: ["x-note"],
+        created: now,
+        expires: now + 60,
+        nonce: "internal-whitespace"
+      }
+    )
+    const headers = new Headers(signed.headers)
+    headers.set("x-note", "alpha beta")
+    let nonceConsumes = 0
+
+    expect(
+      await verifyRequest({
+        request: new Request(signed, { headers }),
+        nonceStore: {
+          consume: async () => {
+            nonceConsumes += 1
+            return true
+          }
+        },
+        policy: { now: () => now },
+        verifyMessage: universalVerify
+      })
+    ).toEqual({ ok: false, reason: "bad_signature" })
+    expect(nonceConsumes).toBe(0)
   })
 
   test("allocates collision-free transport labels when composing signatures", async () => {
@@ -230,6 +290,50 @@ describe("ERC-8128 direct signing and verification", () => {
         }
       })
     ).resolves.toEqual({
+      ok: false,
+      reason: "signature_verification_unavailable"
+    })
+  })
+
+  test("classifies unavailable replay storage", async () => {
+    const signed = await signRequest(
+      "https://api.example/replay-store",
+      signer,
+      {
+        created: now,
+        expires: now + 60,
+        nonce: "unavailable-replay-store"
+      }
+    )
+    const candidate = parseSignatureInputHeader(
+      signed.headers.get("signature-input") ?? ""
+    )[0]
+    if (candidate === undefined) throw new Error("Signed candidate is missing.")
+    expect(
+      runNonceChecks({
+        allowReplayable: false,
+        clockSkewSec: 30,
+        maxNonceWindowSec: undefined,
+        nonceKey: undefined,
+        nonceStore: undefined,
+        now,
+        params: candidate.params
+      }).failure
+    ).toMatchObject({
+      ok: false,
+      reason: "signature_verification_unavailable"
+    })
+
+    const fullStore = new BoundedMemoryNonceStore(1)
+    await fullStore.consume("occupied", 60)
+    expect(
+      await verifyRequest({
+        request: signed,
+        nonceStore: fullStore,
+        policy: { now: () => now },
+        verifyMessage: universalVerify
+      })
+    ).toEqual({
       ok: false,
       reason: "signature_verification_unavailable"
     })

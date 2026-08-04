@@ -153,7 +153,7 @@ export function runNonceChecks(options: {
       return {
         failure: {
           ok: false,
-          reason: "nonce_required",
+          reason: "signature_verification_unavailable",
           detail: "nonceStore missing"
         },
         plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }

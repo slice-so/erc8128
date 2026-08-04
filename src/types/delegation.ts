@@ -4,6 +4,12 @@ import type {
   CoveredComponent,
   Hex
 } from "./core"
+import type { SignerClientOptions } from "./signing"
+
+export type DelegationAudiencePolicy = {
+  /** Permit canonical HTTP loopback origins for explicit local development. */
+  allowLoopbackAudiences?: boolean
+}
 
 export type AccountIdentity = { chainId: number; address: Address }
 
@@ -34,7 +40,7 @@ export type DelegationChain = {
   links: DelegationLink[]
 }
 
-export type DelegationGrantBuildArgs = {
+export type DelegationGrantBuildArgs = DelegationAudiencePolicy & {
   root: AccountIdentity
   delegate: AccountIdentity
   audiences: readonly string[]
@@ -85,6 +91,7 @@ export type PreparedDelegationGrant = {
   grant: Delegation
   digest: Hex
   typedData: DelegationTypedData
+  allowLoopbackAudiences?: boolean
 }
 
 export type DelegationStatusContext = {
@@ -107,6 +114,7 @@ export interface DelegationGrantCache {
 }
 
 export type DelegationPolicy = {
+  allowLoopbackAudiences?: boolean
   grantCache?: DelegationGrantCache
   grantCacheTtlSec?: number
   maxChainDepth?: number
@@ -115,6 +123,12 @@ export type DelegationPolicy = {
   scopeSupported?: boolean
   verifyStatus: DelegationStatusVerifier
 }
+
+export type DelegatedSignerClientOptions = Omit<
+  SignerClientOptions,
+  "authorizationPolicy" | "authorizationExpiresAt"
+> &
+  DelegationAudiencePolicy
 
 export type DelegationSigner = AccountIdentity & {
   signTypedData: (typedData: DelegationTypedData) => Promise<Hex>

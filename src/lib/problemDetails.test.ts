@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test"
 import {
   formatErc8128ProblemDetails,
+  formatEthHttpSigChallenge,
   parseErc8128ProblemDetails
 } from "./problemDetails"
 
 describe("ERC-8128 problem details", () => {
+  test("formats the authentication challenge", () => {
+    expect(formatEthHttpSigChallenge("bad_signature")).toBe(
+      'eth-http-sig error="bad_signature"'
+    )
+  })
+
   test("round trips authentication failures", () => {
     const problem = formatErc8128ProblemDetails({
       detail: "The audience was not accepted.",

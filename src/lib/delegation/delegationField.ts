@@ -7,6 +7,7 @@ import {
 import type {
   ComponentIdentifier,
   Delegation,
+  DelegationAudiencePolicy,
   DelegationChain,
   DelegationLink,
   DelegationTypedData,
@@ -96,6 +97,22 @@ export const ERC8128_REVOCATION_ABI = [
     stateMutability: "nonpayable",
     inputs: [],
     outputs: [{ name: "newEpoch", type: "uint64" }]
+  },
+  {
+    type: "event",
+    name: "Revoked",
+    inputs: [
+      { name: "root", type: "address", indexed: true },
+      { name: "id", type: "bytes32", indexed: true }
+    ]
+  },
+  {
+    type: "event",
+    name: "EpochAdvanced",
+    inputs: [
+      { name: "root", type: "address", indexed: true },
+      { name: "newEpoch", type: "uint64", indexed: false }
+    ]
   }
 ] as const
 
@@ -131,13 +148,19 @@ export function getDelegationTypedData(grant: Delegation): DelegationTypedData {
   }
 }
 
-export function hashDelegation(grant: Delegation): ViemHex {
-  validateDelegation(grant)
+export function hashDelegation(
+  grant: Delegation,
+  policy: DelegationAudiencePolicy = {}
+): ViemHex {
+  validateDelegation(grant, policy)
   return hashTypedData(getDelegationTypedData(grant))
 }
 
-export function encodeDelegationLink(link: DelegationLink): Uint8Array {
-  validateDelegation(link.grant)
+export function encodeDelegationLink(
+  link: DelegationLink,
+  policy: DelegationAudiencePolicy = {}
+): Uint8Array {
+  validateDelegation(link.grant, policy)
   const signature = hexToBytes(link.signature)
   if (signature.length === 0) throw invalid("Delegation proof is empty.")
   return hexToBytes(
@@ -154,7 +177,10 @@ export function encodeDelegationLink(link: DelegationLink): Uint8Array {
   )
 }
 
-export function decodeDelegationLink(bytes: Uint8Array): DelegationLink {
+export function decodeDelegationLink(
+  bytes: Uint8Array,
+  policy: DelegationAudiencePolicy = {}
+): DelegationLink {
   if (bytes.length > MAX_LINK_BYTES)
     throw tooLarge("Delegation Link is too large.")
   let decoded: ReturnType<
@@ -182,22 +208,27 @@ export function decodeDelegationLink(bytes: Uint8Array): DelegationLink {
     parent: value.parent
   }
   const link = { grant, signature }
-  validateDelegation(grant)
+  validateDelegation(grant, policy)
   if (hexToBytes(signature).length === 0) {
     throw parseError("Delegation proof is empty.")
   }
-  const canonical = encodeDelegationLink(link)
+  const canonical = encodeDelegationLink(link, policy)
   if (bytesToHex(canonical) !== bytesToHex(bytes)) {
     throw parseError("Delegation Link ABI is not canonical.")
   }
   return link
 }
 
-export function formatDelegationField(chain: DelegationChain): string {
+export function formatDelegationField(
+  chain: DelegationChain,
+  policy: DelegationAudiencePolicy = {}
+): string {
   if (chain.links.length === 0) throw invalid("Delegation Chain is empty.")
   const dictionary: SfDictionary = {}
   for (const [index, link] of chain.links.entries()) {
-    dictionary[`g${index}`] = { value: sfBinary(encodeDelegationLink(link)) }
+    dictionary[`g${index}`] = {
+      value: sfBinary(encodeDelegationLink(link, policy))
+    }
   }
   const fieldValue = serializeSfDictionary(dictionary)
   if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
@@ -207,7 +238,8 @@ export function formatDelegationField(chain: DelegationChain): string {
 }
 
 export function parseDelegationField(
-  fieldValue: string
+  fieldValue: string,
+  policy: DelegationAudiencePolicy = {}
 ): ParsedDelegationField {
   if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
     throw tooLarge("Delegation field is too large.")
@@ -233,10 +265,10 @@ export function parseDelegationField(
     ) {
       throw parseError("Delegation links must be bare Byte Sequences.")
     }
-    return decodeDelegationLink(member.value.value)
+    return decodeDelegationLink(member.value.value, policy)
   })
   const chain = { links }
-  formatDelegationField(chain)
+  formatDelegationField(chain, policy)
   return { chain, fieldValue }
 }
 
@@ -283,7 +315,10 @@ export function serializeDelegationComponent(
   return `${JSON.parse(serialized.slice(0, end + 1))}${serialized.slice(end + 1)}`
 }
 
-export function normalizeAudienceOrigin(input: string): string {
+export function normalizeAudienceOrigin(
+  input: string,
+  policy: DelegationAudiencePolicy = {}
+): string {
   if (
     input.includes("*") ||
     /:\/\/[^/]*@/.test(input) ||
@@ -309,7 +344,14 @@ export function normalizeAudienceOrigin(input: string): string {
     throw invalid("Audience must contain only an RFC 6454 origin.")
   }
   const loopback = isLoopback(url.hostname)
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
+  if (
+    url.protocol !== "https:" &&
+    !(
+      url.protocol === "http:" &&
+      loopback &&
+      policy.allowLoopbackAudiences === true
+    )
+  ) {
     throw invalid("Audience must use HTTPS except for loopback development.")
   }
   const normalized = url.origin.toLowerCase()
@@ -317,7 +359,10 @@ export function normalizeAudienceOrigin(input: string): string {
   return normalized
 }
 
-export function validateDelegation(grant: Delegation): void {
+export function validateDelegation(
+  grant: Delegation,
+  policy: DelegationAudiencePolicy = {}
+): void {
   if (
     typeof grant !== "object" ||
     grant === null ||
@@ -329,7 +374,7 @@ export function validateDelegation(grant: Delegation): void {
   requireCanonicalIdentity(grant.root, "root")
   requireCanonicalIdentity(grant.delegate, "delegate")
   assertArray(grant.aud, "aud", true)
-  for (const audience of grant.aud) normalizeAudienceOrigin(audience)
+  for (const audience of grant.aud) normalizeAudienceOrigin(audience, policy)
   assertBytes32(grant.id, "id")
   assertInteger(grant.epoch, "epoch", 0, Number.MAX_SAFE_INTEGER)
   assertInteger(grant.created, "created", 0, Number.MAX_SAFE_INTEGER)

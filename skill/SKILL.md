@@ -110,11 +110,23 @@ if (result.ok) {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `maxValiditySec` | `number` | `300` | Max allowed TTL |
-| `clockSkewSec` | `number` | `0` | Allowed clock drift |
+| `clockSkewSec` | `number` | `30` | Allowed clock drift |
 | `replayable` | `boolean` | `false` | Allow nonce-less signatures |
 | `classBoundPolicies` | `string[]` \| `string[][]` | — | Accepted class-bound component sets |
 
 📖 See [Verifying Requests](https://erc8128.slice.so/guides/verifying-requests) and [VerifyPolicy](https://erc8128.slice.so/api/types#verifypolicy) for full options.
+
+### Delegated authentication
+
+Use EIP-712 Delegation Grants when a Root Account needs to authorize a
+short-lived leaf signer with attenuated audiences, scopes, request components,
+maximum age, and replay policy. Build and sign each grant with
+`buildDelegationGrant` / `completeDelegationGrant`, then create the leaf client
+with `createDelegatedSignerClient`. Verifiers enable the extension with a
+`policy.delegation` status reader and optional required scopes. HTTP loopback
+audiences are rejected by default; local development must explicitly set
+`allowLoopbackAudiences: true` on grant construction, the delegated signer
+client, and verifier delegation policy.
 
 ## CLI: erc8128 curl
 

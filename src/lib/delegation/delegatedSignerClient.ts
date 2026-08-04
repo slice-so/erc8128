@@ -1,10 +1,11 @@
 import { signDelegatedRequest } from "../../sign"
 import type {
+  DelegatedSignerClientOptions,
+  DelegationAudiencePolicy,
   DelegationChain,
   EthHttpSigner,
   FetchOptions,
   SignerClient,
-  SignerClientOptions,
   SignOptions
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
@@ -45,13 +46,17 @@ const REQUEST_INIT_KEYS = new Set([
 export function createDelegatedSignerClient(
   session: EthHttpSigner,
   delegation: DelegationChain,
-  defaults?: Omit<
-    SignerClientOptions,
-    "authorizationPolicy" | "authorizationExpiresAt"
-  >
+  defaults?: DelegatedSignerClientOptions
 ): SignerClient {
-  const fieldValue = formatDelegationField(delegation)
-  const resolved = resolveDelegationChain(parseDelegationField(fieldValue))
+  const audiencePolicy = {
+    allowLoopbackAudiences: defaults?.allowLoopbackAudiences === true
+  }
+  const fieldValue = formatDelegationField(delegation, audiencePolicy)
+  const resolved = resolveDelegationChain(
+    parseDelegationField(fieldValue, audiencePolicy),
+    undefined,
+    audiencePolicy
+  )
   const leaf = resolved.chain.links.at(-1)?.grant
   if (leaf === undefined) {
     throw new Erc8128Error("INVALID_OPTIONS", "Delegation Chain is empty.")
@@ -68,7 +73,7 @@ export function createDelegatedSignerClient(
   const serverConfigs = new Map(
     defaults?.serverConfigs
       ? Object.entries(defaults.serverConfigs).map(([origin, config]) => [
-          normalizeAudienceOrigin(origin),
+          normalizeAudienceOrigin(origin, audiencePolicy),
           config
         ])
       : []
@@ -80,7 +85,7 @@ export function createDelegatedSignerClient(
     options: SignOptions | undefined
   ): Promise<Request> {
     const request = new Request(input, init)
-    assertAudience(request.url, resolved.effectiveAudience)
+    assertAudience(request.url, resolved.effectiveAudience, audiencePolicy)
     const requestOrigin = sanitizeUrl(request.url).origin
     const serverConfig = serverConfigs.get(requestOrigin)
     const routePolicy = matchRoutePolicy(
@@ -195,7 +200,7 @@ export function createDelegatedSignerClient(
         throw new Erc8128Error("UNSUPPORTED_REQUEST", "Too many redirects.")
       }
       const target = new URL(location, signed.url)
-      assertAudience(target.href, resolved.effectiveAudience)
+      assertAudience(target.href, resolved.effectiveAudience, audiencePolicy)
       const method = redirectMethod(response.status, signed.method)
       nextInput = target.href
       if (typeof signingOptions?.nonce === "string") {
@@ -218,7 +223,7 @@ export function createDelegatedSignerClient(
     fetch: fetchBound,
     signedFetch: fetchBound,
     setServerConfig(origin, config) {
-      const normalized = normalizeAudienceOrigin(origin)
+      const normalized = normalizeAudienceOrigin(origin, audiencePolicy)
       if (config === null) serverConfigs.delete(normalized)
       else serverConfigs.set(normalized, config)
     }
@@ -240,8 +245,15 @@ function splitInitAndOptions<T extends SignOptions>(
   return { options: initOrOptions as T | undefined }
 }
 
-function assertAudience(urlValue: string, audiences: string[]): void {
-  const origin = normalizeAudienceOrigin(sanitizeUrl(urlValue).origin)
+function assertAudience(
+  urlValue: string,
+  audiences: string[],
+  audiencePolicy: DelegationAudiencePolicy
+): void {
+  const origin = normalizeAudienceOrigin(
+    sanitizeUrl(urlValue).origin,
+    audiencePolicy
+  )
   if (!audiences.includes(origin)) {
     throw new Erc8128Error(
       "INVALID_OPTIONS",

@@ -1,6 +1,7 @@
 import type {
   SfBareItem,
   SfByteSequence,
+  SfDecimal,
   SfDictionary,
   SfInnerList,
   SfItem,
@@ -160,6 +161,20 @@ function serializeBareItem(item: SfBareItem): string {
     }
     return rounded.toFixed(3).replace(/0+$/, "").replace(/\.$/, ".0")
   }
+  if (item.type === "decimal") {
+    const rounded = Math.round(item.value * 1_000) / 1_000
+    if (
+      !Number.isFinite(item.value) ||
+      Math.abs(item.value) >= 1_000_000_000_000 ||
+      rounded !== item.value
+    ) {
+      throw new Erc8128Error(
+        "BAD_HEADER_VALUE",
+        "Invalid Structured Field Decimal."
+      )
+    }
+    return rounded.toFixed(3).replace(/0+$/, "").replace(/\.$/, ".0")
+  }
   if (item.type === "token") {
     assertToken(item.value)
     return item.value
@@ -295,7 +310,6 @@ class StructuredFieldParser {
       }
       this.advance()
       const key = this.parseKey()
-      if (parameters[key] !== undefined) delete parameters[key]
       if (this.peek() === "=") {
         this.advance()
         parameters[key] = this.parseBareItem()
@@ -374,7 +388,7 @@ class StructuredFieldParser {
     return value === "1"
   }
 
-  private parseNumber(): number {
+  private parseNumber(): number | SfDecimal {
     const start = this.index
     if (this.peek() === "-") this.advance()
     const integerStart = this.index
@@ -383,7 +397,8 @@ class StructuredFieldParser {
     const integerDigits = this.index - integerStart
     if (integerDigits === 0 || integerDigits > 15)
       throw parseError("Invalid Integer.")
-    if (this.peek() === ".") {
+    const decimal = this.peek() === "."
+    if (decimal) {
       if (integerDigits > 12) throw parseError("Invalid Decimal.")
       this.advance()
       const fractionStart = this.index
@@ -395,7 +410,7 @@ class StructuredFieldParser {
     }
     const value = Number(this.source.slice(start, this.index))
     if (!Number.isFinite(value)) throw parseError("Invalid number.")
-    return value
+    return decimal ? { type: "decimal", value } : value
   }
 
   private parseToken(): SfToken {

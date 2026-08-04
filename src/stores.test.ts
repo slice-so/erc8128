@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test"
+import { VerificationUnavailableError } from "./lib/Erc8128Error"
 import {
   BoundedMemoryNonceStore,
   createRedisNonceStore,
@@ -6,16 +7,19 @@ import {
 } from "./stores"
 
 describe("ERC-8128 nonce stores", () => {
-  test("bounded memory consumes atomically and evicts to its capacity", async () => {
+  test("bounded memory fails closed without evicting live replay keys", async () => {
     const store = new BoundedMemoryNonceStore(2)
     expect(await store.consume("first", 60)).toBe(true)
     expect(await store.consume("first", 60)).toBe(false)
     expect(await store.consume("second", 60)).toBe(true)
-    expect(await store.consume("third", 60)).toBe(true)
-    expect(await store.consume("first", 60)).toBe(true)
+    await expect(store.consume("third", 60)).rejects.toBeInstanceOf(
+      VerificationUnavailableError
+    )
+    expect(await store.consume("first", 60)).toBe(false)
+    expect(await store.consume("second", 60)).toBe(false)
   })
 
-  test("sweeps every expired nonce before evicting live entries", async () => {
+  test("sweeps every expired nonce before checking capacity", async () => {
     let now = 1_000
     const nowSpy = spyOn(Date, "now").mockImplementation(() => now)
     try {

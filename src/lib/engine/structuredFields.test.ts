@@ -41,6 +41,8 @@ describe("RFC 9651 Structured Fields", () => {
     expect(parseSfDictionary("a=?1, a=?0")).toEqual({
       a: { value: false, params: {} }
     })
+    expect(canonicalizeSfDictionary("a=1;p=1;q;p=2")).toBe("a=1;p=2;q")
+    expect(canonicalizeSfDictionary("a=1.0")).toBe("a=1.0")
     expect(() => parseSfDictionary('a=("one", "two")')).toThrow()
     expect(() => parseSfDictionary("a=:AQ:")).toThrow()
   })

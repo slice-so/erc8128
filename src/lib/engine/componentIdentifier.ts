@@ -6,8 +6,7 @@ import type {
 import { Erc8128Error } from "../Erc8128Error"
 import { serializeSfMember } from "./structuredFields"
 
-const PARAMETER_NAMES = ["sf", "bs", "tr", "req", "key", "name"] as const
-const parameterNameSet = new Set<string>(PARAMETER_NAMES)
+const parameterNameSet = new Set(["sf", "bs", "tr", "req", "key", "name"])
 
 export function normalizeComponentIdentifier(
   component: CoveredComponent
@@ -28,9 +27,7 @@ export function normalizeComponentIdentifier(
     )
   }
   const params: NonNullable<ComponentIdentifier["params"]> = {}
-  for (const parameter of PARAMETER_NAMES) {
-    const value = component.params[parameter]
-    if (value === undefined) continue
+  for (const [parameter, value] of Object.entries(component.params)) {
     if (
       (parameter === "key" || parameter === "name") &&
       typeof value !== "string"
@@ -62,9 +59,8 @@ export function serializeComponentIdentifier(
 ): string {
   const normalized = normalizeComponentIdentifier(component)
   const params: SfParameters = {}
-  for (const parameter of PARAMETER_NAMES) {
-    const value = normalized.params?.[parameter]
-    if (value !== undefined) params[parameter] = value
+  for (const [parameter, value] of Object.entries(normalized.params ?? {})) {
+    params[parameter] = value
   }
   return serializeSfMember({ value: normalized.name, params })
 }
@@ -73,9 +69,19 @@ export function componentIdentifierEquals(
   left: CoveredComponent,
   right: CoveredComponent
 ): boolean {
-  return (
-    serializeComponentIdentifier(normalizeComponentIdentifier(left)) ===
-    serializeComponentIdentifier(normalizeComponentIdentifier(right))
+  const normalizedLeft = normalizeComponentIdentifier(left)
+  const normalizedRight = normalizeComponentIdentifier(right)
+  if (normalizedLeft.name !== normalizedRight.name) return false
+  const leftParams = normalizedLeft.params ?? {}
+  const rightParams = normalizedRight.params ?? {}
+  const keys = new Set([
+    ...Object.keys(leftParams),
+    ...Object.keys(rightParams)
+  ])
+  return [...keys].every(
+    (key) =>
+      leftParams[key as keyof typeof leftParams] ===
+      rightParams[key as keyof typeof rightParams]
   )
 }
 

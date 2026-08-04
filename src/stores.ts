@@ -1,3 +1,4 @@
+import { VerificationUnavailableError } from "./lib/Erc8128Error"
 import type {
   NonceStore,
   RedisNonceStoreClient,
@@ -19,6 +20,11 @@ export class BoundedMemoryNonceStore implements NonceStore {
     if (activeUntil !== undefined && activeUntil > now) return false
     this.entries.delete(key)
     this.prune(now)
+    if (this.entries.size >= this.maximumEntries) {
+      throw new VerificationUnavailableError(
+        "Nonce replay storage is at capacity."
+      )
+    }
     this.entries.set(key, now + Math.max(1, Math.ceil(ttlSeconds)) * 1_000)
     return true
   }
@@ -26,11 +32,6 @@ export class BoundedMemoryNonceStore implements NonceStore {
   private prune(now: number) {
     for (const [key, expiresAt] of this.entries) {
       if (expiresAt <= now) this.entries.delete(key)
-    }
-    while (this.entries.size >= this.maximumEntries) {
-      const oldest = this.entries.keys().next().value
-      if (oldest === undefined) break
-      this.entries.delete(oldest)
     }
   }
 }

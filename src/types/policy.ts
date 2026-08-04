@@ -75,7 +75,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
 
   /** Time policy */
   now?: () => number // unix seconds; default unixNow()
-  clockSkewSec?: number // default 0; allow +/- drift when checking created/expires
+  clockSkewSec?: number // default 30; allow +/- drift when checking created/expires
   maxValiditySec?: number // default 300; cap (expires - created)
   maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
 

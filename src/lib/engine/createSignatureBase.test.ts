@@ -115,7 +115,7 @@ describe("createSignatureBaseMinimal", () => {
     ).toThrow(Erc8128Error)
   })
 
-  test("canonicalizes header values (trims and collapses whitespace)", () => {
+  test("canonicalizes header values by trimming outer whitespace only", () => {
     const req = makeRequest("https://example.com", {
       headers: { "x-test": "  hello   world  " }
     })
@@ -125,7 +125,7 @@ describe("createSignatureBaseMinimal", () => {
       signatureParamsValue: '("x-test");created=100;expires=200;keyid="k"'
     })
     const text = decodeBase(base)
-    expect(text).toContain('"x-test": hello world')
+    expect(text).toContain('"x-test": hello   world')
   })
 
   test("generates full signature base with multiple components", () => {

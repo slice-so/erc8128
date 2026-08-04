@@ -17,7 +17,14 @@ export type CoveredComponent = string | ComponentIdentifier
 
 export type SfToken = { type: "token"; value: string }
 export type SfByteSequence = { type: "binary"; value: Uint8Array }
-export type SfBareItem = string | number | boolean | SfToken | SfByteSequence
+export type SfDecimal = { type: "decimal"; value: number }
+export type SfBareItem =
+  | string
+  | number
+  | boolean
+  | SfToken
+  | SfByteSequence
+  | SfDecimal
 export type SfParameters = Record<string, SfBareItem | true>
 export type SfItem = { value: SfBareItem; params?: SfParameters }
 export type SfInnerList = { items: SfItem[]; params?: SfParameters }

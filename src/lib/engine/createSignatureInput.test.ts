@@ -109,6 +109,14 @@ describe("parseSignatureInputDictionary", () => {
     expect(parsed?.params.expires).toBeNaN()
   })
 
+  test("does not reinterpret SF Decimals as Integer time parameters", () => {
+    const [parsed] = parseSignatureInputDictionary(
+      'eth=("@authority");created=100.0;expires=200.0;keyid="k"'
+    )
+    expect(parsed?.params.created).toBeNaN()
+    expect(parsed?.params.expires).toBeNaN()
+  })
+
   test("canonicalizes signatureParamsValue", () => {
     const input =
       'eth=(  "@authority"   "@method"  );created=100;expires=200;keyid="k"'

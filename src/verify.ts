@@ -91,7 +91,7 @@ export async function verifyRequest(
   }
 
   const now = policy.now?.() ?? unixNow()
-  const skew = policy.clockSkewSec ?? 0
+  const skew = policy.clockSkewSec ?? 30
   sanitizeUrl(request.url)
   const bodyBytes =
     request.body === null ? new Uint8Array() : await readBodyBytes(request)
@@ -276,7 +276,7 @@ async function verifyDelegatedCandidate(
 
   let parsed: ParsedDelegationField
   try {
-    parsed = parseDelegationField(fieldValue)
+    parsed = parseDelegationField(fieldValue, delegationPolicy)
   } catch (error) {
     return {
       ok: false,
@@ -288,7 +288,11 @@ async function verifyDelegatedCandidate(
   }
   let chain: ResolvedDelegationChain
   try {
-    chain = resolveDelegationChain(parsed, delegationPolicy.maxChainDepth)
+    chain = resolveDelegationChain(
+      parsed,
+      delegationPolicy.maxChainDepth,
+      delegationPolicy
+    )
   } catch (error) {
     if (error instanceof Erc8128Error) {
       if (error.code === "DELEGATION_CHAIN_TOO_LONG") {
@@ -346,7 +350,8 @@ async function verifyDelegatedCandidate(
   let requestOrigin: string
   try {
     requestOrigin = normalizeAudienceOrigin(
-      sanitizeUrl(args.request.url).origin
+      sanitizeUrl(args.request.url).origin,
+      delegationPolicy
     )
   } catch {
     return { ok: false, reason: "audience_mismatch" }
@@ -426,7 +431,8 @@ async function verifyDelegatedCandidate(
       now: args.now,
       cache: delegationPolicy.grantCache,
       cacheTtl: delegationPolicy.grantCacheTtlSec,
-      accountVerificationBudget: args.accountVerificationBudget
+      accountVerificationBudget: args.accountVerificationBudget,
+      allowLoopbackAudiences: delegationPolicy.allowLoopbackAudiences
     })
     if (proof === "unavailable") {
       return { ok: false, reason: "grant_verification_unavailable" }
@@ -603,8 +609,11 @@ async function verifyGrantProof(args: {
   >["grantCache"]
   cacheTtl: number | undefined
   accountVerificationBudget: AccountVerificationBudget
+  allowLoopbackAudiences?: boolean
 }): Promise<boolean | "unavailable"> {
-  const digest = hashDelegation(args.link.grant)
+  const digest = hashDelegation(args.link.grant, {
+    allowLoopbackAudiences: args.allowLoopbackAudiences === true
+  })
   const cacheKey = `${digest}\u0000${args.link.signature}`
   try {
     if ((await args.cache?.get(cacheKey)) === true) return true
@@ -721,9 +730,16 @@ async function validateReplayableInvalidation(
 
 async function consumeNonce(plan: NoncePlan): Promise<Failure | null> {
   if (!plan.replayKey || !plan.replayStore) return null
-  return (await plan.replayStore.consume(plan.replayKey, plan.replayTtlSeconds))
-    ? null
-    : { ok: false, reason: "nonce_reused" }
+  try {
+    return (await plan.replayStore.consume(
+      plan.replayKey,
+      plan.replayTtlSeconds
+    ))
+      ? null
+      : { ok: false, reason: "nonce_reused" }
+  } catch {
+    return { ok: false, reason: "signature_verification_unavailable" }
+  }
 }
 
 function positiveInteger(value: number | undefined, fallback: number): number {

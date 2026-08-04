@@ -64,6 +64,10 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "revocation_unavailable"
 ])
 
+export function formatEthHttpSigChallenge(reason: VerifyFailReason): string {
+  return `eth-http-sig error="${reason}"`
+}
+
 export function formatErc8128ProblemDetails(
   failure: Extract<VerifyResult, { ok: false }>
 ): Erc8128ProblemDetails {

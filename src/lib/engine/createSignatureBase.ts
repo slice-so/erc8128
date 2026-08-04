@@ -248,7 +248,7 @@ function serializeSelectedDictionaryMember(value: string, key: string): string {
 }
 
 function canonicalizeFieldValue(v: string): string {
-  return v.trim().replace(/[ \t]+/g, " ")
+  return v.trim()
 }
 
 function ensureNoCrlf(value: string, name: string) {

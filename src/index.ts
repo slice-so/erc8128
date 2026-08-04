@@ -70,6 +70,7 @@ export {
 } from "./lib/policyValues"
 export {
   formatErc8128ProblemDetails,
+  formatEthHttpSigChallenge,
   parseErc8128ProblemDetails
 } from "./lib/problemDetails"
 export { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
@@ -96,7 +97,9 @@ export type {
   ContentDigestMode,
   CoveredComponent,
   CreateVerifierClientArgs,
+  DelegatedSignerClientOptions,
   Delegation,
+  DelegationAudiencePolicy,
   DelegationChain,
   DelegationGrantBuildArgs,
   DelegationGrantCache,

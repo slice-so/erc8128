@@ -2,8 +2,14 @@ import { describe, expect, test } from "bun:test"
 import { type Hex, recoverAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { BoundedMemoryNonceStore } from "../../stores"
-import type { Delegation, DelegationChain, DelegationLink } from "../../types"
+import type {
+  Delegation,
+  DelegationChain,
+  DelegationLink,
+  NonceStore
+} from "../../types"
 import { verifyRequest } from "../../verify"
+import { formatErc8128ProblemDetails } from "../problemDetails"
 import { completeDelegationGrant } from "./createDelegationGrant"
 import { createDelegatedSignerClient } from "./delegatedSignerClient"
 import { resolveDelegationChain } from "./delegationChain"
@@ -13,6 +19,7 @@ import {
   formatDelegationField,
   getDelegationTypedData,
   hashDelegation,
+  normalizeAudienceOrigin,
   parseDelegationField
 } from "./delegationField"
 
@@ -24,6 +31,9 @@ const delegateA = privateKeyToAccount(
 )
 const delegateB = privateKeyToAccount(
   "0x0000000000000000000000000000000000000000000000000000000000000004"
+)
+const delegateC = privateKeyToAccount(
+  "0x0000000000000000000000000000000000000000000000000000000000000005"
 )
 
 const g0Grant: Delegation = {
@@ -78,6 +88,7 @@ const verify = (
   request: Request,
   options: {
     maximumDepth?: number
+    nonceStore?: NonceStore
     requiredScopes?: readonly string[]
     status?: (
       link: DelegationLink
@@ -86,7 +97,7 @@ const verify = (
 ) =>
   verifyRequest({
     request,
-    nonceStore: new BoundedMemoryNonceStore(),
+    nonceStore: options.nonceStore ?? new BoundedMemoryNonceStore(),
     policy: {
       now: () => 1_700_000_001,
       clockSkewSec: 30,
@@ -120,6 +131,19 @@ const signedVectorRequest = (
   )
 
 describe("EIP-712 Delegation grants", () => {
+  test("requires explicit policy for HTTP loopback audiences", () => {
+    for (const origin of [
+      "http://localhost:3000",
+      "http://127.0.0.2:3000",
+      "http://[::1]:3000"
+    ]) {
+      expect(() => normalizeAudienceOrigin(origin)).toThrow()
+      expect(
+        normalizeAudienceOrigin(origin, { allowLoopbackAudiences: true })
+      ).toBe(origin)
+    }
+  })
+
   test("matches the fixed grant digests and signatures", async () => {
     expect(hashDelegation(g0Grant)).toBe(
       "0xf2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366"
@@ -224,18 +248,95 @@ describe("Delegated Request Signatures", () => {
       { links: [g0, g1] },
       "RERERERERERERERERERERA"
     )
-    expect(await verify(request, { maximumDepth: 1 })).toEqual({
+    const tooLong = await verify(request, { maximumDepth: 1 })
+    expect(tooLong).toEqual({
       ok: false,
       reason: "delegation_chain_too_long"
     })
+    if (tooLong.ok) throw new Error("Expected depth failure.")
+    expect(formatErc8128ProblemDetails(tooLong).status).toBe(400)
+
+    const insufficient = await verify(request, {
+      requiredScopes: ["resource:write"]
+    })
+    expect(insufficient).toEqual({ ok: false, reason: "insufficient_scope" })
+    if (insufficient.ok) throw new Error("Expected scope failure.")
+    expect(formatErc8128ProblemDetails(insufficient).status).toBe(403)
+
+    const revoked = await verify(request, {
+      status: (link) => (link.grant.id === g1.grant.id ? "revoked" : "valid")
+    })
+    expect(revoked).toEqual({ ok: false, reason: "authorization_revoked" })
+    if (revoked.ok) throw new Error("Expected revocation failure.")
+    expect(formatErc8128ProblemDetails(revoked).status).toBe(401)
+  })
+
+  test("checks revocation and epoch state across a derived three-link chain", async () => {
+    const g2Grant: Delegation = {
+      ...g1Grant,
+      root: `eip155:1:${delegateB.address.toLowerCase()}`,
+      delegate: `eip155:1:${delegateC.address.toLowerCase()}`,
+      id: `0x${"33".repeat(32)}`,
+      epoch: 5,
+      created: 1_699_999_600,
+      expires: 1_700_001_200,
+      components: [],
+      scope: [],
+      parent: hashDelegation(g1Grant)
+    }
+    const g2: DelegationLink = {
+      grant: g2Grant,
+      signature: await delegateB.signTypedData(getDelegationTypedData(g2Grant))
+    }
+    const request = await signedVectorRequest(
+      delegateC,
+      { links: [g0, g1, g2] },
+      "three-link-derived-vector"
+    )
+
     expect(
-      await verify(request, { requiredScopes: ["resource:write"] })
-    ).toEqual({ ok: false, reason: "insufficient_scope" })
-    expect(
-      await verify(request, {
+      await verify(request.clone(), {
         status: (link) => (link.grant.id === g1.grant.id ? "revoked" : "valid")
       })
     ).toEqual({ ok: false, reason: "authorization_revoked" })
+    expect(
+      await verify(request.clone(), {
+        status: (link) =>
+          link.grant.id === g1.grant.id ? "epoch-mismatch" : "valid"
+      })
+    ).toEqual({ ok: false, reason: "authorization_epoch_mismatch" })
+  })
+
+  test("lets a later delegated candidate win without consuming the failed nonce", async () => {
+    const bad = await signedVectorRequest(
+      delegateA,
+      { links: [g0] },
+      "delegated-failed-candidate"
+    )
+    const good = await createDelegatedSignerClient(signer(delegateA), {
+      links: [g0]
+    }).signRequest("https://api.example/resource?x=1", {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      label: "later",
+      nonce: "delegated-later-winner"
+    })
+    const corrupted = (bad.headers.get("signature") ?? "").replace(
+      /:([A-Za-z0-9+/])/,
+      (_match, first: string) => `:${first === "A" ? "B" : "A"}`
+    )
+    const headers = new Headers(good.headers)
+    headers.set(
+      "signature-input",
+      `${bad.headers.get("signature-input")}, ${good.headers.get("signature-input")}`
+    )
+    headers.set("signature", `${corrupted}, ${good.headers.get("signature")}`)
+    const nonceStore = new BoundedMemoryNonceStore()
+
+    expect(
+      (await verify(new Request(good, { headers }), { nonceStore })).ok
+    ).toBe(true)
+    expect((await verify(bad, { nonceStore })).ok).toBe(true)
   })
 
   test("verifies proofs leaf-to-root and consumes the nonce last", async () => {

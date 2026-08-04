@@ -1,5 +1,6 @@
 import type {
   Delegation,
+  DelegationAudiencePolicy,
   DelegationChain,
   DelegationGrantBuildArgs,
   DelegationLink,
@@ -45,17 +46,30 @@ export function buildDelegationGrant(
     scope: [...(args.scopes ?? [])],
     parent: args.parent ?? ZERO_DELEGATION_PARENT
   }
-  validateDelegation(grant)
+  const audiencePolicy = {
+    allowLoopbackAudiences: args.allowLoopbackAudiences === true
+  }
+  validateDelegation(grant, audiencePolicy)
   const typedData = getDelegationTypedData(grant)
-  return { grant, digest: hashDelegation(grant), typedData }
+  return {
+    grant,
+    digest: hashDelegation(grant, audiencePolicy),
+    typedData,
+    ...(args.allowLoopbackAudiences === true
+      ? { allowLoopbackAudiences: true }
+      : {})
+  }
 }
 
 export function completeDelegationGrant(
   prepared: PreparedDelegationGrant,
   signature: Hex | Uint8Array
 ): DelegationLink {
-  validateDelegation(prepared.grant)
-  if (hashDelegation(prepared.grant) !== prepared.digest) {
+  const audiencePolicy = {
+    allowLoopbackAudiences: prepared.allowLoopbackAudiences === true
+  }
+  validateDelegation(prepared.grant, audiencePolicy)
+  if (hashDelegation(prepared.grant, audiencePolicy) !== prepared.digest) {
     throw new Erc8128Error("INVALID_OPTIONS", "Delegation digest changed.")
   }
   const bytes =
@@ -91,8 +105,12 @@ export async function signDelegationGrant(
 }
 
 export function createDelegationChain(
-  links: readonly DelegationLink[]
+  links: readonly DelegationLink[],
+  audiencePolicy: DelegationAudiencePolicy = {}
 ): DelegationChain {
   const chain = { links: [...links] }
-  return parseDelegationField(formatDelegationField(chain)).chain
+  return parseDelegationField(
+    formatDelegationField(chain, audiencePolicy),
+    audiencePolicy
+  ).chain
 }
