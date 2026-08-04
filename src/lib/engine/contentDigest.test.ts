@@ -7,9 +7,11 @@ import {
 } from "./contentDigest"
 
 describe("parseContentDigest", () => {
+  const zeroSha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
   test("parses valid sha-256 digest", () => {
-    const result = parseContentDigest("sha-256=:aGVsbG8=:")
-    expect(result).toEqual([{ alg: "sha-256", b64: "aGVsbG8=" }])
+    const result = parseContentDigest(`sha-256=:${zeroSha256}:`)
+    expect(result).toEqual([{ alg: "sha-256", b64: zeroSha256 }])
   })
 
   test("rejects uppercase dictionary keys as non-canonical", () => {
@@ -18,8 +20,8 @@ describe("parseContentDigest", () => {
   })
 
   test("trims surrounding whitespace", () => {
-    const result = parseContentDigest("  sha-256=:aGVsbG8=:  ")
-    expect(result).toEqual([{ alg: "sha-256", b64: "aGVsbG8=" }])
+    const result = parseContentDigest(`  sha-256=:${zeroSha256}:  `)
+    expect(result).toEqual([{ alg: "sha-256", b64: zeroSha256 }])
   })
 
   test("returns null for empty string", () => {
@@ -34,14 +36,9 @@ describe("parseContentDigest", () => {
     expect(parseContentDigest("sha-256=:!!!:")).toBeNull()
   })
 
-  test("handles base64 with padding", () => {
-    const result = parseContentDigest("sha-256=:YQ==:")
-    expect(result).toEqual([{ alg: "sha-256", b64: "YQ==" }])
-  })
-
-  test("handles base64 without padding", () => {
-    const result = parseContentDigest("sha-256=:AQID:")
-    expect(result).toEqual([{ alg: "sha-256", b64: "AQID" }])
+  test("rejects supported members with the wrong digest length", () => {
+    expect(parseContentDigest("sha-256=:YQ==:")).toBeNull()
+    expect(parseContentDigest("sha-256=:AQID:")).toBeNull()
   })
 })
 

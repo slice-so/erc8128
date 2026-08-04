@@ -1,10 +1,15 @@
 import type {
   GetAccountCodeFn,
+  VerifyDigestFn,
   VerifyMessageArgs,
   VerifyMessageFn,
   VerifySmartAccountFn
 } from "../types"
-import { hashEthereumMessage, verifyCanonicalEoaSignature } from "./ecdsa"
+import {
+  hashEthereumMessage,
+  verifyCanonicalEoaDigestSignature,
+  verifyCanonicalEoaSignature
+} from "./ecdsa"
 import { bytesToHex, hexToBytes } from "./utilities"
 
 const ERC_6492_MAGIC =
@@ -61,6 +66,47 @@ export function createUniversalAccountVerifier(args: {
   }
 }
 
+export function createUniversalAccountDigestVerifier(args: {
+  getCode: GetAccountCodeFn
+  verifySmartAccount: VerifySmartAccountFn
+}): VerifyDigestFn {
+  return async (input) => {
+    const messageInput: VerifyMessageArgs = {
+      address: input.address,
+      chainId: input.chainId,
+      message: { raw: input.digest },
+      signature: input.signature
+    }
+    if (isErc6492Signature(input.signature)) {
+      return callSmartAccountDigestVerifier(
+        args.verifySmartAccount,
+        messageInput,
+        input.digest,
+        "counterfactual"
+      )
+    }
+    let code: Awaited<ReturnType<GetAccountCodeFn>>
+    try {
+      code = await args.getCode({
+        address: input.address,
+        chainId: input.chainId
+      })
+    } catch {
+      return "unavailable"
+    }
+    if (code === "unavailable") return "unavailable"
+    if (code !== undefined && code !== "0x") {
+      return callSmartAccountDigestVerifier(
+        args.verifySmartAccount,
+        messageInput,
+        input.digest,
+        "deployed"
+      )
+    }
+    return verifyCanonicalEoaDigestSignature(input)
+  }
+}
+
 function isErc6492Signature(signature: string): boolean {
   return signature.toLowerCase().endsWith(ERC_6492_MAGIC)
 }
@@ -76,6 +122,19 @@ async function callSmartAccountVerifier(
       accountType,
       digest: bytesToHex(hashEthereumMessage(hexToBytes(input.message.raw)))
     })
+  } catch {
+    return "unavailable"
+  }
+}
+
+async function callSmartAccountDigestVerifier(
+  verifyMessage: VerifySmartAccountFn,
+  input: VerifyMessageArgs,
+  digest: import("../types").Hex,
+  accountType: "counterfactual" | "deployed"
+): Promise<boolean | "unavailable"> {
+  try {
+    return await verifyMessage({ ...input, accountType, digest })
   } catch {
     return "unavailable"
   }

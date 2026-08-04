@@ -95,12 +95,11 @@ describe("parseKeyId", () => {
     ).toBeNull()
   })
 
-  test("lowercases address", () => {
+  test("rejects a non-canonical mixed-case address", () => {
     const result = parseKeyId(
       "eip155:1:0xAbCdEf0000000000000000000000000000000001"
     )
-    expect(result).not.toBeNull()
-    expect(result?.address).toBe("0xabcdef0000000000000000000000000000000001")
+    expect(result).toBeNull()
   })
 
   test("round-trips with formatKeyId", () => {

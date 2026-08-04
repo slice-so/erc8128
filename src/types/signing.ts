@@ -14,13 +14,13 @@ export type ContentDigestMode = "auto" | "recompute" | "require" | "off"
 export type SignOptions = {
   label?: string // default: "request"
   binding?: BindingMode // default: "request-bound"
-  replay?: ReplayMode // default: "non-replayable"
 
   created?: number // unix seconds; default now
   expires?: number // unix seconds; default created + ttlSeconds
   ttlSeconds?: number // default 60
 
-  nonce?: string | (() => Promise<string>)
+  /** A nonce makes the request Non-Replayable. `null` explicitly omits it. */
+  nonce?: string | (() => Promise<string>) | null
 
   contentDigest?: ContentDigestMode
   components?: CoveredComponent[]
@@ -62,7 +62,7 @@ export type SelectedSignature = {
     alg?: SfBareItem
   }
   signatureParamsValue: string
-  sigB64: string
+  sigB64?: string
 }
 
 export type ParsedSignatureInputMember = {
@@ -75,8 +75,7 @@ export type ParsedSignatureInputMember = {
 /**
  * Options for `createSignerClient`.
  *
- * Extends `SignOptions` (minus `replay` which is derived automatically by the
- * posture system) with:
+ * Extends `SignOptions` with:
  * - `preferReplayable` — client *preference* for replayable signatures (default `false`).
  * - `serverConfigs` — per-origin server configs from `/.well-known/erc8128`.
  *
@@ -84,7 +83,7 @@ export type ParsedSignatureInputMember = {
  * are configured, every signature is non-replayable + request-bound — the safest
  * posture — and server configs are not consulted.
  */
-export type SignerClientOptions = Omit<SignOptions, "replay"> & {
+export type SignerClientOptions = SignOptions & {
   /**
    * Immutable authorization constraints. Per-call options and discovered
    * route policies can tighten, but never weaken, this policy.

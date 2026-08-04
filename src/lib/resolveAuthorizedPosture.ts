@@ -77,6 +77,7 @@ const resolveContentDigest = (
 export const resolveAuthorizedPosture = ({
   authorizationPolicy,
   invalidationAvailable = false,
+  preferReplayable = authorizationPolicy.preferReplayable,
   remainingAuthorizationSeconds,
   requestOptions = {},
   routeMaxValiditySeconds,
@@ -88,13 +89,13 @@ export const resolveAuthorizedPosture = ({
   ) {
     throw new Error("The authorization has expired.")
   }
-  const requestWantsReplayable = requestOptions.replay === "replayable"
+  const requestWantsReplayable = requestOptions.nonce === null
   const requestRequiresNonReplayable =
-    requestOptions.replay === "non-replayable"
+    requestOptions.nonce !== undefined && requestOptions.nonce !== null
   const replayable =
     authorizationPolicy.preferReplayable &&
     !requestRequiresNonReplayable &&
-    (requestWantsReplayable || requestOptions.replay === undefined) &&
+    (requestWantsReplayable || preferReplayable) &&
     routePolicy?.replayable === true &&
     invalidationAvailable
 

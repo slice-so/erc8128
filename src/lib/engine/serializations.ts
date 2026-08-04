@@ -25,8 +25,8 @@ export function serializeSignatureParamsInnerList(
       created: params.created,
       expires: params.expires,
       ...(params.nonce === undefined ? {} : { nonce: params.nonce }),
-      ...(params.tag === undefined ? {} : { tag: params.tag }),
-      keyid: params.keyid
+      keyid: params.keyid,
+      ...(params.tag === undefined ? {} : { tag: params.tag })
     }
   })
 }

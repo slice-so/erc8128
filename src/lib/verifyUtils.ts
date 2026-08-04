@@ -98,8 +98,9 @@ export function runTimeChecks(options: {
   }
   const createdSec = created
   const expiresSec = expires
-  if (now + skew < createdSec || now - skew > expiresSec)
-    return { ok: false, reason: "invalid_time" }
+  if (now < createdSec - skew)
+    return { ok: false, reason: "request_not_yet_valid" }
+  if (now > expiresSec + skew) return { ok: false, reason: "request_expired" }
 
   // Enforce a bounded validity window by default.
   // Note: treat null/undefined/NaN as "use default" (no bypass).
@@ -136,7 +137,7 @@ export function runNonceChecks(options: {
     clockSkewSec
   } = options
 
-  const hasNonce = typeof params.nonce === "string" && params.nonce.length > 0
+  const hasNonce = params.nonce !== undefined
   if (!hasNonce && !allowReplayable) {
     return {
       failure: {
@@ -171,24 +172,14 @@ export function runNonceChecks(options: {
       }
     }
 
-    const nonce = params.nonce
-    if (!nonce) {
-      return {
-        failure: {
-          ok: false,
-          reason: "nonce_required",
-          detail: "nonce missing"
-        },
-        plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }
-      }
-    }
+    const nonce = params.nonce ?? ""
 
     if (!isValidNonce(nonce)) {
       return {
         failure: {
           ok: false,
-          reason: "signature_input_invalid",
-          detail: "nonce must be 16-128 printable ASCII bytes"
+          reason: "invalid_nonce",
+          detail: "nonce must be a 1-128 byte ASCII String"
         },
         plan: { replayKey: null, replayStore: null, replayTtlSeconds: 0 }
       }

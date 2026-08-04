@@ -1,9 +1,8 @@
 # Delegated principals
 
-An ERC-8128 delegated request carries a canonical `ERC-8128-Delegation`
-Structured Field. The root signs that authorization field with
-`tag="erc8128-delegation"`; the delegate signs the request with
-`tag="erc8128-delegated"` and covers the field using `;sf` canonicalization.
+The delegated extension carries a recursive chain of signed EIP-712
+`Delegation` values. The root becomes the authenticated `principal`; the leaf
+delegate is the request `signer`.
 
 ```ts
 const prepared = buildDelegationGrant({
@@ -12,37 +11,54 @@ const prepared = buildDelegationGrant({
   audiences: ["https://api.example"],
   id,
   epoch,
-  expires
+  expires,
+  maxAge: 60,
+  delegateIsEOA: true,
+  allowReplayable: false,
+  components: ["@scheme", "@authority", "@method", "@path", "@query"],
+  scopes: ["orders:read"]
 })
-const grant = completeDelegationGrant(prepared, rootSignature)
-const session = createDelegatedSignerClient(delegateSigner, grant)
+const link = completeDelegationGrant(
+  prepared,
+  await rootSigner.signTypedData(prepared.typedData)
+)
+const chain = createDelegationChain([link])
+const session = createDelegatedSignerClient(delegateSigner, chain)
+const request = await session.signRequest("https://api.example/orders")
 
 const result = await verifyRequest({
   request,
   nonceStore,
   verifyMessage,
+  verifyDigest,
   policy: {
     principal: "delegated",
     delegation: {
-      audience: "https://api.example",
-      revocation: {
-        authority: {address: registryAddress, chainId: 8453},
-        verify: verifyRevocation
-      }
+      requiredScopes: ["orders:read"],
+      scopeSupported: true,
+      verifyStatus: ({ link }) => readCanonicalStatus(link.grant)
     }
   }
 })
 ```
 
-The verifier evaluates direct and delegated candidates in header order. A
-delegated candidate validates time nesting, identities, exact request audience,
-component posture, standard scopes, request signature, universal root signature,
-and trusted revocation state before nonce consumption. When the root attests
-`delegate;key-type="eoa"`, request verification uses strict local ECDSA and does
-not require RPC; this optimization never applies to the root proof.
+The wire request contains:
 
-Grant caches key all canonical proof artifacts and a profile discriminator.
-Audience, time, posture, nesting, scopes, and revocation are rechecked on every
-request. Delegated signers generate nonce-bearing requests by default. An
-authorization may opt into replayable requests with `allow-replayable=?1`, but
-the caller and verifier must both opt in for a nonce-less request.
+- `ERC-8128-Delegation: g0=:...:` (and `g1`, etc. for recursive chains);
+- one `Signature-Input` member tagged `erc8128-delegated` whose `keyid` is the
+  leaf delegate and which covers `"erc-8128-delegation";sf`;
+- the matching one `Signature` member.
+
+There is no separate RFC 9421 root, authorization, or grant signature. The
+EIP-712 proof is embedded in each ABI-encoded link.
+
+Every child grant names its parent digest and must narrow the inherited
+audience, validity, `maxAge`, replay permission, components, and scope. The
+verifier resolves these effective constraints for arbitrary supported depth,
+verifies request proof before grant proofs, checks every link's canonical
+`(root, id, epoch)` status, and consumes a leaf nonce only after scope succeeds.
+
+Positive proof caches are keyed by the EIP-712 digest and exact signature bytes.
+Audience, time, attenuation, scope, and revocation remain per-request checks.
+Use `{ nonce: null }` only when every link signs `allowReplayable=true` and the
+destination verifier accepts Replayable requests.

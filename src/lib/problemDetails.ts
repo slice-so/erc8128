@@ -10,6 +10,12 @@ const UNAVAILABLE_REASONS = new Set<VerifyFailReason>([
   "grant_verification_unavailable",
   "revocation_unavailable"
 ])
+const BAD_REQUEST_REASONS = new Set<VerifyFailReason>([
+  "signature_input_invalid",
+  "signature_too_large",
+  "delegation_too_large",
+  "delegation_chain_too_long"
+])
 
 const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "signature_missing",
@@ -18,7 +24,10 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "signature_too_large",
   "invalid_keyid",
   "invalid_time",
+  "request_not_yet_valid",
+  "request_expired",
   "request_validity_too_long",
+  "invalid_nonce",
   "insufficient_coverage",
   "content_digest_required",
   "bad_content_digest",
@@ -30,13 +39,13 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "signature_verification_unavailable",
   "principal_not_allowed",
   "unsupported_delegation",
-  "delegation_grant_missing",
-  "delegation_grant_ambiguous",
   "bad_delegation_field",
   "delegation_too_large",
   "delegation_not_covered",
   "delegate_mismatch",
-  "grant_root_mismatch",
+  "delegation_chain_too_long",
+  "delegation_chain_discontinuous",
+  "delegation_attenuation_violation",
   "grant_expired",
   "grant_not_yet_valid",
   "grant_validity_too_long",
@@ -45,7 +54,10 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "audience_mismatch",
   "delegation_nonce_required",
   "delegation_max_age_exceeded",
-  "delegation_components_floor",
+  "delegation_components_unsupported",
+  "delegation_components_uncovered",
+  "unsupported_scope",
+  "insufficient_scope",
   "grant_verification_unavailable",
   "authorization_revoked",
   "authorization_epoch_mismatch",
@@ -55,13 +67,22 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
 export function formatErc8128ProblemDetails(
   failure: Extract<VerifyResult, { ok: false }>
 ): Erc8128ProblemDetails {
-  const unavailable = UNAVAILABLE_REASONS.has(failure.reason)
+  const status = UNAVAILABLE_REASONS.has(failure.reason)
+    ? 503
+    : BAD_REQUEST_REASONS.has(failure.reason)
+      ? 400
+      : failure.reason === "insufficient_scope"
+        ? 403
+        : 401
   return {
     type: `https://erc8128.org/problems/${failure.reason}`,
-    title: unavailable
-      ? "Authentication verification is temporarily unavailable"
-      : "Ethereum HTTP authentication failed",
-    status: unavailable ? 503 : 401,
+    title:
+      status === 503
+        ? "Authentication verification is temporarily unavailable"
+        : status === 403
+          ? "Authenticated authority is insufficient"
+          : "Ethereum HTTP authentication failed",
+    status,
     ...(failure.detail === undefined ? {} : { detail: failure.detail }),
     reason: failure.reason
   }
@@ -79,7 +100,7 @@ export function parseErc8128ProblemDetails(
   if (
     typeof parsed.type !== "string" ||
     typeof parsed.title !== "string" ||
-    (parsed.status !== 401 && parsed.status !== 503) ||
+    ![400, 401, 403, 503].includes(parsed.status) ||
     typeof parsed.reason !== "string" ||
     !VERIFY_FAILURE_REASONS.has(parsed.reason) ||
     (parsed.detail !== undefined && typeof parsed.detail !== "string")

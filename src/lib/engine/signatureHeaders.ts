@@ -2,101 +2,63 @@ import type { SelectedSignature, VerifyResult } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import {
   parseSignatureDictionary,
-  parseSignatureInputDictionary,
-  splitTopLevelCommas
+  parseSignatureInputDictionary
 } from "./createSignatureInput"
 
-/**
- * Parse `Signature-Input` + `Signature` headers and select candidate signatures to verify.
- *
- * Selection rules:
- * - Include all members that have a matching Signature entry in header order.
- * - Labels only correlate the two fields; they never select a profile candidate.
- *
- * Never throws for parse errors; returns `signature_input_invalid` instead.
- */
+/** Parse both complete RFC 9651 Dictionaries before candidate evaluation. */
 export function selectSignatureFromHeaders(args: {
   signatureInputHeader: string
   signatureHeader: string
 }):
   | { ok: true; selected: SelectedSignature[] }
   | { ok: false; result: VerifyResult } {
-  const { signatureInputHeader, signatureHeader } = args
-
+  const encoder = new TextEncoder()
   if (
-    new TextEncoder().encode(signatureInputHeader).length > 65_536 ||
-    new TextEncoder().encode(signatureHeader).length > 65_536
+    encoder.encode(args.signatureInputHeader).length > 16_384 ||
+    encoder.encode(args.signatureHeader).length > 16_384
   ) {
     return { ok: false, result: { ok: false, reason: "signature_too_large" } }
   }
-
   try {
-    const parsedSigs = new Map<string, string>()
-    const ambiguousSignatures = new Set<string>()
-    for (const member of splitTopLevelCommas(signatureHeader)) {
-      try {
-        const parsed = parseSignatureDictionary(member)
-        for (const [label, signature] of parsed) {
-          if (parsedSigs.has(label)) ambiguousSignatures.add(label)
-          else parsedSigs.set(label, signature)
-        }
-      } catch {
-        // A malformed unrelated member must not block a later valid candidate.
-      }
-    }
-
-    const candidates: SelectedSignature[] = []
-    const seenInputs = new Set<string>()
-    for (const member of splitTopLevelCommas(signatureInputHeader)) {
-      try {
-        const parsed = parseSignatureInputDictionary(member)
-        const candidate = parsed[0]
-        if (candidate === undefined) continue
-        if (seenInputs.has(candidate.label)) {
-          const existingIndex = candidates.findIndex(
-            ({ label }) => label === candidate.label
-          )
-          if (existingIndex >= 0) candidates.splice(existingIndex, 1)
-          continue
-        }
-        seenInputs.add(candidate.label)
-        const signature = parsedSigs.get(candidate.label)
-        if (!signature || ambiguousSignatures.has(candidate.label)) continue
-        candidates.push({
-          label: candidate.label,
-          components: candidate.components,
-          params: candidate.params,
-          signatureParamsValue: candidate.signatureParamsValue,
-          sigB64: signature
-        })
-      } catch {
-        // Continue in header order so one bad candidate cannot cause downgrade
-        // or denial when a later independent candidate is valid.
-      }
-    }
-
-    if (candidates.length === 0) {
-      return {
-        ok: false,
-        result: {
+    const inputs = parseSignatureInputDictionary(args.signatureInputHeader)
+    const signatures = parseSignatureDictionary(args.signatureHeader)
+    for (const signature of signatures.values()) {
+      const bytes = base64Bytes(signature)
+      if (bytes > 8_192) {
+        return {
           ok: false,
-          reason: "signature_input_invalid"
+          result: { ok: false, reason: "signature_too_large" }
         }
       }
     }
-
-    return { ok: true, selected: candidates }
-  } catch (err) {
-    const detail =
-      err instanceof Error ? err.message : "Failed to parse signature headers."
-    if (err instanceof Erc8128Error && err.code === "PARSE_ERROR")
-      return {
-        ok: false,
-        result: { ok: false, reason: "signature_input_invalid", detail }
-      }
+    return {
+      ok: true,
+      selected: inputs.map((candidate) => ({
+        label: candidate.label,
+        components: candidate.components,
+        params: candidate.params,
+        signatureParamsValue: candidate.signatureParamsValue,
+        ...(signatures.get(candidate.label) === undefined
+          ? {}
+          : { sigB64: signatures.get(candidate.label) })
+      }))
+    }
+  } catch (error) {
     return {
       ok: false,
-      result: { ok: false, reason: "signature_input_invalid", detail }
+      result: {
+        ok: false,
+        reason:
+          error instanceof Erc8128Error && error.code === "LIMIT_EXCEEDED"
+            ? "signature_too_large"
+            : "signature_input_invalid",
+        ...(error instanceof Error ? { detail: error.message } : {})
+      }
     }
   }
+}
+
+function base64Bytes(value: string): number {
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0
+  return (value.length / 4) * 3 - padding
 }

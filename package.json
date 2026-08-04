@@ -38,11 +38,11 @@
   ],
   "dependencies": {
     "@noble/hashes": "^2.2.0",
-    "@noble/secp256k1": "^3.1.0"
+    "@noble/secp256k1": "^3.1.0",
+    "viem": "catalog:"
   },
   "devDependencies": {
-    "@slice/typescript-config": "workspace:*",
-    "viem": "catalog:"
+    "@slice/typescript-config": "workspace:*"
   },
   "peerDependencies": {},
   "repository": {

@@ -556,8 +556,7 @@ export function PlaygroundInner() {
         signer,
         {
           binding: "class-bound",
-          replay: includeNonce ? "non-replayable" : "replayable",
-          nonce: includeNonce ? nonce : undefined,
+          nonce: includeNonce ? nonce : null,
           ttlSeconds: ttl,
           components
         }

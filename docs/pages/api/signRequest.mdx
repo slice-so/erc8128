@@ -109,7 +109,7 @@ const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,
-  { replay: 'replayable' }
+  { nonce: null }
 )
 ```
 

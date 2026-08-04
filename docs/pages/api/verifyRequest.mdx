@@ -42,9 +42,7 @@ if (result.ok) {
   result.components // Signed components
   result.replay      // "non-replayable" or "replayable"
   if (result.delegated) {
-    result.delegationId // 32-byte authorization identifier
-    result.delegationEpoch
-    result.scopes
+    result.delegationIds // Ordered 32-byte revocation identifiers
   }
   result.binding   // "request-bound" or "class-bound"
 } else {

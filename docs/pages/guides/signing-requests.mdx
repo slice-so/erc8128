@@ -70,7 +70,7 @@ const response = await client.fetch('https://api.example.com/orders', {
 const response = await client.fetch(
   'https://api.example.com/status',
   { method: 'GET' },
-  { replay: 'replayable' }
+  { nonce: null }
 )
 ```
 
@@ -150,7 +150,7 @@ const signedRequest = await signRequest(
   {
     binding: 'class-bound',
     components: ['@authority'],  // Only sign the domain
-    replay: 'replayable',        // Often combined for performance
+    nonce: null,                 // Deliberately omit replay protection
   }
 )
 ```
@@ -187,9 +187,11 @@ const signedRequest = await signRequest(
 //                   x-idempotency-key, x-request-id
 ```
 
-## Replay Modes
+## Replay posture
 
-Non-replayable (default) includes a unique nonce per request. Replayable omits the nonce — use only for safe, idempotent operations.
+Replay posture is inferred solely from nonce presence. The default signer
+generates a unique nonce. Passing `nonce: null` deliberately omits it; use this
+only for safe, idempotent operations.
 
 :::code-group
 
@@ -197,8 +199,7 @@ Non-replayable (default) includes a unique nonce per request. Replayable omits t
 // Every request gets a unique nonce
 const signedRequest = await signRequest(
   'https://api.example.com/resource',
-  signer,
-  { replay: 'non-replayable' }
+  signer
 )
 ```
 
@@ -208,7 +209,7 @@ const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,
-  { replay: 'replayable' }
+  { nonce: null }
 )
 ```
 

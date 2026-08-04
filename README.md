@@ -37,12 +37,16 @@ accounts, then strict code-free EOA recovery. Routes that intentionally accept
 only EOAs can set `accountVerification: "eoa-only"`.
 
 Delegation uses `buildDelegationGrant`, `completeDelegationGrant`, and
-`createDelegatedSignerClient`. A `DelegationGrant` stores the canonical
-delegation field, complete grant Signature-Input Inner List, and root signature.
-Verifiers opt in with `policy.delegation`, configure exact audiences and
-a trusted revocation authority/callback, and receive separate `principal` and
-`signer` identities plus standard scopes. Delegation fields are closed: unknown
-members fail authentication instead of being ignored.
+`createDelegatedSignerClient`. Each link is an exact EIP-712 `Delegation` value
+and its embedded proof. The `ERC-8128-Delegation` Dictionary contains only
+ordered `g0` through `gN` Byte Sequences, while `Signature-Input` and
+`Signature` contain exactly one leaf request proof tagged
+`erc8128-delegated`. Verifiers opt in with `policy.delegation`, validate the
+canonical revocation status of every link, and receive the root as `principal`,
+the leaf as `signer`, and the ordered `delegationIds`.
+
+Replay posture is inferred only from `nonce`: the signer generates one by
+default, while `{ nonce: null }` deliberately creates a Replayable request.
 
 Verification-unavailable failures are distinct from invalid authentication and
 can be serialized as RFC 9457 problem details. `Accept-Signature` advertises

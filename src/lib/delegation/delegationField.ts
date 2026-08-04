@@ -1,11 +1,17 @@
+import {
+  decodeAbiParameters,
+  encodeAbiParameters,
+  hashTypedData,
+  type Hex as ViemHex
+} from "viem"
 import type {
-  AccountIdentity,
   ComponentIdentifier,
-  DelegationGrantBuildArgs,
+  Delegation,
+  DelegationChain,
+  DelegationLink,
+  DelegationTypedData,
   ParsedDelegationField,
-  SfDictionary,
-  SfItem,
-  SfMember
+  SfDictionary
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import {
@@ -13,8 +19,8 @@ import {
   serializeComponentIdentifier
 } from "../engine/componentIdentifier"
 import {
-  canonicalizeSfDictionary,
   parseSfDictionary,
+  parseSfInnerList,
   serializeSfDictionary,
   sfBinary
 } from "../engine/structuredFields"
@@ -28,175 +34,253 @@ export const DELEGATION_COMPONENT = {
 } as const satisfies ComponentIdentifier
 export const TAG_DIRECT = "erc8128"
 export const TAG_DELEGATED = "erc8128-delegated"
-export const TAG_DELEGATION = "erc8128-delegation"
+export const ZERO_DELEGATION_PARENT =
+  "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-const BASE_MEMBERS = new Set([
-  "root",
-  "delegate",
-  "aud",
-  "id",
-  "epoch",
-  "max-age",
-  "allow-replayable",
-  "components",
-  "scope"
-])
-const MAX_AUDIENCES = 16
-const MAX_COMPONENTS = 16
-const MAX_SCOPES = 16
-const MAX_SCOPE_LENGTH = 64
+export const DELEGATION_TYPE_STRING =
+  "Delegation(string root,string delegate,string[] aud,bytes32 id,uint64 epoch,uint64 created,uint64 expires,uint32 maxAge,bool delegateIsEOA,bool allowReplayable,string[] components,string[] scope,bytes32 parent)"
+
+export const DELEGATION_TYPES = {
+  Delegation: [
+    { name: "root", type: "string" },
+    { name: "delegate", type: "string" },
+    { name: "aud", type: "string[]" },
+    { name: "id", type: "bytes32" },
+    { name: "epoch", type: "uint64" },
+    { name: "created", type: "uint64" },
+    { name: "expires", type: "uint64" },
+    { name: "maxAge", type: "uint32" },
+    { name: "delegateIsEOA", type: "bool" },
+    { name: "allowReplayable", type: "bool" },
+    { name: "components", type: "string[]" },
+    { name: "scope", type: "string[]" },
+    { name: "parent", type: "bytes32" }
+  ]
+} as const
+
+export const ERC8128_REVOCATION_ABI = [
+  {
+    type: "function",
+    name: "status",
+    stateMutability: "view",
+    inputs: [
+      { name: "root", type: "address" },
+      { name: "id", type: "bytes32" }
+    ],
+    outputs: [
+      { name: "isRevoked", type: "bool" },
+      { name: "currentEpoch", type: "uint64" }
+    ]
+  },
+  {
+    type: "function",
+    name: "revoke",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "revokeBySig",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "root", type: "address" },
+      { name: "id", type: "bytes32" },
+      { name: "sig", type: "bytes" }
+    ],
+    outputs: []
+  },
+  {
+    type: "function",
+    name: "advanceEpoch",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [{ name: "newEpoch", type: "uint64" }]
+  }
+] as const
+
+const DELEGATION_LINK_ABI = [
+  {
+    type: "tuple",
+    components: DELEGATION_TYPES.Delegation
+  },
+  { type: "bytes" }
+] as const
 const MAX_FIELD_BYTES = 16_384
+const MAX_LINK_BYTES = 8_192
+const MAX_ARRAY_ENTRIES = 32
+const MAX_STRING_BYTES = 256
 const encoder = new TextEncoder()
 
-export function formatDelegationField(args: DelegationGrantBuildArgs): string {
-  const root = formatIdentity(args.root)
-  const delegate = formatIdentity(args.delegate)
-  const audiences = Array.from(
-    new Set(args.audiences.map(normalizeAudienceOrigin))
-  ).sort()
-  if (audiences.length === 0 || audiences.length > MAX_AUDIENCES) {
-    throw invalid("Delegation must have 1-16 exact audiences.")
-  }
-  const idBytes = args.id instanceof Uint8Array ? args.id : hexToBytes(args.id)
-  if (idBytes.length !== 32) throw invalid("Delegation id must be 32 bytes.")
-  if (!Number.isSafeInteger(args.epoch) || args.epoch < 0) {
-    throw invalid("Delegation epoch must be a non-negative integer.")
-  }
-  if (
-    args.maxAge !== undefined &&
-    (!Number.isSafeInteger(args.maxAge) || args.maxAge <= 0)
-  ) {
-    throw invalid("Delegation max-age must be a positive integer.")
-  }
-
-  const scopes = normalizeScopes(args.scopes ?? [])
-
-  const members: SfDictionary = {
-    root: { value: root },
-    delegate: {
-      value: delegate,
-      ...(args.delegateKeyType === undefined
-        ? {}
-        : { params: { "key-type": args.delegateKeyType } })
+export function getDelegationTypedData(grant: Delegation): DelegationTypedData {
+  const root = requireCanonicalIdentity(grant.root, "root")
+  return {
+    domain: {
+      name: "ERC-8128 Delegation",
+      version: "1",
+      chainId: root.chainId
     },
-    aud: { items: audiences.map((audience) => ({ value: audience })) },
-    id: { value: sfBinary(idBytes) },
-    epoch: { value: args.epoch },
-    ...(args.maxAge === undefined ? {} : { "max-age": { value: args.maxAge } }),
-    ...(args.allowReplayable === true
-      ? { "allow-replayable": { value: true } }
-      : {}),
-    ...(args.components === undefined || args.components.length === 0
-      ? {}
-      : {
-          components: {
-            items: args.components.map((component) => {
-              const normalized = normalizeComponentIdentifier(component)
-              return { value: normalized.name, params: normalized.params }
-            })
-          }
-        }),
-    ...(scopes.length === 0
-      ? {}
-      : { scope: { items: scopes.map((scope) => ({ value: scope })) } })
-  }
-  const fieldValue = serializeSfDictionary(members)
-  if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
-    throw invalid("Delegation field exceeds the supported size.")
-  }
-  try {
-    return parseDelegationField(fieldValue).fieldValue
-  } catch (error) {
-    if (error instanceof Erc8128Error) {
-      throw invalid(error.message)
+    types: DELEGATION_TYPES,
+    primaryType: "Delegation",
+    message: {
+      ...grant,
+      epoch: BigInt(grant.epoch),
+      created: BigInt(grant.created),
+      expires: BigInt(grant.expires)
     }
-    throw error
   }
+}
+
+export function hashDelegation(grant: Delegation): ViemHex {
+  validateDelegation(grant)
+  return hashTypedData(getDelegationTypedData(grant))
+}
+
+export function encodeDelegationLink(link: DelegationLink): Uint8Array {
+  validateDelegation(link.grant)
+  const signature = hexToBytes(link.signature)
+  if (signature.length === 0) throw invalid("Delegation proof is empty.")
+  return hexToBytes(
+    encodeAbiParameters(DELEGATION_LINK_ABI, [
+      {
+        ...link.grant,
+        epoch: BigInt(link.grant.epoch),
+        created: BigInt(link.grant.created),
+        expires: BigInt(link.grant.expires),
+        maxAge: link.grant.maxAge
+      },
+      link.signature
+    ])
+  )
+}
+
+export function decodeDelegationLink(bytes: Uint8Array): DelegationLink {
+  if (bytes.length > MAX_LINK_BYTES)
+    throw tooLarge("Delegation Link is too large.")
+  let decoded: ReturnType<
+    typeof decodeAbiParameters<typeof DELEGATION_LINK_ABI>
+  >
+  try {
+    decoded = decodeAbiParameters(DELEGATION_LINK_ABI, bytesToHex(bytes))
+  } catch {
+    throw parseError("Delegation Link ABI is invalid.")
+  }
+  const [value, signature] = decoded
+  const grant: Delegation = {
+    root: value.root,
+    delegate: value.delegate,
+    aud: [...value.aud],
+    id: value.id,
+    epoch: safeInteger(value.epoch, "epoch"),
+    created: safeInteger(value.created, "created"),
+    expires: safeInteger(value.expires, "expires"),
+    maxAge: safeInteger(value.maxAge, "maxAge"),
+    delegateIsEOA: value.delegateIsEOA,
+    allowReplayable: value.allowReplayable,
+    components: [...value.components],
+    scope: [...value.scope],
+    parent: value.parent
+  }
+  const link = { grant, signature }
+  validateDelegation(grant)
+  if (hexToBytes(signature).length === 0) {
+    throw parseError("Delegation proof is empty.")
+  }
+  const canonical = encodeDelegationLink(link)
+  if (bytesToHex(canonical) !== bytesToHex(bytes)) {
+    throw parseError("Delegation Link ABI is not canonical.")
+  }
+  return link
+}
+
+export function formatDelegationField(chain: DelegationChain): string {
+  if (chain.links.length === 0) throw invalid("Delegation Chain is empty.")
+  const dictionary: SfDictionary = {}
+  for (const [index, link] of chain.links.entries()) {
+    dictionary[`g${index}`] = { value: sfBinary(encodeDelegationLink(link)) }
+  }
+  const fieldValue = serializeSfDictionary(dictionary)
+  if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
+    throw tooLarge("Delegation field is too large.")
+  }
+  return fieldValue
 }
 
 export function parseDelegationField(
   fieldValue: string
 ): ParsedDelegationField {
   if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
-    throw new Erc8128Error(
-      "DELEGATION_TOO_LARGE",
-      "Delegation field is too large."
-    )
+    throw tooLarge("Delegation field is too large.")
   }
-  const members = parseSfDictionary(fieldValue)
-  for (const name of Object.keys(members)) {
-    if (!BASE_MEMBERS.has(name)) {
-      throw parseError(`Unsupported delegation member: ${name}.`)
+  let dictionary: SfDictionary
+  try {
+    dictionary = parseSfDictionary(fieldValue)
+  } catch (error) {
+    if (error instanceof Erc8128Error) throw error
+    throw parseError("Delegation field is malformed.")
+  }
+  const entries = Object.entries(dictionary)
+  if (entries.length === 0) throw parseError("Delegation field is empty.")
+  const links = entries.map(([key, member], index) => {
+    if (key !== `g${index}`) {
+      throw parseError("Delegation links must be consecutive and ordered.")
     }
-  }
-  const rootValue = requireStringItem(members.root, "root")
-  const delegateMember = requireItem(members.delegate, "delegate")
-  if (typeof delegateMember.value !== "string") {
-    throw parseError("delegate must be a string.")
-  }
-  const root = parseCanonicalIdentity(rootValue, "root")
-  const delegate = parseCanonicalIdentity(delegateMember.value, "delegate")
-  const delegateParams = delegateMember.params ?? {}
-  for (const key of Object.keys(delegateParams)) {
-    if (key !== "key-type")
-      throw parseError(`Unsupported delegate parameter: ${key}.`)
-  }
-  const keyType = delegateParams["key-type"]
-  if (keyType !== undefined && keyType !== "eoa") {
-    throw parseError("Unsupported delegate key-type.")
-  }
+    if (
+      !("value" in member) ||
+      typeof member.value !== "object" ||
+      member.value.type !== "binary" ||
+      Object.keys(member.params ?? {}).length !== 0
+    ) {
+      throw parseError("Delegation links must be bare Byte Sequences.")
+    }
+    return decodeDelegationLink(member.value.value)
+  })
+  const chain = { links }
+  formatDelegationField(chain)
+  return { chain, fieldValue }
+}
 
-  const audiences = requireStringList(members.aud, "aud").map((audience) => {
-    const normalized = normalizeAudienceOrigin(audience)
-    if (normalized !== audience) throw parseError("Audience is not canonical.")
-    return normalized
+export function parseDelegationComponent(value: string): ComponentIdentifier {
+  assertString(value, "component")
+  const separator = value.indexOf(";")
+  const name = separator < 0 ? value : value.slice(0, separator)
+  const parameters = separator < 0 ? "" : value.slice(separator)
+  let item: ReturnType<typeof parseSfInnerList>["items"][number] | undefined
+  try {
+    const escaped = name.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    item = parseSfInnerList(`("${escaped}"${parameters})`).items[0]
+  } catch {
+    throw parseError("Delegation component is malformed.")
+  }
+  if (item === undefined || typeof item.value !== "string") {
+    throw parseError("Delegation component is malformed.")
+  }
+  const component = normalizeComponentIdentifier({
+    name: item.value,
+    ...(Object.keys(item.params ?? {}).length === 0
+      ? {}
+      : {
+          params: item.params as NonNullable<ComponentIdentifier["params"]>
+        })
   })
   if (
-    audiences.length === 0 ||
-    audiences.length > MAX_AUDIENCES ||
-    new Set(audiences).size !== audiences.length
+    component.name === "@signature-params" ||
+    component.name === DELEGATION_FIELD_NAME ||
+    serializeDelegationComponent(component) !== value
   ) {
-    throw parseError(
-      "Delegation audiences are empty, duplicated, or too numerous."
-    )
+    throw parseError("Delegation component is forbidden or non-canonical.")
   }
+  return component
+}
 
-  const idMember = requireItem(members.id, "id")
-  if (
-    typeof idMember.value !== "object" ||
-    idMember.value.type !== "binary" ||
-    idMember.value.value.length !== 32 ||
-    Object.keys(idMember.params ?? {}).length !== 0
-  ) {
-    throw parseError("Delegation id must be exactly 32 bytes.")
-  }
-
-  const maxAge = optionalPositiveInteger(members["max-age"], "max-age")
-  const epoch = requireNonNegativeInteger(members.epoch, "epoch")
-  const allowReplayable =
-    optionalBoolean(members["allow-replayable"], "allow-replayable") ?? false
-  if (members["allow-replayable"] !== undefined && !allowReplayable) {
-    throw parseError("allow-replayable may only be present with ?1.")
-  }
-  const components = optionalComponentList(members.components)
-  const scopes = members.scope
-    ? normalizeScopes(requireStringList(members.scope, "scope"), parseError)
-    : []
-
-  return {
-    fieldValue: canonicalizeSfDictionary(fieldValue),
-    root,
-    delegate,
-    ...(keyType === "eoa" ? { delegateKeyType: "eoa" as const } : {}),
-    audiences,
-    id: bytesToHex(idMember.value.value),
-    epoch,
-    ...(maxAge === undefined ? {} : { maxAge }),
-    allowReplayable,
-    components,
-    scopes,
-    members
-  }
+export function serializeDelegationComponent(
+  component: ComponentIdentifier
+): string {
+  const serialized = serializeComponentIdentifier(component)
+  if (!serialized.startsWith('"')) throw invalid("Component is invalid.")
+  const end = findClosingQuote(serialized)
+  if (end < 1) throw invalid("Component is invalid.")
+  return `${JSON.parse(serialized.slice(0, end + 1))}${serialized.slice(end + 1)}`
 }
 
 export function normalizeAudienceOrigin(input: string): string {
@@ -205,9 +289,7 @@ export function normalizeAudienceOrigin(input: string): string {
     /:\/\/[^/]*@/.test(input) ||
     /:\/\/[^/?#]*\.(?::\d+)?(?:[/?#]|$)/.test(input)
   ) {
-    throw invalid(
-      "Audience must be an exact origin without credentials or a trailing dot."
-    )
+    throw invalid("Audience must be an exact origin without a trailing dot.")
   }
   let url: URL
   try {
@@ -230,200 +312,117 @@ export function normalizeAudienceOrigin(input: string): string {
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw invalid("Audience must use HTTPS except for loopback development.")
   }
-  return url.origin.toLowerCase()
+  const normalized = url.origin.toLowerCase()
+  if (normalized !== input) throw invalid("Audience must be canonical.")
+  return normalized
 }
 
-export const ERC8128_REVOCATION_ABI = [
-  {
-    type: "function",
-    name: "status",
-    stateMutability: "view",
-    inputs: [
-      { name: "root", type: "address" },
-      { name: "id", type: "bytes32" }
-    ],
-    outputs: [
-      { name: "isRevoked", type: "bool" },
-      { name: "currentEpoch", type: "uint256" }
-    ]
+export function validateDelegation(grant: Delegation): void {
+  if (
+    typeof grant !== "object" ||
+    grant === null ||
+    Object.keys(grant).sort().join(",") !==
+      "allowReplayable,aud,components,created,delegate,delegateIsEOA,epoch,expires,id,maxAge,parent,root,scope"
+  ) {
+    throw parseError("Delegation has an invalid field set.")
   }
-] as const
-
-function formatIdentity(identity: AccountIdentity): string {
-  return formatKeyId(identity.chainId, identity.address)
+  requireCanonicalIdentity(grant.root, "root")
+  requireCanonicalIdentity(grant.delegate, "delegate")
+  assertArray(grant.aud, "aud", true)
+  for (const audience of grant.aud) normalizeAudienceOrigin(audience)
+  assertBytes32(grant.id, "id")
+  assertInteger(grant.epoch, "epoch", 0, Number.MAX_SAFE_INTEGER)
+  assertInteger(grant.created, "created", 0, Number.MAX_SAFE_INTEGER)
+  assertInteger(grant.expires, "expires", 1, Number.MAX_SAFE_INTEGER)
+  if (grant.expires <= grant.created)
+    throw parseError("Grant window is invalid.")
+  assertInteger(grant.maxAge, "maxAge", 1, 0xffff_ffff)
+  if (typeof grant.delegateIsEOA !== "boolean") {
+    throw parseError("delegateIsEOA must be Boolean.")
+  }
+  if (typeof grant.allowReplayable !== "boolean") {
+    throw parseError("allowReplayable must be Boolean.")
+  }
+  assertArray(grant.components, "components", false)
+  for (const component of grant.components) parseDelegationComponent(component)
+  assertArray(grant.scope, "scope", false)
+  assertBytes32(grant.parent, "parent")
 }
 
-function parseCanonicalIdentity(value: string, name: string): AccountIdentity {
+function requireCanonicalIdentity(value: string, name: string) {
+  assertString(value, name)
   const identity = parseKeyId(value)
-  if (identity === null || formatIdentity(identity) !== value) {
-    throw parseError(`${name} must be a canonical CAIP-10 identity.`)
+  if (
+    identity === null ||
+    formatKeyId(identity.chainId, identity.address) !== value
+  ) {
+    throw parseError(`${name} must be a canonical CAIP-10 Account ID.`)
   }
   return identity
 }
 
-function requireItem(member: SfMember | undefined, name: string): SfItem {
-  if (member === undefined || !("value" in member)) {
-    throw parseError(`${name} must be an Item.`)
+function assertArray(values: string[], name: string, nonEmpty: boolean): void {
+  if (!Array.isArray(values) || (nonEmpty && values.length === 0)) {
+    throw parseError(`${name} has an invalid entry count.`)
   }
-  return member
+  if (values.length > MAX_ARRAY_ENTRIES) {
+    throw tooLarge(`${name} has too many entries.`)
+  }
+  for (const value of values) assertString(value, name)
 }
 
-function requireStringItem(member: SfMember | undefined, name: string): string {
-  const item = requireItem(member, name)
-  if (typeof item.value !== "string" || Object.keys(item.params ?? {}).length) {
-    throw parseError(`${name} must be a bare string Item.`)
+function assertString(value: string, name: string): void {
+  if (typeof value !== "string") throw parseError(`${name} must be a String.`)
+  if (encoder.encode(value).length > MAX_STRING_BYTES) {
+    throw tooLarge(`${name} String is too large.`)
   }
-  return item.value
 }
 
-function requireStringList(
-  member: SfMember | undefined,
-  name: string
-): string[] {
-  if (member === undefined || !("items" in member)) {
-    throw parseError(`${name} must be an Inner List.`)
+function assertBytes32(value: string, name: string): void {
+  if (!/^0x[0-9a-f]{64}$/.test(value)) {
+    throw parseError(`${name} must be canonical bytes32.`)
   }
-  if (Object.keys(member.params ?? {}).length) {
-    throw parseError(`${name} must not have parameters.`)
-  }
-  return member.items.map((item) => {
-    if (
-      typeof item.value !== "string" ||
-      Object.keys(item.params ?? {}).length
-    ) {
-      throw parseError(`${name} items must be bare strings.`)
-    }
-    return item.value
-  })
 }
 
-function optionalPositiveInteger(
-  member: SfMember | undefined,
-  name: string
-): number | undefined {
-  if (member === undefined) return undefined
-  const item = requireItem(member, name)
-  if (
-    !Number.isSafeInteger(item.value) ||
-    (item.value as number) <= 0 ||
-    Object.keys(item.params ?? {}).length
-  ) {
-    throw parseError(`${name} must be a positive integer.`)
+function assertInteger(
+  value: number,
+  name: string,
+  minimum: number,
+  maximum: number
+): void {
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw parseError(`${name} is outside its supported integer range.`)
   }
-  return item.value as number
 }
 
-function requireNonNegativeInteger(
-  member: SfMember | undefined,
-  name: string
-): number {
-  const item = requireItem(member, name)
-  if (
-    !Number.isSafeInteger(item.value) ||
-    (item.value as number) < 0 ||
-    Object.keys(item.params ?? {}).length
-  ) {
-    throw parseError(`${name} must be a non-negative integer.`)
-  }
-  return item.value as number
-}
-
-function optionalBoolean(
-  member: SfMember | undefined,
-  name: string
-): boolean | undefined {
-  if (member === undefined) return undefined
-  const item = requireItem(member, name)
-  if (
-    typeof item.value !== "boolean" ||
-    Object.keys(item.params ?? {}).length
-  ) {
-    throw parseError(`${name} must be a Boolean.`)
-  }
-  return item.value
-}
-
-function optionalComponentList(
-  member: SfMember | undefined
-): ComponentIdentifier[] {
-  if (member === undefined) return []
-  if (!("items" in member) || Object.keys(member.params ?? {}).length) {
-    throw parseError("components must be an Inner List.")
-  }
-  const components = member.items.map((item) => {
-    if (typeof item.value !== "string") {
-      throw parseError("components entries must be strings.")
-    }
-    const component = normalizeComponentIdentifier({
-      name: item.value,
-      ...(Object.keys(item.params ?? {}).length
-        ? { params: item.params as NonNullable<ComponentIdentifier["params"]> }
-        : {})
-    })
-    if (
-      [
-        "@scheme",
-        "@authority",
-        "@method",
-        "@path",
-        "@query",
-        "@signature-params",
-        "content-digest",
-        "content-type",
-        DELEGATION_FIELD_NAME
-      ].includes(component.name)
-    ) {
-      throw parseError("components must not restate the delegated baseline.")
-    }
-    return component
-  })
-  if (components.length > MAX_COMPONENTS) {
-    throw new Erc8128Error(
-      "DELEGATION_TOO_LARGE",
-      "Delegation has too many component requirements."
-    )
-  }
-  if (
-    new Set(components.map(serializeComponentIdentifier)).size !==
-    components.length
-  ) {
-    throw parseError("components entries must be unique.")
-  }
-  return components
-}
-
-function normalizeScopes(
-  values: readonly string[],
-  error: (message: string) => Error = invalid
-): string[] {
-  const scopes = [...values]
-  if (
-    scopes.length > MAX_SCOPES ||
-    scopes.some(
-      (scope) =>
-        scope.length === 0 ||
-        scope.length > MAX_SCOPE_LENGTH ||
-        !/^[\x21\x23-\x5b\x5d-\x7e]+$/.test(scope)
-    ) ||
-    new Set(scopes).size !== scopes.length
-  ) {
-    throw error("scope entries must be unique visible ASCII strings.")
-  }
-  const sorted = [...scopes].sort()
-  if (
-    error === parseError &&
-    sorted.some((scope, index) => scope !== scopes[index])
-  ) {
-    throw error("scope entries must be sorted.")
-  }
-  return sorted
+function safeInteger(value: bigint | number, name: string): number {
+  const converted = Number(value)
+  assertInteger(converted, name, 0, Number.MAX_SAFE_INTEGER)
+  return converted
 }
 
 function isLoopback(hostname: string): boolean {
-  const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase()
-  if (normalized === "localhost" || normalized === "::1") return true
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(normalized)
-  return match !== null && Number(match[1]) === 127
+  const normalized = hostname.toLowerCase()
+  if (
+    normalized === "localhost" ||
+    normalized === "[::1]" ||
+    normalized === "::1"
+  ) {
+    return true
+  }
+  const match = /^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(normalized)
+  return match?.slice(1).every((part) => Number(part) <= 255) ?? false
+}
+
+function findClosingQuote(value: string): number {
+  let escaped = false
+  for (let index = 1; index < value.length; index += 1) {
+    const character = value[index]
+    if (escaped) escaped = false
+    else if (character === "\\") escaped = true
+    else if (character === '"') return index
+  }
+  return -1
 }
 
 function invalid(message: string): Erc8128Error {
@@ -432,4 +431,8 @@ function invalid(message: string): Erc8128Error {
 
 function parseError(message: string): Erc8128Error {
   return new Erc8128Error("PARSE_ERROR", message)
+}
+
+function tooLarge(message: string): Erc8128Error {
+  return new Erc8128Error("DELEGATION_TOO_LARGE", message)
 }

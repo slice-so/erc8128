@@ -70,9 +70,6 @@ type SignOptions = {
   /** Binding mode (default: "request-bound") */
   binding?: BindingMode
   
-  /** Replay mode (default: "non-replayable") */
-  replay?: ReplayMode
-  
   /** Unix timestamp when signature becomes valid (default: now) */
   created?: number
   
@@ -82,8 +79,8 @@ type SignOptions = {
   /** Validity duration in seconds (default: 60) */
   ttlSeconds?: number
   
-  /** Custom nonce value or generator function */
-  nonce?: string | (() => Promise<string>)
+  /** Custom nonce/generator, or null to make the request Replayable */
+  nonce?: string | (() => Promise<string>) | null
   
   /** Content-Digest handling (default: "auto") */
   contentDigest?: ContentDigestMode
@@ -105,14 +102,16 @@ type BindingMode = "request-bound" | "class-bound"
 
 | Value | Description |
 |-------|-------------|
-| `request-bound` | Sign `@authority`, `@method`, `@path`, `@query` (if present), and `content-digest` (if body present). This is the secure default. |
+| `request-bound` | Sign `@scheme`, `@authority`, `@method`, `@path`, and `@query` unconditionally, plus received content fields. This is the secure default. |
 | `class-bound` | Sign only the components you explicitly specify. Requires `components` array. |
 
 ---
 
 ## ReplayMode
 
-Controls whether requests can be replayed.
+Describes the replay posture returned by verification. Signing infers this
+posture solely from nonce presence: the default generated nonce is
+Non-Replayable and `{ nonce: null }` is Replayable.
 
 ```typescript
 type ReplayMode = "non-replayable" | "replayable"
@@ -210,24 +209,24 @@ type VerifyPolicy = {
 
 ```typescript
 type DelegationPolicy = {
-  audience?: string | string[] | ((request: Request) => string)
-  grantMaxValiditySec?: number
-  revocation: {
-    authority: {address: Address; chainId: number}
-    verify: (context: DelegationRevocationContext) =>
-      | "valid"
-      | "revoked"
-      | "epoch-mismatch"
-      | "unavailable"
-      | Promise<"valid" | "revoked" | "epoch-mismatch" | "unavailable">
-  }
   grantCache?: DelegationGrantCache
   grantCacheTtlSec?: number
+  maxChainDepth?: number
+  maxGrantValiditySec?: number
+  requiredScopes?: readonly string[]
+  scopeSupported?: boolean
+  verifyStatus: ({ link, request }: DelegationStatusContext) =>
+    | "valid"
+    | "revoked"
+    | "epoch-mismatch"
+    | "unavailable"
+    | Promise<"valid" | "revoked" | "epoch-mismatch" | "unavailable">
 }
 ```
 
-The revocation authority is trusted verifier configuration, not signed input.
-Unknown delegation Dictionary members are rejected before this callback runs.
+`verifyStatus` checks the protocol-owned canonical registry for every link's
+signed `(root, id, epoch)`. Registry chain and address are not grant fields or
+ordinary signer configuration.
 
 ---
 
@@ -289,14 +288,9 @@ type VerifyResult =
       principal: { address: Address; chainId: number }
       signer: { address: Address; chainId: number }
       delegated: true
-      delegationId: Uint8Array
-      delegationEpoch: number
-      scopes: string[]
-      label: string
-      components: ComponentIdentifier[]
-      params: SignatureParams
+      delegationIds: Hex[]
       replay: ReplayMode
-      binding: "request-bound"
+      binding: BindingMode
     }
   | {
       ok: false
@@ -313,9 +307,7 @@ type VerifyResult =
 | `principal` | `AccountIdentity` | Authenticated root or direct account |
 | `signer` | `AccountIdentity` | Account that signed the request |
 | `delegated` | `boolean` | Whether a delegation authorization authenticated the principal |
-| `delegationId` | `Uint8Array` | The 32-byte authorization identifier on delegated results |
-| `delegationEpoch` | `number` | The root issuance epoch signed into the authorization |
-| `scopes` | `string[]` | Standard case-sensitive authorization scopes |
+| `delegationIds` | `Hex[]` | Ordered signed revocation IDs for the verified chain |
 | `label` | `string` | Signature label that was verified |
 | `components` | `ComponentIdentifier[]` | Structurally parsed signed components |
 | `params` | `SignatureParams` | Parsed signature parameters |
@@ -360,7 +352,10 @@ type VerifyFailReason =
   | "signature_too_large"
   | "invalid_keyid"
   | "invalid_time"
+  | "request_not_yet_valid"
+  | "request_expired"
   | "request_validity_too_long"
+  | "invalid_nonce"
   | "insufficient_coverage"
   | "content_digest_required"
   | "bad_content_digest"
@@ -372,13 +367,13 @@ type VerifyFailReason =
   | "signature_verification_unavailable"
   | "principal_not_allowed"
   | "unsupported_delegation"
-  | "delegation_grant_missing"
-  | "delegation_grant_ambiguous"
   | "bad_delegation_field"
   | "delegation_too_large"
   | "delegation_not_covered"
   | "delegate_mismatch"
-  | "grant_root_mismatch"
+  | "delegation_chain_too_long"
+  | "delegation_chain_discontinuous"
+  | "delegation_attenuation_violation"
   | "grant_expired"
   | "grant_not_yet_valid"
   | "grant_validity_too_long"
@@ -387,7 +382,10 @@ type VerifyFailReason =
   | "audience_mismatch"
   | "delegation_nonce_required"
   | "delegation_max_age_exceeded"
-  | "delegation_components_floor"
+  | "delegation_components_unsupported"
+  | "delegation_components_uncovered"
+  | "unsupported_scope"
+  | "insufficient_scope"
   | "authorization_revoked"
   | "authorization_epoch_mismatch"
   | "grant_verification_unavailable"
@@ -444,7 +442,7 @@ type FetchOptions = SignOptions & { fetch?: typeof fetch }
 Options for [createSignerClient](/api/createSignerClient).
 
 ```typescript
-type SignerClientOptions = Omit<SignOptions, "replay"> & {
+type SignerClientOptions = SignOptions & {
   fetch?: typeof fetch
   serverConfigs?: Record<string, ServerConfig>
   preferReplayable?: boolean

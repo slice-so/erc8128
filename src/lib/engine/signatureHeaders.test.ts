@@ -35,18 +35,15 @@ describe("selectSignatureFromHeaders", () => {
     expect(result.selected[0].label).toBe("bad")
   })
 
-  test("returns signature_input_invalid without a correlated member", () => {
+  test("retains an uncorrelated member as a skippable candidate", () => {
     const { sigInput } = makeHeaders("eth", NON_EIP_KEYID)
     const result = selectSignatureFromHeaders({
       signatureInputHeader: sigInput,
       signatureHeader: "other=:AAAA:"
     })
-    expect(result.ok).toBe(false)
-    if (result.ok) throw new Error("unreachable")
-    expect(result.result).toEqual({
-      ok: false,
-      reason: "signature_input_invalid"
-    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error("unreachable")
+    expect(result.selected[0]?.sigB64).toBeUndefined()
   })
 
   test("returns signature_input_invalid for malformed Signature-Input", () => {
@@ -117,14 +114,17 @@ describe("selectSignatureFromHeaders", () => {
     expect(result.selected[0].label).toBe("alpha")
   })
 
-  test("skips a malformed candidate before a later valid member", () => {
+  test("rejects malformed members as a whole-field failure", () => {
     const good = makeHeaders("good", EIP_KEYID)
     const result = selectSignatureFromHeaders({
       signatureInputHeader: `broken=not-an-inner-list, ${good.sigInput}`,
       signatureHeader: `broken=:!!!!:, ${good.sig}`
     })
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error("unreachable")
-    expect(result.selected.map(({ label }) => label)).toEqual(["good"])
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error("unreachable")
+    expect(result.result).toMatchObject({
+      ok: false,
+      reason: "signature_input_invalid"
+    })
   })
 })

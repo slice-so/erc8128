@@ -305,7 +305,7 @@ describe("serializeSignatureParamsInnerList", () => {
     expect(result).toContain(';tag="my-tag"')
   })
 
-  test("orders params: created, expires, nonce, tag, keyid", () => {
+  test("orders params: created, expires, nonce, keyid, tag", () => {
     const result = serializeSignatureParamsInnerList(["@authority"], {
       created: 100,
       expires: 200,
@@ -320,8 +320,8 @@ describe("serializeSignatureParamsInnerList", () => {
     const keyidIdx = result.indexOf("keyid=")
     expect(createdIdx).toBeLessThan(expiresIdx)
     expect(expiresIdx).toBeLessThan(nonceIdx)
-    expect(nonceIdx).toBeLessThan(tagIdx)
-    expect(tagIdx).toBeLessThan(keyidIdx)
+    expect(nonceIdx).toBeLessThan(keyidIdx)
+    expect(keyidIdx).toBeLessThan(tagIdx)
   })
 })
 

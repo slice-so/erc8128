@@ -24,12 +24,13 @@ export function resolvePosture(
   method: string,
   pathname: string,
   serverConfig: ServerConfig | null | undefined,
-  mergedOptions: SignOptions & { replay: ReplayMode }
+  mergedOptions: SignOptions,
+  requestedReplay: ReplayMode
 ): ResolvedPosture {
   if (!serverConfig) {
     return {
       binding: mergedOptions.binding,
-      replay: mergedOptions.replay,
+      replay: requestedReplay,
       components: mergedOptions.components
     }
   }
@@ -44,7 +45,7 @@ export function resolvePosture(
 
   // Route can restrict replay even if client wants it
   const replayable =
-    mergedOptions.replay === "replayable" && routePolicy?.replayable !== false
+    requestedReplay === "replayable" && routePolicy?.replayable !== false
 
   const useClassBound =
     mergedOptions.binding === "class-bound" &&

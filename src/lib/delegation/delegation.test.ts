@@ -1,770 +1,253 @@
 import { describe, expect, test } from "bun:test"
-import { type Hex, recoverMessageAddress } from "viem"
+import { type Hex, recoverAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { BoundedMemoryNonceStore } from "../../stores"
+import type { Delegation, DelegationChain, DelegationLink } from "../../types"
 import { verifyRequest } from "../../verify"
-import {
-  parseSignatureHeader,
-  parseSignatureInputHeader
-} from "../engine/createSignatureInput"
-import { bytesToHex } from "../utilities"
-import {
-  buildDelegationGrant,
-  completeDelegationGrant,
-  getDelegationGrantSignatureBase
-} from "./createDelegationGrant"
+import { completeDelegationGrant } from "./createDelegationGrant"
 import { createDelegatedSignerClient } from "./delegatedSignerClient"
-import { DELEGATION_FIELD_NAME, parseDelegationField } from "./delegationField"
+import { resolveDelegationChain } from "./delegationChain"
+import {
+  decodeDelegationLink,
+  encodeDelegationLink,
+  formatDelegationField,
+  getDelegationTypedData,
+  hashDelegation,
+  parseDelegationField
+} from "./delegationField"
 
-const root = privateKeyToAccount(`0x${"11".repeat(32)}`)
-const delegate = privateKeyToAccount(`0x${"22".repeat(32)}`)
-const foreignRoot = privateKeyToAccount(`0x${"44".repeat(32)}`)
-const foreignDelegate = privateKeyToAccount(`0x${"55".repeat(32)}`)
-const now = Math.floor(Date.now() / 1_000)
-const verifyRevocation = async () => "valid" as const
-const revocation = {
-  authority: {
-    address: "0x7777777777777777777777777777777777777777" as const,
-    chainId: 8453
-  },
-  verify: verifyRevocation
+const root = privateKeyToAccount(
+  "0x0000000000000000000000000000000000000000000000000000000000000002"
+)
+const delegateA = privateKeyToAccount(
+  "0x0000000000000000000000000000000000000000000000000000000000000003"
+)
+const delegateB = privateKeyToAccount(
+  "0x0000000000000000000000000000000000000000000000000000000000000004"
+)
+
+const g0Grant: Delegation = {
+  root: `eip155:1:${root.address.toLowerCase()}`,
+  delegate: `eip155:1:${delegateA.address.toLowerCase()}`,
+  aud: ["https://api.example", "https://backup.example"],
+  id: `0x${"11".repeat(32)}`,
+  epoch: 7,
+  created: 1_699_999_000,
+  expires: 1_700_003_600,
+  maxAge: 60,
+  delegateIsEOA: true,
+  allowReplayable: true,
+  components: ["@authority"],
+  scope: ["resource:read", "resource:write"],
+  parent: `0x${"00".repeat(32)}`
+}
+const g0: DelegationLink = {
+  grant: g0Grant,
+  signature:
+    "0x537590cfd51670d5327bdbb8a62ad78db94e9c6a3435bcea00a8c2bf8580cbab714ecb346e551920aa78cd4c1e36a44c89f7a6e6db3b2151285761c851cfa4921c"
+}
+const g1Grant: Delegation = {
+  root: `eip155:1:${delegateA.address.toLowerCase()}`,
+  delegate: `eip155:1:${delegateB.address.toLowerCase()}`,
+  aud: ["https://api.example"],
+  id: `0x${"22".repeat(32)}`,
+  epoch: 3,
+  created: 1_699_999_500,
+  expires: 1_700_001_800,
+  maxAge: 60,
+  delegateIsEOA: true,
+  allowReplayable: true,
+  components: ["@method"],
+  scope: ["resource:read"],
+  parent: "0xf2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366"
+}
+const g1: DelegationLink = {
+  grant: g1Grant,
+  signature:
+    "0x03e5baed77bd76300a15567ac9ef02994a891e10cf728f6e75ac292748fd31b41ecf0187c091f8d3997a34243a96df13ecbe11f93186f32b087caba7a0e24e0b1c"
 }
 
-const signer = (account: typeof root) => ({
+const signer = (account: typeof delegateA) => ({
   address: account.address,
-  chainId: 8453,
+  chainId: 1,
   signMessage: (message: Uint8Array) =>
-    account.signMessage({ message: { raw: bytesToHex(message) } })
+    account.signMessage({ message: { raw: message } })
 })
 
-const createGrant = async (
-  audiences: readonly string[] = ["https://api.example"]
-) => {
-  const prepared = buildDelegationGrant({
-    root: { address: root.address, chainId: 8453 },
-    delegate: { address: delegate.address, chainId: 8453 },
-    delegateKeyType: "eoa",
-    audiences,
-    id: `0x${"33".repeat(32)}`,
-    epoch: 0,
-    created: now,
-    expires: now + 600,
-    maxAge: 60,
-    components: ["x-tenant"]
-  })
-  return completeDelegationGrant(
-    prepared,
-    await root.signMessage({
-      message: { raw: bytesToHex(prepared.signatureBase) }
-    })
-  )
-}
-
-const createGrantVariant = async ({
-  audiences = ["https://api.example"],
-  components = ["x-tenant"],
-  created = now,
-  delegateAccount = delegate,
-  rootAccount = root,
-  signingAccount = root
-}: {
-  audiences?: string[]
-  components?: string[]
-  created?: number
-  delegateAccount?: typeof delegate
-  rootAccount?: typeof root
-  signingAccount?: typeof root
-} = {}) => {
-  const prepared = buildDelegationGrant({
-    audiences,
-    components,
-    created,
-    delegate: { address: delegateAccount.address, chainId: 8453 },
-    delegateKeyType: "eoa",
-    expires: now + 600,
-    epoch: 0,
-    id: `0x${"33".repeat(32)}`,
-    maxAge: 60,
-    root: { address: rootAccount.address, chainId: 8453 }
-  })
-  return completeDelegationGrant(
-    prepared,
-    await signingAccount.signMessage({
-      message: { raw: bytesToHex(prepared.signatureBase) }
-    })
-  )
-}
-
-const delegatedCandidate = (request: Request) => {
-  const candidate = parseSignatureInputHeader(
-    request.headers.get("signature-input") ?? ""
-  ).find(({ params }) => params.tag === "erc8128-delegated")
-  const signature = parseSignatureHeader(
-    request.headers.get("signature") ?? ""
-  ).get(candidate?.label ?? "")
-  if (!candidate || !signature) throw new Error("Missing delegated candidate.")
-  return { input: candidate.signatureParamsValue, signature }
-}
-
-const combineGrantAndCandidates = (
+const verify = (
   request: Request,
-  grant: Awaited<ReturnType<typeof createGrant>>,
-  candidates: { input: string; label: string; signature: string }[]
-) => {
-  const headers = new Headers(request.headers)
-  headers.set(DELEGATION_FIELD_NAME, grant.fieldValue)
-  headers.set(
-    "signature-input",
-    [
-      `authorization=${grant.grantSignatureInput}`,
-      ...candidates.map(({ input, label }) => `${label}=${input}`)
-    ].join(", ")
-  )
-  headers.set(
-    "signature",
-    [
-      `authorization=:${grant.grantSignatureB64}:`,
-      ...candidates.map(({ label, signature }) => `${label}=:${signature}:`)
-    ].join(", ")
-  )
-  return new Request(request, { headers })
-}
-
-describe("ERC-8128 delegation", () => {
-  test("builds one canonical grant artifact", async () => {
-    const grant = await createGrant()
-    const field = parseDelegationField(grant.fieldValue)
-    expect(field.root).toEqual({
-      address: root.address.toLowerCase() as typeof root.address,
-      chainId: 8453
-    })
-    expect(field.delegateKeyType).toBe("eoa")
-    expect(field.audiences).toEqual(["https://api.example"])
-    expect(field.epoch).toBe(0)
-    expect(field.allowReplayable).toBe(false)
-    expect(field.scopes).toEqual([])
-    expect(grant.fieldValue).not.toContain("allow-replayable")
-    expect(field.components).toEqual([{ name: "x-tenant" }])
-    expect(getDelegationGrantSignatureBase(grant)).toBeInstanceOf(Uint8Array)
-  })
-
-  test("uses a closed dictionary with canonical replay and scope members", () => {
-    const fieldValue = buildDelegationGrant({
-      root: { address: root.address, chainId: 8453 },
-      delegate: { address: delegate.address, chainId: 8453 },
-      audiences: ["https://api.example"],
-      id: `0x${"33".repeat(32)}`,
-      epoch: 7,
-      created: now,
-      expires: now + 600,
-      allowReplayable: true,
-      scopes: ["wallet:permissions:read", "id:authorizations:read"]
-    }).fieldValue
-    const field = parseDelegationField(fieldValue)
-
-    expect(field.epoch).toBe(7)
-    expect(field.allowReplayable).toBe(true)
-    expect(field.scopes).toEqual([
-      "id:authorizations:read",
-      "wallet:permissions:read"
-    ])
-    expect(fieldValue).toContain("allow-replayable")
-    expect(fieldValue).toContain(
-      'scope=("id:authorizations:read" "wallet:permissions:read")'
-    )
-    expect(() =>
-      parseDelegationField(`${fieldValue}, future-member="ignored"`)
-    ).toThrow("Unsupported delegation member")
-    expect(() =>
-      parseDelegationField(
-        fieldValue.replace("allow-replayable", "allow-replayable=?0")
-      )
-    ).toThrow("may only be present with ?1")
-  })
-
-  test("defaults requests to non-replayable even when replay is authorized", async () => {
-    const prepared = buildDelegationGrant({
-      root: { address: root.address, chainId: 8453 },
-      delegate: { address: delegate.address, chainId: 8453 },
-      delegateKeyType: "eoa",
-      audiences: ["https://api.example"],
-      id: `0x${"33".repeat(32)}`,
-      epoch: 0,
-      created: now,
-      expires: now + 600,
-      allowReplayable: true
-    })
-    const authorization = completeDelegationGrant(
-      prepared,
-      await root.signMessage({
-        message: { raw: bytesToHex(prepared.signatureBase) }
-      })
-    )
-    const client = createDelegatedSignerClient(signer(delegate), authorization)
-    const defaultRequest = await client.signRequest(
-      "https://api.example/orders",
-      { created: now, expires: now + 45 }
-    )
-    const defaultCandidate = parseSignatureInputHeader(
-      defaultRequest.headers.get("signature-input") ?? ""
-    ).find(({ params }) => params.tag === "erc8128-delegated")
-    expect(defaultCandidate?.params.nonce).toBeString()
-
-    const replayableRequest = await client.signRequest(
-      "https://api.example/orders",
-      { created: now, expires: now + 45, replay: "replayable" }
-    )
-    const replayableCandidate = parseSignatureInputHeader(
-      replayableRequest.headers.get("signature-input") ?? ""
-    ).find(({ params }) => params.tag === "erc8128-delegated")
-    expect(replayableCandidate?.params.nonce).toBeUndefined()
-    const result = await verifyRequest({
-      request: replayableRequest,
-      nonceStore: new BoundedMemoryNonceStore(),
-      policy: {
-        now: () => now,
-        principal: "delegated",
-        replayable: true,
-        replayableNotBefore: async () => 0,
-        delegation: { audience: "https://api.example", revocation }
-      },
-      verifyMessage: async ({ address, message, signature }) =>
-        (
-          await recoverMessageAddress({
-            message,
-            signature: signature as Hex
-          })
-        ).toLowerCase() === address.toLowerCase()
-    })
-    expect(result).toMatchObject({ ok: true, replay: "replayable" })
-  })
-
-  test("rejects baseline components and delegation fields that exceed profile bounds", () => {
-    for (const component of [
-      "@authority",
-      "@signature-params",
-      "content-digest",
-      "content-type",
-      DELEGATION_FIELD_NAME
-    ]) {
-      expect(() =>
-        buildDelegationGrant({
-          root: { address: root.address, chainId: 8453 },
-          delegate: { address: delegate.address, chainId: 8453 },
-          audiences: ["https://api.example"],
-          id: `0x${"33".repeat(32)}`,
-          epoch: 0,
-          created: now,
-          expires: now + 600,
-          components: [component]
-        })
-      ).toThrow("baseline")
-    }
-    expect(() =>
-      buildDelegationGrant({
-        root: { address: root.address, chainId: 8453 },
-        delegate: { address: delegate.address, chainId: 8453 },
-        audiences: Array.from(
-          { length: 17 },
-          (_, index) => `https://api-${index}.example`
-        ),
-        id: `0x${"33".repeat(32)}`,
-        epoch: 0,
-        created: now,
-        expires: now + 600
-      })
-    ).toThrow("1-16")
-
-    const canonical = buildDelegationGrant({
-      root: { address: root.address, chainId: 8453 },
-      delegate: { address: delegate.address, chainId: 8453 },
-      audiences: ["https://api.example"],
-      id: `0x${"33".repeat(32)}`,
-      epoch: 0,
-      created: now,
-      expires: now + 600,
-      components: ["x-tenant"]
-    }).fieldValue
-    expect(() =>
-      parseDelegationField(
-        canonical.replace(
-          'components=("x-tenant")',
-          'components=("x-tenant";future)'
-        )
-      )
-    ).toThrow("Unsupported component parameter")
-  })
-
-  test("rejects an invalid authorization-signature shape before cryptography", async () => {
-    const grant = await createGrant()
-    const signed = await createDelegatedSignerClient(
-      signer(delegate),
-      grant
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      { created: now, expires: now + 45, nonce: "grant-shape-test" }
-    )
-    const grantCandidate = parseSignatureInputHeader(
-      signed.headers.get("signature-input") ?? ""
-    ).find(({ params }) => params.tag === "erc8128-delegation")
-    if (!grantCandidate) throw new Error("Missing grant candidate.")
-    const variants = [
-      {
-        input: grantCandidate.signatureParamsValue.replace(
-          '("erc-8128-delegation";sf)',
-          '("@authority" "erc-8128-delegation";sf)'
-        ),
-        reason: "bad_grant_signature"
-      },
-      {
-        input: `${grantCandidate.signatureParamsValue};nonce="0123456789abcdef"`,
-        reason: "bad_grant_signature"
-      },
-      {
-        input: `${grantCandidate.signatureParamsValue};alg="eip191"`,
-        reason: "unsupported_algorithm"
+  options: {
+    maximumDepth?: number
+    requiredScopes?: readonly string[]
+    status?: (
+      link: DelegationLink
+    ) => "valid" | "revoked" | "epoch-mismatch" | "unavailable"
+  } = {}
+) =>
+  verifyRequest({
+    request,
+    nonceStore: new BoundedMemoryNonceStore(),
+    policy: {
+      now: () => 1_700_000_001,
+      clockSkewSec: 30,
+      principal: "delegated",
+      delegation: {
+        ...(options.maximumDepth === undefined
+          ? {}
+          : { maxChainDepth: options.maximumDepth }),
+        requiredScopes: options.requiredScopes ?? ["resource:read"],
+        verifyStatus: ({ link }) => options.status?.(link) ?? "valid"
       }
-    ]
+    },
+    verifyDigest: async ({ address, digest, signature }) =>
+      (await recoverAddress({ hash: digest, signature })).toLowerCase() ===
+      address.toLowerCase(),
+    verifyMessage: () => false
+  })
 
-    for (const variant of variants) {
-      const headers = new Headers(signed.headers)
-      headers.set(
-        "signature-input",
-        (headers.get("signature-input") ?? "").replace(
-          `${grantCandidate.label}=${grantCandidate.signatureParamsValue}`,
-          `${grantCandidate.label}=${variant.input}`
-        )
-      )
-      let cryptoChecks = 0
-      const result = await verifyRequest({
-        request: new Request(signed, { headers }),
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "delegated",
-          delegation: { audience: "https://api.example", revocation }
-        },
-        verifyMessage: async () => {
-          cryptoChecks += 1
-          return true
-        }
-      })
-      expect(result).toMatchObject({ ok: false, reason: variant.reason })
-      expect(cryptoChecks).toBe(0)
+const signedVectorRequest = (
+  account: typeof delegateA,
+  chain: DelegationChain,
+  nonce: string
+) =>
+  createDelegatedSignerClient(signer(account), chain).signRequest(
+    "https://api.example/resource?x=1",
+    {
+      created: 1_700_000_000,
+      expires: 1_700_000_060,
+      nonce
     }
-  })
+  )
 
-  test("refuses to sign with a grant carrying a forbidden algorithm parameter", async () => {
-    const grant = await createGrant()
-    expect(() =>
-      createDelegatedSignerClient(signer(delegate), {
-        ...grant,
-        grantSignatureInput: `${grant.grantSignatureInput};alg="eip191"`
-      })
-    ).toThrow("signature input is invalid")
-  })
-
-  test("authenticates the root with a zero-RPC delegate request check", async () => {
-    const grant = await createGrant()
-    const request = await createDelegatedSignerClient(
-      signer(delegate),
-      grant
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      { created: now, expires: now + 45, nonce: "0123456789abcdef" }
+describe("EIP-712 Delegation grants", () => {
+  test("matches the fixed grant digests and signatures", async () => {
+    expect(hashDelegation(g0Grant)).toBe(
+      "0xf2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366"
     )
+    expect(hashDelegation(g1Grant)).toBe(
+      "0x0267ed56f6e57f6b0ca5c813abe73a7a6317dff19ba6b2a4a39c03eba1d1dece"
+    )
+    expect(await root.signTypedData(getDelegationTypedData(g0Grant))).toBe(
+      g0.signature
+    )
+    expect(await delegateA.signTypedData(getDelegationTypedData(g1Grant))).toBe(
+      g1.signature
+    )
+  })
+
+  test("strictly round-trips ABI links and rejects trailing bytes", () => {
+    const encoded = encodeDelegationLink(g0)
+    expect(encoded).toHaveLength(1_376)
+    expect(decodeDelegationLink(encoded)).toEqual(g0)
+    const trailing = new Uint8Array(encoded.length + 32)
+    trailing.set(encoded)
+    expect(() => decodeDelegationLink(trailing)).toThrow()
+  })
+
+  test("accepts only consecutive ordered byte-sequence members", () => {
+    const field = formatDelegationField({ links: [g0, g1] })
+    expect(parseDelegationField(field).chain).toEqual({ links: [g0, g1] })
+    expect(() => parseDelegationField(field.replace("g1=", "g2="))).toThrow()
+    expect(() => parseDelegationField(`${field}, extra=:AA==:`)).toThrow()
+  })
+
+  test("resolves recursive attenuation and rejects broadening", () => {
+    const resolved = resolveDelegationChain(
+      parseDelegationField(formatDelegationField({ links: [g0, g1] }))
+    )
+    expect(resolved.effectiveAudience).toEqual(["https://api.example"])
+    expect(resolved.effectiveScope).toEqual(["resource:read"])
+    expect(resolved.effectiveComponents.map(({ name }) => name)).toEqual([
+      "@authority",
+      "@method"
+    ])
+    const broadened = {
+      ...g1,
+      grant: { ...g1.grant, maxAge: 61 }
+    }
+    expect(() =>
+      resolveDelegationChain(
+        parseDelegationField(formatDelegationField({ links: [g0, broadened] }))
+      )
+    ).toThrow("broadens")
+  })
+})
+
+describe("Delegated Request Signatures", () => {
+  test("matches and verifies the one-link fixed request vector", async () => {
+    const request = await signedVectorRequest(
+      delegateA,
+      { links: [g0] },
+      "ASNFZ4mrze8QMlR2mLrc_g"
+    )
+    expect(request.headers.get("signature-input")).toBe(
+      'request=("@scheme" "@authority" "@method" "@path" "@query" "erc-8128-delegation";sf);created=1700000000;expires=1700000060;nonce="ASNFZ4mrze8QMlR2mLrc_g";keyid="eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69";tag="erc8128-delegated"'
+    )
+    expect(request.headers.get("signature")).toBe(
+      "request=:gJVoCxIQDQlHUvCcT1CnW8kAosnj3JLRWw8lj7uIjehaICXcn5uqJErUYy5CY3rRf/xjUZwq4zdEoqPR7MraeBs=:"
+    )
+    expect(request.headers.get("signature-input")).not.toContain(
+      "authorization="
+    )
+    const result = await verify(request)
+    expect(result).toMatchObject({
+      ok: true,
+      delegated: true,
+      principal: { address: root.address.toLowerCase(), chainId: 1 },
+      signer: { address: delegateA.address.toLowerCase(), chainId: 1 },
+      delegationIds: [g0.grant.id]
+    })
+  })
+
+  test("matches and verifies the depth-two fixed request vector", async () => {
+    const request = await signedVectorRequest(
+      delegateB,
+      { links: [g0, g1] },
+      "RERERERERERERERERERERA"
+    )
+    expect(request.headers.get("signature")).toBe(
+      "request=:BFdolKrFYQUmMwPv6ZFiZTMkrtayqRD7naU2mNYuHP13HE+kBmmU+5wawoPE0TpA78GJFz3DU2LeeC7cLKpYBxw=:"
+    )
+    const result = await verify(request)
+    expect(result).toMatchObject({
+      ok: true,
+      delegated: true,
+      principal: { address: root.address.toLowerCase(), chainId: 1 },
+      signer: { address: delegateB.address.toLowerCase(), chainId: 1 },
+      delegationIds: [g0.grant.id, g1.grant.id]
+    })
+  })
+
+  test("enforces depth, scopes, and every link's status", async () => {
+    const request = await signedVectorRequest(
+      delegateB,
+      { links: [g0, g1] },
+      "RERERERERERERERERERERA"
+    )
+    expect(await verify(request, { maximumDepth: 1 })).toEqual({
+      ok: false,
+      reason: "delegation_chain_too_long"
+    })
     expect(
-      parseSignatureInputHeader(
-        request.headers.get("signature-input") ?? ""
-      ).map(({ label }) => label)
-    ).toEqual(["authorization", "request"])
-    let universalChecks = 0
+      await verify(request, { requiredScopes: ["resource:write"] })
+    ).toEqual({ ok: false, reason: "insufficient_scope" })
+    expect(
+      await verify(request, {
+        status: (link) => (link.grant.id === g1.grant.id ? "revoked" : "valid")
+      })
+    ).toEqual({ ok: false, reason: "authorization_revoked" })
+  })
+
+  test("verifies proofs leaf-to-root and consumes the nonce last", async () => {
+    const request = await signedVectorRequest(
+      delegateB,
+      { links: [g0, g1] },
+      "RERERERERERERERERERERA"
+    )
+    const order: string[] = []
+    let nonceConsumes = 0
     const result = await verifyRequest({
       request,
-      nonceStore: new BoundedMemoryNonceStore(),
-      policy: {
-        now: () => now,
-        principal: "delegated",
-        delegation: { audience: "https://api.example", revocation }
-      },
-      verifyMessage: async ({ address, message, signature }) => {
-        universalChecks += 1
-        return (
-          (
-            await recoverMessageAddress({
-              message,
-              signature: signature as Hex
-            })
-          ).toLowerCase() === address.toLowerCase()
-        )
-      }
-    })
-    if (!result.ok) throw new Error(result.reason)
-    expect(result.ok).toBe(true)
-    expect(result.principal.address.toLowerCase()).toBe(
-      root.address.toLowerCase()
-    )
-    expect(result.signer.address.toLowerCase()).toBe(
-      delegate.address.toLowerCase()
-    )
-    expect(result.delegated).toBe(true)
-    expect(universalChecks).toBe(1)
-  })
-
-  test("distinguishes unsupported delegation from a disallowed delegated principal", async () => {
-    const grant = await createGrant()
-    const request = await createDelegatedSignerClient(
-      signer(delegate),
-      grant
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      {
-        created: now,
-        expires: now + 45,
-        nonce: "delegation-policy-1"
-      }
-    )
-    const verifyMessage = async () => true
-    expect(
-      await verifyRequest({
-        request,
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: { now: () => now, principal: "direct" },
-        verifyMessage
-      })
-    ).toEqual({ ok: false, reason: "unsupported_delegation" })
-    expect(
-      await verifyRequest({
-        request,
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "direct",
-          delegation: { audience: "https://api.example", revocation }
-        },
-        verifyMessage
-      })
-    ).toEqual({ ok: false, reason: "principal_not_allowed" })
-  })
-
-  test("rejects root, delegate, audience, time, and posture substitutions", async () => {
-    const baseCreated = now - 30
-    const grant = await createGrantVariant({ created: baseCreated })
-    const signed = await createDelegatedSignerClient(
-      signer(delegate),
-      grant
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      { created: now - 20, expires: now + 25, nonce: "substitution-base" }
-    )
-    const candidate = delegatedCandidate(signed)
-    const swappedRootGrant = await createGrantVariant({
-      created: baseCreated,
-      rootAccount: foreignRoot,
-      signingAccount: root
-    })
-    const swappedRootRequest = await createDelegatedSignerClient(
-      signer(delegate),
-      swappedRootGrant
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      { created: now - 20, expires: now + 25, nonce: "swapped-root-nonce" }
-    )
-    const variants = [
-      {
-        grant: swappedRootGrant,
-        request: swappedRootRequest,
-        reason: "bad_grant_signature"
-      },
-      {
-        grant: await createGrantVariant({
-          created: baseCreated,
-          delegateAccount: foreignDelegate
-        }),
-        reason: "delegate_mismatch"
-      },
-      {
-        grant: await createGrantVariant({ created: now - 10 }),
-        reason: "request_outside_grant_window"
-      },
-      {
-        grant: await createGrantVariant({
-          components: ["x-posture"],
-          created: baseCreated
-        }),
-        reason: "delegation_components_floor"
-      }
-    ]
-
-    for (const variant of variants) {
-      const result = await verifyRequest({
-        request:
-          variant.request ??
-          combineGrantAndCandidates(signed, variant.grant, [
-            { ...candidate, label: "request" }
-          ]),
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "delegated",
-          delegation: { audience: "https://api.example", revocation }
-        },
-        verifyMessage: async ({ address, message, signature }) =>
-          (
-            await recoverMessageAddress({
-              message,
-              signature: signature as Hex
-            })
-          ).toLowerCase() === address.toLowerCase()
-      })
-      expect(result).toMatchObject({ ok: false, reason: variant.reason })
-    }
-
-    const foreignAudienceGrant = await createGrantVariant({
-      audiences: ["https://foreign.example"]
-    })
-    const foreignRequest = await createDelegatedSignerClient(
-      signer(delegate),
-      foreignAudienceGrant
-    ).signRequest(
-      new Request("https://foreign.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      {
-        created: now,
-        expires: now + 45,
-        nonce: "foreign-audience"
-      }
-    )
-    expect(
-      await verifyRequest({
-        request: foreignRequest,
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "delegated",
-          delegation: { audience: "https://api.example", revocation }
-        },
-        verifyMessage: async () => true
-      })
-    ).toMatchObject({ ok: false, reason: "audience_mismatch" })
-  })
-
-  test("canonicalizes cosmetic grant whitespace for verification caching", async () => {
-    const grant = await createGrant()
-    const cosmeticGrant = {
-      ...grant,
-      grantSignatureInput: grant.grantSignatureInput
-        .replace("(", "(  ")
-        .replace(");created", "  );created")
-    }
-    const cache = new Map<string, true>()
-    let rootChecks = 0
-
-    for (const [index, candidateGrant] of [grant, cosmeticGrant].entries()) {
-      const request = await createDelegatedSignerClient(
-        signer(delegate),
-        candidateGrant
-      ).signRequest(
-        new Request("https://api.example/orders", {
-          headers: { "x-tenant": "store-1" }
-        }),
-        {
-          created: now,
-          expires: now + 45,
-          nonce: `cache-nonce-000${index}`
-        }
-      )
-      const result = await verifyRequest({
-        request,
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "delegated",
-          delegation: {
-            audience: "https://api.example",
-            revocation,
-            grantCache: {
-              get: (key) => cache.get(key),
-              set: (key) => {
-                cache.set(key, true)
-              }
-            }
-          }
-        },
-        verifyMessage: async ({ address, message, signature }) => {
-          rootChecks += 1
-          return (
-            (
-              await recoverMessageAddress({
-                message,
-                signature: signature as Hex
-              })
-            ).toLowerCase() === address.toLowerCase()
-          )
-        }
-      })
-      expect(result.ok).toBe(true)
-    }
-
-    expect(cache.size).toBe(1)
-    expect(rootChecks).toBe(1)
-  })
-
-  test("misses the grant cache when a signed parameter is mutated", async () => {
-    const grant = await createGrant()
-    const mutatedGrant = {
-      ...grant,
-      grantSignatureInput: grant.grantSignatureInput.replace(
-        `;expires=${now + 600}`,
-        `;expires=${now + 599}`
-      )
-    }
-    expect(mutatedGrant.grantSignatureInput).not.toBe(grant.grantSignatureInput)
-    const cache = new Map<string, true>()
-    let rootChecks = 0
-    const verify = async (candidateGrant: typeof grant, nonce: string) => {
-      const request = await createDelegatedSignerClient(
-        signer(delegate),
-        candidateGrant
-      ).signRequest(
-        new Request("https://api.example/orders", {
-          headers: { "x-tenant": "store-1" }
-        }),
-        { created: now, expires: now + 45, nonce }
-      )
-      return verifyRequest({
-        request,
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "delegated",
-          delegation: {
-            audience: "https://api.example",
-            revocation,
-            grantCache: {
-              get: (key) => cache.get(key),
-              set: (key) => {
-                cache.set(key, true)
-              }
-            }
-          }
-        },
-        verifyMessage: async ({ address, message, signature }) => {
-          rootChecks += 1
-          return (
-            (
-              await recoverMessageAddress({
-                message,
-                signature: signature as Hex
-              })
-            ).toLowerCase() === address.toLowerCase()
-          )
-        }
-      })
-    }
-
-    expect((await verify(grant, "cache-parameter-1")).ok).toBe(true)
-    expect(await verify(mutatedGrant, "cache-parameter-2")).toMatchObject({
-      ok: false,
-      reason: "bad_grant_signature"
-    })
-    expect(rootChecks).toBe(2)
-  })
-
-  test("isolates nonces across mixed candidate ordering", async () => {
-    const grant = await createGrant()
-    const sign = (nonce: string) =>
-      createDelegatedSignerClient(signer(delegate), grant).signRequest(
-        new Request("https://api.example/orders", {
-          headers: { "x-tenant": "store-1" }
-        }),
-        { created: now, expires: now + 45, nonce }
-      )
-    const invalid = delegatedCandidate(await sign("mixed-invalid-nonce"))
-    const validRequest = await sign("mixed-valid-nonce")
-    const valid = delegatedCandidate(validRequest)
-    const corrupted = `${invalid.signature[0] === "A" ? "B" : "A"}${invalid.signature.slice(1)}`
-
-    for (const invalidFirst of [true, false]) {
-      const candidates = [
-        { ...invalid, label: "invalid", signature: corrupted },
-        { ...valid, label: "valid" }
-      ]
-      if (!invalidFirst) candidates.reverse()
-      const consumed: string[] = []
-      const result = await verifyRequest({
-        request: combineGrantAndCandidates(validRequest, grant, candidates),
-        nonceStore: {
-          consume: async (key) => {
-            consumed.push(key)
-            return true
-          }
-        },
-        policy: {
-          nonceKey: (_keyId, nonce) => nonce,
-          now: () => now,
-          principal: "delegated",
-          delegation: { audience: "https://api.example", revocation }
-        },
-        verifyMessage: async ({ address, message, signature }) =>
-          (
-            await recoverMessageAddress({
-              message,
-              signature: signature as Hex
-            })
-          ).toLowerCase() === address.toLowerCase()
-      })
-      expect(result.ok).toBe(true)
-      expect(consumed).toEqual(["mixed-valid-nonce"])
-    }
-  })
-
-  test("uses the trusted revocation authority before nonce consumption", async () => {
-    const grant = await createGrant(["https://api.example"])
-    const signed = await createDelegatedSignerClient(
-      signer(delegate),
-      grant
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      { created: now, expires: now + 45, nonce: "mixed-candidate-1" }
-    )
-    const headers = new Headers(signed.headers)
-    const requestCandidate = parseSignatureInputHeader(
-      headers.get("signature-input") ?? ""
-    ).find(({ params }) => params.tag === "erc8128-delegated")
-    const requestSignature = parseSignatureHeader(
-      headers.get("signature") ?? ""
-    ).get(requestCandidate?.label ?? "")
-    if (!requestCandidate || !requestSignature) {
-      throw new Error("Expected delegated request signature.")
-    }
-    headers.set(
-      "signature-input",
-      `${headers.get("signature-input")}, alt=${requestCandidate.signatureParamsValue}`
-    )
-    headers.set(
-      "signature",
-      `${headers.get("signature")}, alt=:${requestSignature}:`
-    )
-
-    let rootChecks = 0
-    let nonceConsumes = 0
-    let observedAuthority: { address: string; chainId: number } | undefined
-    const result = await verifyRequest({
-      request: new Request(signed, { headers }),
       nonceStore: {
         consume: async () => {
           nonceConsumes += 1
@@ -772,171 +255,41 @@ describe("ERC-8128 delegation", () => {
         }
       },
       policy: {
-        now: () => now,
-        principal: "delegated",
+        now: () => 1_700_000_001,
+        clockSkewSec: 30,
         delegation: {
-          audience: "https://api.example",
-          revocation: {
-            ...revocation,
-            verify: async ({ authority }) => {
-              observedAuthority = authority
-              return "revoked" as const
-            }
+          requiredScopes: ["resource:read"],
+          verifyStatus: ({ link }) => {
+            order.push(`status:${link.grant.id}`)
+            return "valid"
           }
         }
       },
-      verifyMessage: async ({ address, message, signature }) => {
-        rootChecks += 1
-        return (
-          (
-            await recoverMessageAddress({
-              message,
-              signature: signature as Hex
-            })
-          ).toLowerCase() === address.toLowerCase()
-        )
-      }
+      verifyDigest: async ({ digest }) => {
+        order.push(`proof:${digest}`)
+        return digest !== hashDelegation(g0.grant)
+      },
+      verifyMessage: () => false
     })
-
-    expect(result).toMatchObject({
-      ok: false,
-      reason: "authorization_revoked"
-    })
-    expect(observedAuthority).toEqual(revocation.authority)
-    expect(rootChecks).toBe(1)
+    expect(result).toEqual({ ok: false, reason: "bad_grant_signature" })
+    expect(order).toEqual([
+      `proof:${hashDelegation(g1.grant)}`,
+      `proof:${hashDelegation(g0.grant)}`
+    ])
     expect(nonceConsumes).toBe(0)
   })
 
-  test("distinguishes epoch mismatch and unavailable revocation", async () => {
-    const authorization = await createGrant()
-    const request = await createDelegatedSignerClient(
-      signer(delegate),
-      authorization
-    ).signRequest(
-      new Request("https://api.example/orders", {
-        headers: { "x-tenant": "store-1" }
-      }),
-      {
-        created: now,
-        expires: now + 45,
-        nonce: "revocation-status-test"
-      }
-    )
-    for (const [status, reason] of [
-      ["epoch-mismatch", "authorization_epoch_mismatch"],
-      ["unavailable", "revocation_unavailable"]
-    ] as const) {
-      const result = await verifyRequest({
-        request,
-        nonceStore: new BoundedMemoryNonceStore(),
-        policy: {
-          now: () => now,
-          principal: "delegated",
-          delegation: {
-            audience: "https://api.example",
-            revocation: { ...revocation, verify: async () => status }
-          }
-        },
-        verifyMessage: async ({ address, message, signature }) =>
-          (
-            await recoverMessageAddress({
-              message,
-              signature: signature as Hex
-            })
-          ).toLowerCase() === address.toLowerCase()
-      })
-      expect(result).toMatchObject({ ok: false, reason })
+  test("a signed chain builder embeds the EIP-712 proof only", async () => {
+    const prepared = {
+      grant: g0Grant,
+      digest: hashDelegation(g0Grant),
+      typedData: getDelegationTypedData(g0Grant)
     }
-  })
-
-  test("refuses a destination outside the exact audience", async () => {
-    const grant = await createGrant()
-    await expect(
-      createDelegatedSignerClient(signer(delegate), grant).signRequest(
-        "https://other.example/orders"
-      )
-    ).rejects.toThrow("outside the delegation audience")
-  })
-
-  test("preserves the native global fetch receiver", async () => {
-    const grant = await createGrant()
-    const originalFetch = globalThis.fetch
-    let receiverMatched = false
-    globalThis.fetch = Object.assign(
-      function (
-        this: typeof globalThis,
-        _input: RequestInfo | URL,
-        _init?: RequestInit
-      ) {
-        receiverMatched = this === globalThis
-        if (!receiverMatched) throw new TypeError("Illegal invocation")
-        return Promise.resolve(new Response(null, { status: 204 }))
-      },
-      { preconnect: originalFetch.preconnect }
+    const link = completeDelegationGrant(
+      prepared,
+      (await root.signTypedData(prepared.typedData)) as Hex
     )
-    try {
-      const response = await createDelegatedSignerClient(
-        signer(delegate),
-        grant
-      ).fetch(
-        new Request("https://api.example/orders", {
-          headers: { "x-tenant": "store-1" }
-        })
-      )
-
-      expect(response.status).toBe(204)
-      expect(receiverMatched).toBe(true)
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
-
-  test("rebuilds and re-signs an allowed redirect without losing its body", async () => {
-    const grant = await createGrant([
-      "https://api.example",
-      "https://next.example"
-    ])
-    const observed: Request[] = []
-    const fetchImpl: typeof fetch = Object.assign(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        const request =
-          input instanceof Request ? input : new Request(input, init)
-        observed.push(request.clone())
-        return observed.length === 1
-          ? new Response(null, {
-              headers: { location: "https://next.example/continued" },
-              status: 307
-            })
-          : new Response(null, { status: 204 })
-      },
-      { preconnect: () => {} }
-    )
-    const client = createDelegatedSignerClient(signer(delegate), grant, {
-      fetch: fetchImpl
-    })
-    const response = await client.fetch(
-      new Request("https://api.example/start", {
-        body: "redirected body",
-        headers: { "content-type": "text/plain", "x-tenant": "store-1" },
-        method: "POST"
-      }),
-      { created: now, expires: now + 45, nonce: "redirect-nonce-1" }
-    )
-    expect(response.status).toBe(204)
-    expect(observed.map(({ url }) => url)).toEqual([
-      "https://api.example/start",
-      "https://next.example/continued"
-    ])
-    expect(await observed[1]?.text()).toBe("redirected body")
-    expect(observed[0]?.headers.get("signature-input")).not.toBe(
-      observed[1]?.headers.get("signature-input")
-    )
-    const requestNonce = (request: Request) =>
-      parseSignatureInputHeader(
-        request.headers.get("signature-input") ?? ""
-      ).find(({ params }) => params.tag === "erc8128-delegated")?.params.nonce
-    expect(requestNonce(observed[0] as Request)).not.toBe(
-      requestNonce(observed[1] as Request)
-    )
+    expect(link).toEqual(g0)
+    expect(Object.keys(link).sort()).toEqual(["grant", "signature"])
   })
 })

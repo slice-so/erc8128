@@ -21,7 +21,7 @@ export function formatKeyId(chainId: number, address: Address): string {
 export function parseKeyId(
   keyid: string
 ): { chainId: number; address: Address } | null {
-  const m = /^eip155:([1-9]\d*):(0x[a-fA-F0-9]{40})$/.exec(keyid)
+  const m = /^eip155:([1-9]\d*):(0x[a-f0-9]{40})$/.exec(keyid)
   if (!m) return null
   const chainId = Number(m[1])
   if (!Number.isSafeInteger(chainId) || chainId <= 0) return null
@@ -50,7 +50,7 @@ export function formatReplayKey(keyid: string, nonce: string): string {
   if (!isValidNonce(nonce)) {
     throw new Erc8128Error(
       "INVALID_OPTIONS",
-      "Nonce must be 16-128 printable ASCII bytes."
+      "Nonce must be 1-128 printable ASCII bytes."
     )
   }
   return `${formatKeyId(parsed.chainId, parsed.address)}:${nonce}`

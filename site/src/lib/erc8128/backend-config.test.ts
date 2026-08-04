@@ -132,7 +132,6 @@ describe("playground erc8128 runtime", () => {
       TEST_SIGNER,
       {
         binding: "request-bound",
-        replay: "non-replayable",
         nonce: `nonce-${Date.now()}`,
         components: ["content-digest"]
       }
@@ -151,7 +150,7 @@ describe("playground erc8128 runtime", () => {
       signer: { address: TEST_SIGNER_VERIFIED_ADDRESS, chainId: 1 },
       delegated: false,
       binding: "request-bound",
-      replayable: false
+      replay: "non-replayable"
     })
   })
 
@@ -172,7 +171,7 @@ describe("playground erc8128 runtime", () => {
       TEST_SIGNER,
       {
         binding: "class-bound",
-        replay: "replayable",
+        nonce: null,
         components: ["@authority"]
       }
     )
@@ -189,7 +188,7 @@ describe("playground erc8128 runtime", () => {
       signer: { address: TEST_SIGNER_VERIFIED_ADDRESS, chainId: 1 },
       delegated: false,
       binding: "class-bound",
-      replayable: true
+      replay: "replayable"
     })
   })
 
@@ -214,7 +213,7 @@ describe("playground erc8128 runtime", () => {
       TEST_SIGNER,
       {
         binding: "class-bound",
-        replay: "replayable",
+        nonce: null,
         components: ["@authority"]
       }
     )
@@ -251,7 +250,6 @@ describe("playground erc8128 runtime", () => {
       TEST_SIGNER,
       {
         binding: "request-bound",
-        replay: "non-replayable",
         nonce: `nonce-${Date.now()}`,
         components: ["content-digest"]
       }
@@ -280,7 +278,6 @@ describe("playground erc8128 runtime", () => {
       REAL_SIGNER,
       {
         binding: "request-bound",
-        replay: "non-replayable",
         nonce: `nonce-${Date.now()}`,
         components: ["content-digest"]
       }

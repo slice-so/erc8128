@@ -18,6 +18,14 @@ export type VerifyMessageFn = (
   args: VerifyMessageArgs
 ) => boolean | "unavailable" | Promise<boolean | "unavailable">
 
+export type VerifyDigestArgs = Omit<VerifyMessageArgs, "message"> & {
+  digest: Hex
+}
+
+export type VerifyDigestFn = (
+  args: VerifyDigestArgs
+) => boolean | "unavailable" | Promise<boolean | "unavailable">
+
 export type GetAccountCodeFn = (
   account: Pick<VerifyMessageArgs, "address" | "chainId">
 ) => Hex | undefined | "unavailable" | Promise<Hex | undefined | "unavailable">
@@ -42,6 +50,7 @@ export interface NonceStore {
 export type VerifyRequestArgs = {
   request: Request
   verifyMessage: VerifyMessageFn
+  verifyDigest?: VerifyDigestFn
   nonceStore: NonceStore
   policy?: VerifyPolicy
   setHeaders?: SetHeadersFn
@@ -64,14 +73,9 @@ export type VerifyResult =
       principal: { address: Address; chainId: number }
       signer: { address: Address; chainId: number }
       delegated: true
-      delegationId: Uint8Array
-      delegationEpoch: number
-      scopes: string[]
-      label: string
-      components: ComponentIdentifier[]
-      params: SignatureParams
+      delegationIds: Hex[]
       replay: ReplayMode
-      binding: "request-bound"
+      binding: BindingMode
     }
   | { ok: false; reason: VerifyFailReason; detail?: string }
 
@@ -82,7 +86,10 @@ export type VerifyFailReason =
   | "signature_too_large"
   | "invalid_keyid"
   | "invalid_time"
+  | "request_not_yet_valid"
+  | "request_expired"
   | "request_validity_too_long"
+  | "invalid_nonce"
   | "insufficient_coverage"
   | "content_digest_required"
   | "bad_content_digest"
@@ -94,13 +101,13 @@ export type VerifyFailReason =
   | "signature_verification_unavailable"
   | "principal_not_allowed"
   | "unsupported_delegation"
-  | "delegation_grant_missing"
-  | "delegation_grant_ambiguous"
   | "bad_delegation_field"
   | "delegation_too_large"
   | "delegation_not_covered"
   | "delegate_mismatch"
-  | "grant_root_mismatch"
+  | "delegation_chain_too_long"
+  | "delegation_chain_discontinuous"
+  | "delegation_attenuation_violation"
   | "grant_expired"
   | "grant_not_yet_valid"
   | "grant_validity_too_long"
@@ -109,7 +116,10 @@ export type VerifyFailReason =
   | "audience_mismatch"
   | "delegation_nonce_required"
   | "delegation_max_age_exceeded"
-  | "delegation_components_floor"
+  | "delegation_components_unsupported"
+  | "delegation_components_uncovered"
+  | "unsupported_scope"
+  | "insufficient_scope"
   | "grant_verification_unavailable"
   | "authorization_revoked"
   | "authorization_epoch_mismatch"
@@ -140,6 +150,7 @@ export type VerifierClientVerifyRequestArgs = {
 
 export type CreateVerifierClientArgs = {
   verifyMessage: VerifyMessageFn
+  verifyDigest?: VerifyDigestFn
   nonceStore: NonceStore
   defaults?: VerifyPolicy
 }

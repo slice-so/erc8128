@@ -1,6 +1,6 @@
 import { signDelegatedRequest } from "../../sign"
 import type {
-  DelegationGrant,
+  DelegationChain,
   EthHttpSigner,
   FetchOptions,
   SignerClient,
@@ -8,31 +8,23 @@ import type {
   SignOptions
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
-import { parseSignatureInputHeader } from "../engine/createSignatureInput"
-import {
-  appendDictionaryMember,
-  serializeSignatureHeader,
-  serializeSignatureInputHeader
-} from "../engine/serializations"
-import {
-  allocateSignatureLabel,
-  collectSignatureLabels
-} from "../engine/signatureLabels"
+import { componentIdentifierEquals } from "../engine/componentIdentifier"
+import { collectSignatureLabels } from "../engine/signatureLabels"
 import { invokeFetch } from "../invokeFetch"
-import { formatKeyId, keyIdEquals } from "../keyId"
+import { matchRoutePolicy } from "../matchRoutePolicy"
 import {
   redirectMethod,
   redirectStatuses,
   unsignedRedirectHeaders
 } from "../redirects"
 import { sanitizeUrl, unixNow } from "../utilities"
-import { getDelegationGrantSignatureBase } from "./createDelegationGrant"
+import { resolveDelegationChain } from "./delegationChain"
 import {
   DELEGATION_COMPONENT,
   DELEGATION_FIELD_NAME,
+  formatDelegationField,
   normalizeAudienceOrigin,
-  parseDelegationField,
-  TAG_DELEGATION
+  parseDelegationField
 } from "./delegationField"
 
 const REQUEST_INIT_KEYS = new Set([
@@ -52,42 +44,24 @@ const REQUEST_INIT_KEYS = new Set([
 
 export function createDelegatedSignerClient(
   session: EthHttpSigner,
-  grant: DelegationGrant,
+  delegation: DelegationChain,
   defaults?: Omit<
     SignerClientOptions,
     "authorizationPolicy" | "authorizationExpiresAt"
   >
 ): SignerClient {
-  const resolvedGrant = grant
-  getDelegationGrantSignatureBase(resolvedGrant)
-  const field = parseDelegationField(resolvedGrant.fieldValue)
-  const [grantInput] = parseSignatureInputHeader(
-    `authorization=${resolvedGrant.grantSignatureInput}`
-  )
-  if (
-    grantInput === undefined ||
-    grantInput.params.tag !== TAG_DELEGATION ||
-    grantInput.params.nonce !== undefined ||
-    !keyIdEquals(
-      grantInput.params.keyid,
-      formatKeyId(field.root.chainId, field.root.address)
-    ) ||
-    grantInput.components.length !== 1 ||
-    grantInput.components[0]?.name !== DELEGATION_FIELD_NAME ||
-    grantInput.components[0]?.params?.sf !== true
-  ) {
-    throw new Erc8128Error(
-      "PARSE_ERROR",
-      "DelegationGrant signature input is invalid."
-    )
+  const fieldValue = formatDelegationField(delegation)
+  const resolved = resolveDelegationChain(parseDelegationField(fieldValue))
+  const leaf = resolved.chain.links.at(-1)?.grant
+  if (leaf === undefined) {
+    throw new Erc8128Error("INVALID_OPTIONS", "Delegation Chain is empty.")
   }
-  if (
-    session.chainId !== field.delegate.chainId ||
-    session.address.toLowerCase() !== field.delegate.address.toLowerCase()
-  ) {
+  const leafGrant = leaf
+  const expectedDelegate = `eip155:${session.chainId}:${session.address.toLowerCase()}`
+  if (leaf.delegate !== expectedDelegate) {
     throw new Erc8128Error(
       "INVALID_OPTIONS",
-      "Session signer does not match delegate."
+      "Session signer does not match the Leaf Delegate."
     )
   }
 
@@ -100,89 +74,84 @@ export function createDelegatedSignerClient(
       : []
   )
 
-  async function signRequestForGrant(
+  async function signRequestForDelegation(
     input: RequestInfo,
     init: RequestInit | undefined,
     options: SignOptions | undefined
   ): Promise<Request> {
     const request = new Request(input, init)
-    assertAudience(request.url, field.audiences)
+    assertAudience(request.url, resolved.effectiveAudience)
     const requestOrigin = sanitizeUrl(request.url).origin
     const serverConfig = serverConfigs.get(requestOrigin)
+    const routePolicy = matchRoutePolicy(
+      request.method,
+      sanitizeUrl(request.url).pathname,
+      serverConfig?.route_policies
+    )
     const now = unixNow()
-    const created = Math.max(options?.created ?? now, grantInput.params.created)
+    const created = Math.max(options?.created ?? now, leafGrant.created)
     const requestedTtl = Math.min(
       options?.ttlSeconds ?? defaults?.ttlSeconds ?? 60,
-      serverConfig?.max_validity_sec ?? Number.POSITIVE_INFINITY
+      serverConfig?.max_validity_sec ?? Number.POSITIVE_INFINITY,
+      resolved.effectiveMaxAge
     )
     const expires = Math.min(
       options?.expires ?? created + requestedTtl,
       created + requestedTtl,
-      field.maxAge === undefined
-        ? Number.POSITIVE_INFINITY
-        : created + field.maxAge,
-      grantInput.params.expires
+      leafGrant.expires
     )
     if (expires <= created) {
-      throw new Erc8128Error("INVALID_OPTIONS", "Delegation grant has expired.")
+      throw new Erc8128Error("INVALID_OPTIONS", "Delegation has expired.")
+    }
+    const requestedReplayable =
+      options?.nonce === null ||
+      (options?.nonce === undefined &&
+        (defaults?.nonce === null || defaults?.preferReplayable === true))
+    const replayable = requestedReplayable && routePolicy?.replayable !== false
+    if (replayable && !resolved.effectiveReplayable) {
+      throw new Erc8128Error(
+        "INVALID_OPTIONS",
+        "Delegation does not authorize Replayable requests."
+      )
     }
 
     const headers = new Headers(request.headers)
-    headers.set(DELEGATION_FIELD_NAME, field.fieldValue)
-    const usedLabels = collectSignatureLabels(
+    headers.set(DELEGATION_FIELD_NAME, fieldValue)
+    const labels = collectSignatureLabels(
       headers.get("signature-input"),
       headers.get("signature")
     )
-    const authorizationLabel = allocateSignatureLabel(
-      "authorization",
-      usedLabels
-    )
-    usedLabels.add(authorizationLabel)
-    const requestLabel = allocateSignatureLabel(
-      options?.label ?? defaults?.label ?? "request",
-      usedLabels
-    )
-    headers.set(
-      "signature-input",
-      appendDictionaryMember(
-        headers.get("signature-input"),
-        serializeSignatureInputHeader(
-          authorizationLabel,
-          resolvedGrant.grantSignatureInput
-        )
-      )
-    )
-    headers.set(
-      "signature",
-      appendDictionaryMember(
-        headers.get("signature"),
-        serializeSignatureHeader(
-          authorizationLabel,
-          resolvedGrant.grantSignatureB64
-        )
-      )
-    )
-
-    const replay = options?.replay ?? "non-replayable"
-    if (replay === "replayable" && !field.allowReplayable) {
-      throw new Erc8128Error(
-        "INVALID_OPTIONS",
-        "Delegation does not authorize replayable requests."
-      )
+    let label = options?.label ?? defaults?.label ?? "request"
+    let suffix = 2
+    while (labels.has(label)) {
+      label = `${options?.label ?? defaults?.label ?? "request"}${suffix}`
+      suffix += 1
     }
+    const components = [...resolved.effectiveComponents]
+    for (const component of options?.components ?? []) {
+      if (
+        !components.some((existing) =>
+          componentIdentifierEquals(existing, component)
+        )
+      ) {
+        components.push(
+          typeof component === "string" ? { name: component } : component
+        )
+      }
+    }
+    components.push(DELEGATION_COMPONENT)
     return signDelegatedRequest(new Request(request, { headers }), session, {
       ...defaults,
       ...options,
-      label: requestLabel,
-      binding: "request-bound",
-      replay,
+      label,
+      nonce: replayable
+        ? null
+        : options?.nonce === null || defaults?.nonce === null
+          ? undefined
+          : (options?.nonce ?? defaults?.nonce),
       created,
       expires,
-      components: [
-        ...field.components,
-        ...(options?.components ?? []),
-        DELEGATION_COMPONENT
-      ]
+      components
     })
   }
 
@@ -192,7 +161,7 @@ export function createDelegatedSignerClient(
     options?: SignOptions
   ) => {
     const split = splitInitAndOptions(initOrOptions, options)
-    return signRequestForGrant(input, split.init, split.options)
+    return signRequestForDelegation(input, split.init, split.options)
   }
 
   const fetchBound: SignerClient["fetch"] = async (
@@ -206,7 +175,7 @@ export function createDelegatedSignerClient(
     let nextInit = split.init
     let signingOptions = split.options
     for (let redirects = 0; redirects <= 10; redirects += 1) {
-      const signed = await signRequestForGrant(
+      const signed = await signRequestForDelegation(
         nextInput,
         nextInit,
         signingOptions
@@ -226,7 +195,7 @@ export function createDelegatedSignerClient(
         throw new Erc8128Error("UNSUPPORTED_REQUEST", "Too many redirects.")
       }
       const target = new URL(location, signed.url)
-      assertAudience(target.href, field.audiences)
+      assertAudience(target.href, resolved.effectiveAudience)
       const method = redirectMethod(response.status, signed.method)
       nextInput = target.href
       if (typeof signingOptions?.nonce === "string") {
@@ -276,7 +245,7 @@ function assertAudience(urlValue: string, audiences: string[]): void {
   if (!audiences.includes(origin)) {
     throw new Erc8128Error(
       "INVALID_OPTIONS",
-      `Origin ${origin} is outside the delegation audience.`
+      `Origin ${origin} is outside the delegation Audience.`
     )
   }
 }

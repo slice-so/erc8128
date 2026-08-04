@@ -4,7 +4,7 @@ import { verifyRequest } from "./verify"
 export function createVerifierClient(
   args: CreateVerifierClientArgs
 ): VerifierClient {
-  const { verifyMessage, nonceStore, defaults } = args
+  const { verifyMessage, verifyDigest, nonceStore, defaults } = args
   const base = defaults ?? {}
 
   const verifyRequestBound: VerifierClient["verifyRequest"] = async (args) => {
@@ -13,6 +13,7 @@ export function createVerifierClient(
     return verifyRequest({
       request,
       verifyMessage,
+      ...(verifyDigest === undefined ? {} : { verifyDigest }),
       nonceStore,
       policy: merged,
       setHeaders

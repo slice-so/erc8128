@@ -2,72 +2,98 @@ import type {
   Address,
   ComponentIdentifier,
   CoveredComponent,
-  Hex,
-  SfDictionary
+  Hex
 } from "./core"
-import type { EthHttpSigner } from "./signing"
 
 export type AccountIdentity = { chainId: number; address: Address }
 
-export type DelegationGrant = {
-  fieldValue: string
-  grantSignatureInput: string
-  grantSignatureB64: string
-}
-
-export type ParsedDelegationField = {
-  fieldValue: string
-  root: AccountIdentity
-  delegate: AccountIdentity
-  delegateKeyType?: "eoa"
-  audiences: string[]
+/** The exact EIP-712 Delegation value defined by the delegated extension. */
+export type Delegation = {
+  root: string
+  delegate: string
+  aud: string[]
   id: Hex
   epoch: number
-  maxAge?: number
+  created: number
+  expires: number
+  maxAge: number
+  delegateIsEOA: boolean
   allowReplayable: boolean
-  components: ComponentIdentifier[]
-  scopes: string[]
-  members: SfDictionary
+  components: string[]
+  scope: string[]
+  parent: Hex
+}
+
+/** One signed EIP-712 grant, embedded as one ABI-encoded delegation link. */
+export type DelegationLink = {
+  grant: Delegation
+  signature: Hex
+}
+
+export type DelegationChain = {
+  links: DelegationLink[]
 }
 
 export type DelegationGrantBuildArgs = {
   root: AccountIdentity
   delegate: AccountIdentity
-  delegateKeyType?: "eoa"
   audiences: readonly string[]
   id: Hex | Uint8Array
   epoch: number
   created?: number
   expires: number
-  maxAge?: number
-  allowReplayable?: true
+  maxAge: number
+  delegateIsEOA: boolean
+  allowReplayable: boolean
   components?: readonly CoveredComponent[]
   scopes?: readonly string[]
+  parent?: Hex
 }
 
-export type PreparedDelegationGrant = {
-  fieldValue: string
-  signatureBase: Uint8Array
-  signatureParamsValue: string
-  params: {
-    created: number
-    expires: number
-    keyid: string
-    tag: "erc8128-delegation"
+export type DelegationTypedData = {
+  domain: {
+    name: "ERC-8128 Delegation"
+    version: "1"
+    chainId: number
+  }
+  types: {
+    Delegation: readonly [
+      { readonly name: "root"; readonly type: "string" },
+      { readonly name: "delegate"; readonly type: "string" },
+      { readonly name: "aud"; readonly type: "string[]" },
+      { readonly name: "id"; readonly type: "bytes32" },
+      { readonly name: "epoch"; readonly type: "uint64" },
+      { readonly name: "created"; readonly type: "uint64" },
+      { readonly name: "expires"; readonly type: "uint64" },
+      { readonly name: "maxAge"; readonly type: "uint32" },
+      { readonly name: "delegateIsEOA"; readonly type: "bool" },
+      { readonly name: "allowReplayable"; readonly type: "bool" },
+      { readonly name: "components"; readonly type: "string[]" },
+      { readonly name: "scope"; readonly type: "string[]" },
+      { readonly name: "parent"; readonly type: "bytes32" }
+    ]
+  }
+  primaryType: "Delegation"
+  message: Omit<Delegation, "epoch" | "created" | "expires"> & {
+    epoch: bigint
+    created: bigint
+    expires: bigint
   }
 }
 
-export type DelegationRevocationContext = {
-  authority: { address: Address; chainId: number }
-  request: Request
-  field: ParsedDelegationField
-  grant: DelegationGrant
-  grantCreated: number
-  grantExpires: number
+export type PreparedDelegationGrant = {
+  grant: Delegation
+  digest: Hex
+  typedData: DelegationTypedData
 }
 
-export type DelegationRevocationVerifier = (
-  context: DelegationRevocationContext
+export type DelegationStatusContext = {
+  link: DelegationLink
+  request: Request
+}
+
+export type DelegationStatusVerifier = (
+  context: DelegationStatusContext
 ) =>
   | "valid"
   | "revoked"
@@ -81,16 +107,32 @@ export interface DelegationGrantCache {
 }
 
 export type DelegationPolicy = {
-  audience?: string | string[] | ((request: Request) => string)
-  grantMaxValiditySec?: number
-  revocation: {
-    authority: { address: Address; chainId: number }
-    verify: DelegationRevocationVerifier
-  }
   grantCache?: DelegationGrantCache
   grantCacheTtlSec?: number
+  maxChainDepth?: number
+  maxGrantValiditySec?: number
+  requiredScopes?: readonly string[]
+  scopeSupported?: boolean
+  verifyStatus: DelegationStatusVerifier
+}
+
+export type DelegationSigner = AccountIdentity & {
+  signTypedData: (typedData: DelegationTypedData) => Promise<Hex>
 }
 
 export type SignDelegationGrantArgs = DelegationGrantBuildArgs & {
-  signer: EthHttpSigner
+  signer: DelegationSigner
+}
+
+export type ParsedDelegationField = {
+  chain: DelegationChain
+  fieldValue: string
+}
+
+export type ResolvedDelegationChain = ParsedDelegationField & {
+  effectiveAudience: string[]
+  effectiveComponents: ComponentIdentifier[]
+  effectiveMaxAge: number
+  effectiveReplayable: boolean
+  effectiveScope: string[]
 }

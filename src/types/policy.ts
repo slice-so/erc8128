@@ -101,6 +101,7 @@ export type AuthorizationPolicy = {
 export type ResolveAuthorizedPostureParameters = {
   authorizationPolicy: AuthorizationPolicy
   invalidationAvailable?: boolean
+  preferReplayable?: boolean
   remainingAuthorizationSeconds?: number
   requestOptions?: SignOptions
   routeMaxValiditySeconds?: number

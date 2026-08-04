@@ -7,21 +7,29 @@ export {
 export {
   buildDelegationGrant,
   completeDelegationGrant,
-  getDelegationGrantSignatureBase,
+  createDelegationChain,
   maximumDelegationGrantSignatureBytes,
   signDelegationGrant
 } from "./lib/delegation/createDelegationGrant"
 export { createDelegatedSignerClient } from "./lib/delegation/delegatedSignerClient"
+export { resolveDelegationChain } from "./lib/delegation/delegationChain"
 export {
   DELEGATION_COMPONENT,
   DELEGATION_FIELD_NAME,
+  DELEGATION_TYPE_STRING,
+  DELEGATION_TYPES,
+  decodeDelegationLink,
   ERC8128_REVOCATION_ABI,
+  encodeDelegationLink,
   formatDelegationField,
+  getDelegationTypedData,
+  hashDelegation,
   normalizeAudienceOrigin,
   parseDelegationField,
+  serializeDelegationComponent,
   TAG_DELEGATED,
-  TAG_DELEGATION,
-  TAG_DIRECT
+  TAG_DIRECT,
+  ZERO_DELEGATION_PARENT
 } from "./lib/delegation/delegationField"
 export {
   formatDiscoveryDocument,
@@ -67,6 +75,7 @@ export {
 export { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
 export { resolvePosture } from "./lib/resolvePosture"
 export {
+  createUniversalAccountDigestVerifier,
   createUniversalAccountVerifier,
   ERC1271_ABI
 } from "./lib/universalAccountVerification"
@@ -87,12 +96,16 @@ export type {
   ContentDigestMode,
   CoveredComponent,
   CreateVerifierClientArgs,
-  DelegationGrant,
+  Delegation,
+  DelegationChain,
   DelegationGrantBuildArgs,
   DelegationGrantCache,
+  DelegationLink,
   DelegationPolicy,
-  DelegationRevocationContext,
-  DelegationRevocationVerifier,
+  DelegationSigner,
+  DelegationStatusContext,
+  DelegationStatusVerifier,
+  DelegationTypedData,
   DiscoveryDocument,
   DiscoveryDocumentConfig,
   Erc8128ProblemDetails,
@@ -131,6 +144,8 @@ export type {
   UniqueInsertNonceStoreClient,
   VerifierClient,
   VerifierClientVerifyRequestArgs,
+  VerifyDigestArgs,
+  VerifyDigestFn,
   VerifyFailReason,
   VerifyMessageArgs,
   VerifyMessageFn,

@@ -65,7 +65,7 @@ async function main(): Promise<void> {
       logVerbose("\nSigning request (dry-run)...", opts.verbose)
       const signedRequest = await signRequest(opts.url, init, signer, {
         binding: opts.binding,
-        replay: opts.replay,
+        nonce: opts.replay === "replayable" ? null : undefined,
         ttlSeconds: opts.ttl,
         components: opts.components
       })
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
       logVerbose("\nSigning request...", opts.verbose)
       const response = await signedFetch(opts.url, init, signer, {
         binding: opts.binding,
-        replay: opts.replay,
+        nonce: opts.replay === "replayable" ? null : undefined,
         ttlSeconds: opts.ttl,
         components: opts.components
       })

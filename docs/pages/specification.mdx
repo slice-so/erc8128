@@ -1,34 +1,63 @@
-# Specification
+# Specifications
 
-ERC-8128 uses RFC 9421 HTTP Message Signatures with Ethereum accounts.
+`@slicekit/erc8128` implements two complementary specifications: direct
+ERC-8128 Signed HTTP Requests with Ethereum and the recursive Delegated Signed
+HTTP Requests extension.
 
-- Key identifiers are canonical `eip155:<chain-id>:<lowercase-address>` CAIP-10
-  strings.
-- Direct signatures carry `tag="erc8128"`; delegated requests and grants use
-  their dedicated mandatory tags.
+## Direct requests
+
+- A candidate is an RFC 9421 request signature with the exact
+  `tag="erc8128"`, required `created` and `expires`, no `alg`, and a canonical
+  `eip155:<chain-id>:<lowercase-address>` CAIP-10 `keyid`.
 - Request-bound signatures cover `@scheme`, `@authority`, `@method`, `@path`,
-  and `@query`. Received content requires Content-Digest coverage and exact-byte
-  RFC 9530 verification; received Content-Type must also be covered.
-- Component identifiers are structural and support all RFC 9421 component
-  parameters. Dictionary-valued fields with `;sf` are canonicalized according
-  to RFC 9651 before signing or verification.
-- Non-replayable signatures carry a bounded nonce that the verifier consumes
-  atomically only after all other checks pass.
-- Direct accounts are verified universally through ERC-6492, ERC-1271, or
-  strict low-s EOA recovery. Verification transport failure is distinct from an
-  invalid signature.
+  and `@query` unconditionally. Received content requires a covered RFC 9530
+  `Content-Digest` verified over the exact bytes; received `Content-Type` must
+  also be covered.
+- Component identifiers are structural. A covered Structured Field using `;sf`
+  is parsed and canonically serialized according to RFC 9651.
+- A present `nonce` means Non-Replayable; an absent `nonce` means Replayable.
+  There is no separate request replay flag. A winning nonce is consumed
+  atomically as `(canonical keyid, nonce)` only after every other check passes.
+- Universal Account verification runs ERC-6492 first, then ERC-1271 for
+  code-bearing and EIP-7702 accounts, then strict 65-byte, low-`s`, `v=27|28`
+  EOA recovery only for code-free accounts.
+- Malformed `Signature-Input`, `Signature`, `Content-Digest`, or delegation
+  fields fail as whole fields. Eligible candidates share one bounded budget and
+  are evaluated in wire order with stable RFC 9457 failure responses.
 
-The closed delegation Dictionary binds root and delegate CAIP-10 identities,
-one to sixteen exact RFC 6454 audience origins, a 32-byte identifier, issuance
-epoch, time and replay posture, additional component requirements, and optional
-standard scopes. `allow-replayable=?1` permits but does not default requests to
-replayable; absence requires a nonce. Unknown members, wildcards, credentials,
-paths, opaque origins, and insecure non-loopback origins are rejected.
+The signer generates a nonce by default. Passing `{ nonce: null }` deliberately
+omits it and creates a Replayable request, which a verifier may accept only with
+an early-invalidation policy.
 
-Delegated verifiers pin the trusted revocation registry and chain in policy.
-The signer cannot select them. The verifier checks root, authorization id, and
-issuance epoch against that authority before nonce consumption.
+## Delegated requests
 
-RFC 9457 helpers encode authentication failures. Invalid proof is normally 401,
-authenticated principals missing application authorization are 403, and
-unavailable signature or revocation verification is retryable at 503.
+`ERC-8128-Delegation` is an RFC 9651 Dictionary containing only consecutive,
+ordered keys `g0` through `gN`. Each value is a Byte Sequence whose bytes are
+exactly `abi.encode(Delegation grant, bytes signature)`; non-canonical ABI,
+selectors, gaps, reordering, and trailing bytes are rejected.
+
+Each grant uses the exact EIP-712 `Delegation` domain and struct. A recursive
+chain attenuates root/delegate continuity, parent digest, exact audiences,
+nested validity windows, maximum request age, replay permission, component
+floors, and scopes.
+
+A delegated HTTP request has exactly one RFC 9421 request signature tagged
+`erc8128-delegated`. Its `keyid` is the leaf delegate and it covers
+`"erc-8128-delegation";sf` plus the direct request requirements. No root,
+authorization, or grant proof appears as another RFC 9421 signature member;
+grant proofs are embedded only in the delegation field.
+
+Verification checks the leaf request proof first, embedded proofs leaf-to-root,
+canonical revocation state for every link, then scopes, and consumes the leaf
+nonce last. Only a leaf with signed `delegateIsEOA=true` receives strict local
+ECDSA verification; roots and child-grant issuers always use Universal Account
+verification.
+
+The canonical registry coordinates are protocol-owned, never signer-selected.
+The current draft has not assigned a production CREATE2 address or runtime hash,
+so production conforming verification must fail closed. This repository pins a
+separate Anvil-only registry for local development and tests.
+
+Invalid proof is normally 401, an authenticated principal missing route scope is
+403, malformed input is 400 where specified, and unavailable proof or revocation
+state is retryable at 503.

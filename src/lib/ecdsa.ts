@@ -28,6 +28,44 @@ export function recoverCanonicalEoaAddress(
   }
 }
 
+export function recoverCanonicalEoaAddressFromDigest(
+  digest: Hex,
+  signature: Hex
+): Address | null {
+  const bytes = hexToBytes(signature)
+  const digestBytes = hexToBytes(digest)
+  if (bytes.length !== 65 || digestBytes.length !== 32) return null
+  const recovery = bytes[64]
+  if (recovery !== 27 && recovery !== 28) return null
+  try {
+    const parsed = Signature.fromBytes(bytes.slice(0, 64))
+    if (parsed.hasHighS()) return null
+    const publicKey = Point.fromBytes(
+      recoverPublicKey(
+        parsed.addRecoveryBit(recovery - 27).toBytes("recovered"),
+        digestBytes,
+        { prehash: false }
+      )
+    ).toBytes(false)
+    return bytesToHex(keccak_256(publicKey.slice(1)).slice(-20)) as Address
+  } catch {
+    return null
+  }
+}
+
+export function verifyCanonicalEoaDigestSignature(args: {
+  address: Address
+  digest: Hex
+  signature: Hex
+}): boolean {
+  return (
+    recoverCanonicalEoaAddressFromDigest(
+      args.digest,
+      args.signature
+    )?.toLowerCase() === args.address.toLowerCase()
+  )
+}
+
 export function verifyCanonicalEoaSignature(args: {
   address: Address
   message: Uint8Array

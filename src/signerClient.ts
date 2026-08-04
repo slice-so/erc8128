@@ -88,7 +88,7 @@ export function createSignerClient(
    * Resolve the final SignOptions for a request, applying the posture system
    * when appropriate.
    *
-   * Per-call `callOpts` can explicitly set `binding`/`replay`/`components` to
+   * Per-call `callOpts` can explicitly set `binding`/`nonce`/`components` to
    * bypass posture resolution entirely.
    */
   function resolveOpts(
@@ -96,12 +96,15 @@ export function createSignerClient(
     input: RequestInfo,
     init?: RequestInit
   ): SignOptions & { fetch?: typeof fetch } {
-    const mergedOptions = {
+    const mergedOptions: SignOptions = {
       ...baseSignOpts,
-      ...callOpts,
-      replay:
-        callOpts?.replay ?? (preferReplayable ? "replayable" : "non-replayable")
+      ...callOpts
     }
+    const requestedReplay =
+      mergedOptions.nonce === null ||
+      (mergedOptions.nonce === undefined && preferReplayable)
+        ? ("replayable" as const)
+        : ("non-replayable" as const)
 
     const { origin, method, pathname } = extractRequestInfo(input, init)
     const serverConfig = serverConfigs.get(origin)
@@ -110,12 +113,18 @@ export function createSignerClient(
         method,
         pathname,
         serverConfig,
-        mergedOptions
+        mergedOptions,
+        requestedReplay
       )
       return {
         ...mergedOptions,
         binding: posture.binding,
-        replay: posture.replay,
+        nonce:
+          posture.replay === "replayable"
+            ? null
+            : mergedOptions.nonce === null
+              ? undefined
+              : mergedOptions.nonce,
         components: posture.components
       }
     }
@@ -124,6 +133,7 @@ export function createSignerClient(
     const posture = resolveAuthorizedPosture({
       authorizationPolicy,
       invalidationAvailable: serverConfig?.invalidation_endpoint !== undefined,
+      preferReplayable: requestedReplay === "replayable",
       ...(authorizationExpiresAt === undefined
         ? {}
         : {
@@ -150,7 +160,12 @@ export function createSignerClient(
       contentDigest: posture.contentDigest,
       created,
       expires,
-      replay: posture.replay,
+      nonce:
+        posture.replay === "replayable"
+          ? null
+          : mergedOptions.nonce === null
+            ? undefined
+            : mergedOptions.nonce,
       ttlSeconds: posture.ttlSeconds
     }
   }

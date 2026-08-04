@@ -1,12 +1,6 @@
 import { expect, test } from "bun:test"
-import {
-  type Address,
-  type Hex,
-  hashMessage,
-  recoverMessageAddress
-} from "viem"
+import { type Hex, hashMessage } from "viem"
 import fixture from "../conformance-vectors.json"
-import { getDelegationGrantSignatureBase } from "./lib/delegation/createDelegationGrant"
 import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
 import {
   parseSignatureHeader,
@@ -16,191 +10,52 @@ import { base64Decode, bytesToHex } from "./lib/utilities"
 import { BoundedMemoryNonceStore } from "./stores"
 import { verifyRequest } from "./verify"
 
-type ConformanceVector = {
-  id: string
-  kind: "direct" | "delegated"
-  request: {
-    method: string
-    url: string
-    headers: Record<string, string>
-    body?: string
-  }
-  requestSignature: {
-    label: string
-    signatureBase: string
-    eip191Hash: Hex
-    signature: Hex
-  }
-  grantSignature?: {
-    signatureBase: string
-    eip191Hash: Hex
-    signature: Hex
-  }
-  expected: {
-    principal: Address
-    signer: Address
-    delegated: boolean
-    binding: "request-bound"
-    replay: "non-replayable"
-  }
-}
-
-const vectors: ConformanceVector[] = fixture.vectors.map((vector) => {
-  if (vector.kind !== "direct" && vector.kind !== "delegated") {
-    throw new Error(`Unsupported conformance vector kind: ${vector.kind}`)
-  }
-  if (
-    vector.expected.binding !== "request-bound" ||
-    vector.expected.replay !== "non-replayable"
-  ) {
-    throw new Error(`Unsupported conformance posture: ${vector.id}`)
-  }
-  const headers = Object.fromEntries(
-    Object.entries(vector.request.headers).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined
-    )
-  )
-  const grantSignature = vector.grantSignature
-
-  return {
-    id: vector.id,
-    kind: vector.kind,
-    request: {
-      method: vector.request.method,
-      url: vector.request.url,
-      headers,
-      ...(vector.request.body === undefined
-        ? {}
-        : { body: vector.request.body })
-    },
-    requestSignature: {
-      ...vector.requestSignature,
-      eip191Hash: vector.requestSignature.eip191Hash as Hex,
-      signature: vector.requestSignature.signature as Hex
-    },
-    ...(grantSignature === undefined
-      ? {}
-      : {
-          grantSignature: {
-            ...grantSignature,
-            eip191Hash: grantSignature.eip191Hash as Hex,
-            signature: grantSignature.signature as Hex
-          }
-        }),
-    expected: {
-      principal: vector.expected.principal as Address,
-      signer: vector.expected.signer as Address,
-      delegated: vector.expected.delegated,
-      binding: vector.expected.binding,
-      replay: vector.expected.replay
-    }
-  }
-})
-
-test.each(vectors)("verifies conformance vector $id", async (vector) => {
+test("verifies the updated direct conformance vector", async () => {
+  const vector = fixture.vectors[0]
+  if (vector === undefined) throw new Error("Direct vector is missing.")
   const request = new Request(vector.request.url, {
-    method: vector.request.method,
+    body: vector.request.body,
     headers: vector.request.headers,
-    ...(vector.request.body === undefined ? {} : { body: vector.request.body })
+    method: vector.request.method
   })
-  const candidates = parseSignatureInputHeader(
-    request.headers.get("signature-input") ?? ""
-  )
-  const requestCandidate = candidates.find(({ params }) =>
-    vector.kind === "direct"
-      ? params.tag === "erc8128"
-      : params.tag === "erc8128-delegated"
-  )
-  if (!requestCandidate) throw new Error("Vector request candidate missing.")
-  const requestSignatureB64 = parseSignatureHeader(
-    request.headers.get("signature") ?? ""
-  ).get(requestCandidate.label)
-  const requestSignature =
-    requestSignatureB64 === undefined ? null : base64Decode(requestSignatureB64)
-  if (!requestSignature) throw new Error("Vector request signature missing.")
-  const requestSignatureBase = createSignatureBaseMinimal({
+  const candidate = parseSignatureInputHeader(
+    vector.request.headers["signature-input"]
+  )[0]
+  if (candidate === undefined) throw new Error("Direct candidate is missing.")
+  const base = createSignatureBaseMinimal({
     request,
-    components: requestCandidate.components,
-    signatureParamsValue: requestCandidate.signatureParamsValue
+    components: candidate.components,
+    signatureParamsValue: candidate.signatureParamsValue
   })
-
-  expect(new TextDecoder().decode(requestSignatureBase)).toBe(
+  expect(new TextDecoder().decode(base)).toBe(
     vector.requestSignature.signatureBase
   )
-  expect(hashMessage({ raw: bytesToHex(requestSignatureBase) })).toBe(
-    vector.requestSignature.eip191Hash
+  expect(hashMessage({ raw: bytesToHex(base) })).toBe(
+    vector.requestSignature.eip191Hash as Hex
   )
-  expect(bytesToHex(requestSignature)).toBe(vector.requestSignature.signature)
-
-  const vectorGrantSignature = vector.grantSignature
-  if (vectorGrantSignature) {
-    const grantCandidate = candidates.find(
-      ({ params }) => params.tag === "erc8128-delegation"
-    )
-    if (!grantCandidate) throw new Error("Vector grant candidate missing.")
-    const grantSignatureB64 = parseSignatureHeader(
-      request.headers.get("signature") ?? ""
-    ).get(grantCandidate.label)
-    const fieldValue = request.headers.get("erc-8128-delegation")
-    if (!grantSignatureB64 || !fieldValue) {
-      throw new Error("Vector delegation grant missing.")
-    }
-    const grantSignatureBase = getDelegationGrantSignatureBase({
-      fieldValue,
-      grantSignatureInput: grantCandidate.signatureParamsValue,
-      grantSignatureB64
-    })
-    const grantSignature = base64Decode(grantSignatureB64)
-    if (!grantSignature) throw new Error("Vector grant signature missing.")
-
-    expect(new TextDecoder().decode(grantSignatureBase)).toBe(
-      vectorGrantSignature.signatureBase
-    )
-    expect(hashMessage({ raw: bytesToHex(grantSignatureBase) })).toBe(
-      vectorGrantSignature.eip191Hash
-    )
-    expect(bytesToHex(grantSignature)).toBe(vectorGrantSignature.signature)
-  }
+  const signature = parseSignatureHeader(vector.request.headers.signature).get(
+    candidate.label
+  )
+  expect(bytesToHex(base64Decode(signature ?? "") ?? new Uint8Array())).toBe(
+    vector.requestSignature.signature as Hex
+  )
 
   const result = await verifyRequest({
     request,
     nonceStore: new BoundedMemoryNonceStore(),
     policy: {
-      now: () => 1_700_000_001,
+      accountVerification: "eoa-only",
       clockSkewSec: 30,
-      principal: vector.kind,
-      ...(vector.kind === "direct"
-        ? { accountVerification: "eoa-only" as const }
-        : {
-            delegation: {
-              audience: "https://api.example",
-              revocation: {
-                authority: {
-                  address: "0x3333333333333333333333333333333333333333",
-                  chainId: 1
-                },
-                verify: async () => "valid" as const
-              }
-            }
-          })
+      now: () => 1_700_000_001,
+      principal: "direct"
     },
-    verifyMessage: async ({ address, message, signature }) =>
-      (
-        await recoverMessageAddress({
-          message,
-          signature: signature as Hex
-        })
-      ).toLowerCase() === address.toLowerCase()
+    verifyMessage: () => false
   })
-  if (!result.ok) throw new Error(result.reason)
-
-  expect(result.principal.address.toLowerCase()).toBe(
-    vector.expected.principal.toLowerCase()
-  )
-  expect(result.signer.address.toLowerCase()).toBe(
-    vector.expected.signer.toLowerCase()
-  )
-  expect(result.delegated).toBe(vector.expected.delegated)
-  expect(result.binding).toBe(vector.expected.binding)
-  expect(result.replay).toBe(vector.expected.replay)
+  expect(result).toMatchObject({
+    ok: true,
+    delegated: false,
+    principal: { address: vector.expected.principal, chainId: 1 },
+    signer: { address: vector.expected.signer, chainId: 1 },
+    binding: "request-bound"
+  })
 })

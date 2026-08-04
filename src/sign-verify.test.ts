@@ -76,7 +76,7 @@ describe("ERC-8128 direct signing and verification", () => {
       verifyMessage: universalVerify
     })
     expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error("unreachable")
+    if (!result.ok || result.delegated) throw new Error("unreachable")
     expect(result.principal).toEqual({
       address: account.address.toLowerCase() as typeof account.address,
       chainId: 1
@@ -456,7 +456,7 @@ describe("ERC-8128 direct signing and verification", () => {
     })
 
     expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error(result.reason)
+    if (!result.ok || result.delegated) throw new Error("unexpected result")
     expect(result.label).toBe("good")
     expect(nonceConsumes).toBe(1)
   })

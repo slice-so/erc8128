@@ -152,7 +152,7 @@ const signedRequest = await signRequest(
   {
     binding: 'class-bound',
     components: ['@authority'],  // Only the domain
-    replay: 'replayable',        // Often combined for performance
+    nonce: null,                 // Often combined for performance
   }
 )
 ```

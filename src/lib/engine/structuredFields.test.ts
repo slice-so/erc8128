@@ -34,11 +34,13 @@ describe("RFC 9651 Structured Fields", () => {
     ).toBe(serialized)
   })
 
-  test("canonicalizes incidental whitespace and rejects ambiguous input", () => {
+  test("canonicalizes whitespace and applies last-wins duplicates", () => {
     expect(canonicalizeSfDictionary('a="one",\tb=("two"  "three");p')).toBe(
       'a="one", b=("two" "three");p'
     )
-    expect(() => parseSfDictionary("a=?1, a=?0")).toThrow()
+    expect(parseSfDictionary("a=?1, a=?0")).toEqual({
+      a: { value: false, params: {} }
+    })
     expect(() => parseSfDictionary('a=("one", "two")')).toThrow()
     expect(() => parseSfDictionary("a=:AQ:")).toThrow()
   })

@@ -62,7 +62,7 @@ describe("docs: signRequest + verifyRequest example", () => {
     })
 
     expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error("unreachable")
+    if (!result.ok || result.delegated) throw new Error("unreachable")
 
     expect(result.principal.address.toLowerCase()).toBe(
       account.address.toLowerCase()

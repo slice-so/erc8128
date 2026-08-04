@@ -11,15 +11,16 @@ import type {
 import { Erc8128Error } from "../Erc8128Error"
 import { base64Decode, base64Encode } from "../utilities"
 
-const MAX_FIELD_LENGTH = 65_536
+const MAX_FIELD_LENGTH = 16_384
 const MAX_DICTIONARY_MEMBERS = 64
-const MAX_INNER_LIST_ITEMS = 64
-const MAX_PARAMETERS = 32
+const MAX_INNER_LIST_ITEMS = 32
+const MAX_PARAMETERS = 16
 const MAX_STRING_LENGTH = 4_096
 const MAX_BINARY_LENGTH = 65_536
+const encoder = new TextEncoder()
 
 export function parseSfDictionary(value: string): SfDictionary {
-  if (value.length === 0 || value.length > MAX_FIELD_LENGTH) {
+  if (value.length === 0 || encoder.encode(value).length > MAX_FIELD_LENGTH) {
     throw parseError("Structured Field Dictionary has an invalid size.")
   }
 
@@ -31,10 +32,6 @@ export function parseSfDictionary(value: string): SfDictionary {
       throw parseError("Structured Field Dictionary has too many members.")
     }
     const key = parser.parseKey()
-    if (dictionary[key] !== undefined) {
-      throw parseError(`Duplicate Structured Field Dictionary member: ${key}.`)
-    }
-
     let member: SfMember
     if (parser.peek() === "=") {
       parser.advance()
@@ -42,6 +39,8 @@ export function parseSfDictionary(value: string): SfDictionary {
     } else {
       member = { value: true, params: parser.parseParameters() }
     }
+    // RFC 9651 Dictionary duplicates use the effective last value.
+    if (dictionary[key] !== undefined) delete dictionary[key]
     dictionary[key] = member
 
     parser.skipOptionalWhitespace()
@@ -77,7 +76,7 @@ export function canonicalizeSfDictionary(value: string): string {
 }
 
 export function parseSfInnerList(value: string): SfInnerList {
-  if (value.length === 0 || value.length > MAX_FIELD_LENGTH) {
+  if (value.length === 0 || encoder.encode(value).length > MAX_FIELD_LENGTH) {
     throw parseError("Structured Field Inner List has an invalid size.")
   }
   const parser = new StructuredFieldParser(value)
@@ -286,15 +285,15 @@ class StructuredFieldParser {
 
   parseParameters(): SfParameters {
     const parameters: SfParameters = {}
+    let count = 0
     while (this.peek() === ";") {
-      if (Object.keys(parameters).length >= MAX_PARAMETERS) {
+      count += 1
+      if (count > MAX_PARAMETERS) {
         throw parseError("Too many Structured Field parameters.")
       }
       this.advance()
       const key = this.parseKey()
-      if (parameters[key] !== undefined) {
-        throw parseError(`Duplicate Structured Field parameter: ${key}.`)
-      }
+      if (parameters[key] !== undefined) delete parameters[key]
       if (this.peek() === "=") {
         this.advance()
         parameters[key] = this.parseBareItem()

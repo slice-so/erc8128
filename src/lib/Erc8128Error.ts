@@ -9,6 +9,10 @@ export class Erc8128Error extends Error {
       | "BAD_DERIVED_VALUE"
       | "BAD_HEADER_VALUE"
       | "DELEGATION_TOO_LARGE"
+      | "DELEGATION_CHAIN_TOO_LONG"
+      | "DELEGATION_CHAIN_DISCONTINUOUS"
+      | "DELEGATION_ATTENUATION_VIOLATION"
+      | "LIMIT_EXCEEDED"
       | "PARSE_ERROR",
     message: string
   ) {

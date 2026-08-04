@@ -144,7 +144,7 @@ export const nonceStore: NonceStore = {
 | Setting | Default | Meaning |
 |---------|---------|---------|
 | `binding` | `"request-bound"` | Sign all applicable components |
-| `replay` | `"non-replayable"` | Include auto-generated nonce |
+| `nonce` | generated | Present means Non-Replayable; `null` deliberately omits it |
 | `ttlSeconds` | `60` | Signature valid for 1 minute |
 | `label` | `"request"` | Signature label in headers |
 

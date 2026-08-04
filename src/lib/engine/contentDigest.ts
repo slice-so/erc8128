@@ -64,13 +64,6 @@ export async function verifyContentDigest(
   const expected = new Map<string, string>()
   let recognized = 0
   for (const member of parsed) {
-    if (
-      member.alg === "md5" ||
-      member.alg === "sha" ||
-      member.alg === "sha-1"
-    ) {
-      return false
-    }
     if (member.alg !== "sha-256" && member.alg !== "sha-512") continue
     let expectedValue = expected.get(member.alg)
     if (expectedValue === undefined) {
@@ -94,11 +87,12 @@ export function parseContentDigest(
     const dictionary = parseSfDictionary(v)
     const result: { alg: string; b64: string }[] = []
     for (const [alg, member] of Object.entries(dictionary)) {
+      if (alg !== "sha-256" && alg !== "sha-512") continue
       if (
         !("value" in member) ||
         typeof member.value !== "object" ||
         member.value.type !== "binary" ||
-        Object.keys(member.params ?? {}).length !== 0
+        member.value.value.length !== (alg === "sha-256" ? 32 : 64)
       ) {
         return null
       }

@@ -56,13 +56,14 @@ export function buildVerifyResultResponse(args: {
         signer: verifyResult.signer,
         delegated: verifyResult.delegated,
         ...(verifyResult.delegated
-          ? { delegationId: bytesToHex(verifyResult.delegationId) }
-          : {}),
-        label: verifyResult.label,
-        components: verifyResult.components,
+          ? { delegationIds: verifyResult.delegationIds }
+          : {
+              label: verifyResult.label,
+              components: verifyResult.components,
+              params: verifyResult.params
+            }),
         binding: verifyResult.binding,
         replayable: verifyResult.replay === "replayable",
-        params: verifyResult.params,
         ...withCachedVerification(metadata)
       },
       headers: copyHeaders(responseHeaders)
@@ -82,12 +83,6 @@ export function buildVerifyResultResponse(args: {
     },
     headers: copyHeaders(responseHeaders)
   }
-}
-
-function bytesToHex(bytes: Uint8Array) {
-  return `0x${Array.from(bytes, (byte) =>
-    byte.toString(16).padStart(2, "0")
-  ).join("")}`
 }
 
 export function buildVerifyExceptionResponse(args: {

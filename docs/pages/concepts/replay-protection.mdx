@@ -83,8 +83,7 @@ Signature-Input: request=(...);nonce="a1b2c3d4-e5f6-7890";...
 // Auto-generated (default)
 const signedRequest = await signRequest(
   request,
-  signer,
-  { replay: 'non-replayable' }  // Default
+  signer
 )
 ```
 
@@ -224,7 +223,7 @@ const signedRequest = await signRequest(
   'https://api.example.com/status',
   { method: 'GET' },
   signer,
-  { replay: 'replayable' }
+  { nonce: null }
 )
 ```
 
@@ -254,7 +253,7 @@ const signedRequest = await signRequest(
   {
     binding: 'class-bound',
     components: ['@authority'],
-    replay: 'replayable',
+    nonce: null,
   }
 )
 ```

@@ -7,6 +7,10 @@ import type {
 } from "../../types"
 import { Erc8128Error } from "../Erc8128Error"
 import {
+  normalizeComponentIdentifier,
+  serializeComponentIdentifier
+} from "./componentIdentifier"
+import {
   parseSfDictionary,
   parseSfInnerList,
   serializeSfMember
@@ -46,6 +50,24 @@ export function parseSignatureInputDictionary(
       throw new Erc8128Error(
         "PARSE_ERROR",
         "Signature component list is empty."
+      )
+    }
+    if (
+      components.length > 32 ||
+      Object.keys(member.params ?? {}).length > 16
+    ) {
+      throw new Erc8128Error(
+        "LIMIT_EXCEEDED",
+        "Signature candidate exceeds its component or parameter limit."
+      )
+    }
+    if (
+      new Set(components.map(serializeComponentIdentifier)).size !==
+      components.length
+    ) {
+      throw new Erc8128Error(
+        "PARSE_ERROR",
+        "Covered components must not be repeated."
       )
     }
     const params = parseSignatureParams(member)
@@ -178,9 +200,23 @@ function parseComponentIdentifier(item: SfItem): ComponentIdentifier {
       Object.assign(params, { [key]: true })
     }
   }
-  return Object.keys(params).length === 0
-    ? { name: item.value.toLowerCase() }
-    : { name: item.value.toLowerCase(), params }
+  let component: ComponentIdentifier
+  try {
+    component = normalizeComponentIdentifier(
+      Object.keys(params).length === 0
+        ? { name: item.value }
+        : { name: item.value, params }
+    )
+  } catch {
+    throw new Erc8128Error("PARSE_ERROR", "Invalid component identifier.")
+  }
+  if (component.name !== item.value) {
+    throw new Erc8128Error(
+      "PARSE_ERROR",
+      "Component identifiers must use canonical lowercase names."
+    )
+  }
+  return component
 }
 
 function parseSignatureParams(member: SfInnerList): SignatureParams {

@@ -24,9 +24,9 @@ describe("resolvePosture structural component policies", () => {
       serverConfig([structuredComponent]),
       {
         binding: "class-bound",
-        components: [structuredComponent],
-        replay: "non-replayable"
-      }
+        components: [structuredComponent]
+      },
+      "non-replayable"
     )
 
     expect(result).toEqual({
@@ -46,9 +46,9 @@ describe("resolvePosture structural component policies", () => {
       ]),
       {
         binding: "class-bound",
-        components: [structuredComponent],
-        replay: "non-replayable"
-      }
+        components: [structuredComponent]
+      },
+      "non-replayable"
     )
 
     expect(result.components).toEqual([structuredComponent])

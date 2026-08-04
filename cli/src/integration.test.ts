@@ -132,9 +132,7 @@ describe("integration tests", () => {
         method: "GET"
       })
 
-      const signedReq = await signRequest(request, signer, {
-        replay: "non-replayable"
-      })
+      const signedReq = await signRequest(request, signer)
 
       const signatureInput = signedReq.headers.get("Signature-Input")
       expect(signatureInput).toContain('nonce="')
@@ -151,7 +149,7 @@ describe("integration tests", () => {
       })
 
       const signedReq = await signRequest(request, signer, {
-        replay: "replayable"
+        nonce: null
       })
 
       const signatureInput = signedReq.headers.get("Signature-Input")
@@ -241,7 +239,7 @@ describe("integration tests", () => {
       const signedReq = await signRequest(request, signer, {
         binding: "class-bound",
         components: ["@authority"],
-        replay: "replayable" // class-bound typically uses replayable
+        nonce: null
       })
 
       const signatureInput = signedReq.headers.get("Signature-Input")

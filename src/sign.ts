@@ -100,7 +100,6 @@ export async function signRequest(
     )
   )
   const binding = resolvedOpts.binding ?? "request-bound"
-  const replay = resolvedOpts.replay ?? "non-replayable"
   const digestMode = resolvedOpts.contentDigest ?? "auto"
 
   const now = unixNow()
@@ -109,7 +108,7 @@ export async function signRequest(
   const expires = resolvedOpts.expires ?? created + ttl
 
   const nonce =
-    replay === "non-replayable" ? await resolveNonce(resolvedOpts) : undefined
+    resolvedOpts.nonce === null ? undefined : await resolveNonce(resolvedOpts)
 
   const keyid = formatKeyId(signer.chainId, signer.address)
 
@@ -185,7 +184,7 @@ export async function signRequest(
 
   const sigHex = await signer.signMessage(M)
   const sigBytes = hexToBytes(sigHex)
-  if (sigBytes.length === 0 || sigBytes.length > 65_536)
+  if (sigBytes.length === 0 || sigBytes.length > 8_192)
     throw new Erc8128Error(
       "UNSUPPORTED_REQUEST",
       "Signer returned a signature outside the supported size."
@@ -204,8 +203,8 @@ export async function signRequest(
     signatureHeader
   )
   if (
-    new TextEncoder().encode(combinedSignatureInput).length > 65_536 ||
-    new TextEncoder().encode(combinedSignature).length > 65_536
+    new TextEncoder().encode(combinedSignatureInput).length > 16_384 ||
+    new TextEncoder().encode(combinedSignature).length > 16_384
   ) {
     throw new Erc8128Error(
       "UNSUPPORTED_REQUEST",
