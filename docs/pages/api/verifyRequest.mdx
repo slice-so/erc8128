@@ -35,7 +35,7 @@ An object indicating success or failure:
 ```typescript
 if (result.ok) {
   // Success — access verified data
-  result.principal // Root or direct authenticated account
+  result.principal // Delegation root or base-profile authenticated account
   result.signer    // Account that signed this request
   result.delegated // Whether a delegation authenticated the principal
   result.label     // Signature label

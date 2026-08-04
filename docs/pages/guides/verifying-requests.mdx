@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: result.reason }, { status: 401 })
   }
 
-  // Authenticated! Use the root/direct principal.
+  // Authenticated! Use the delegation root or base-profile principal.
   return Response.json({ address: result.principal.address })
 }
 ```
@@ -332,7 +332,8 @@ if (!result.ok) {
 
 ## Multi-Chain Support
 
-The principal identity identifies the authenticated root or direct account:
+The principal identity identifies the authenticated delegation root or
+base-profile account:
 
 ```typescript
 if (result.ok) {
@@ -351,7 +352,7 @@ if (result.ok) {
 
 1. **Always use nonce stores in production** — In-memory stores don't work across server restarts or multiple instances.
 
-2. **Keep validity windows short** — 60-300 seconds is reasonable. Longer windows increase replay risk.
+2. **Document a route maximum and keep signer windows short** — a baseline route must accept windows up to 60 seconds, while signers should choose the shortest delivery-safe window. Longer windows increase replay exposure and nonce-storage time.
 
 3. **Use strict label matching** when you expect a specific signature source.
 

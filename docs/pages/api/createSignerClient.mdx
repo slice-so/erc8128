@@ -12,7 +12,7 @@ Create a client by passing a signer and optional default configuration. The retu
 import { createSignerClient } from '@slicekit/erc8128'
 
 const client = createSignerClient(signer, {
-  ttlSeconds: 120,
+  ttlSeconds: 15,
   preferReplayable: true,
 })
 
@@ -59,7 +59,7 @@ Default options for all requests. Can be overridden per-call.
 
 ```typescript
 const client = createSignerClient(signer, {
-  ttlSeconds: 300,
+  ttlSeconds: 30,
   preferReplayable: true,
   fetch: customFetch,
 })

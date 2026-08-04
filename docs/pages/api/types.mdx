@@ -76,7 +76,7 @@ type SignOptions = {
   /** Unix timestamp when signature expires (default: created + ttlSeconds) */
   expires?: number
   
-  /** Validity duration in seconds (default: 60) */
+  /** Library default: 60; prefer the shortest delivery-safe duration. */
   ttlSeconds?: number
   
   /** Custom nonce/generator, or null to make the request Replayable */
@@ -147,10 +147,10 @@ Policy for [verifyRequest](/api/verifyRequest).
 
 ```typescript
 type VerifyPolicy = {
-  /** Select direct, delegated, or either principal class. */
+  /** Select base-profile (`direct`), delegated, or either principal class. */
   principal?: "direct" | "delegated" | "either"
 
-  /** Direct-account verification policy (default: "universal"). */
+  /** Base-profile account verification policy (default: "universal"). */
   accountVerification?: "universal" | "eoa-only"
 
   /**
@@ -310,7 +310,7 @@ type VerifyResult =
 | Property | Type | Description |
 |----------|------|-------------|
 | `ok` | `true` | Verification succeeded |
-| `principal` | `AccountIdentity` | Authenticated root or direct account |
+| `principal` | `AccountIdentity` | Authenticated root or base-profile account |
 | `signer` | `AccountIdentity` | Account that signed the request |
 | `delegated` | `boolean` | Whether a delegation authorization authenticated the principal |
 | `delegationIds` | `Hex[]` | Ordered signed revocation IDs for the verified chain |

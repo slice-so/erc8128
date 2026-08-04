@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex */
 
-import { TAG_DELEGATED, TAG_DIRECT } from "./lib/delegation/delegationField"
+import { TAG_DELEGATED, TAG_REQUEST } from "./lib/delegation/delegationField"
 import { Erc8128Error } from "./lib/Erc8128Error"
 import { includesComponent } from "./lib/engine/componentIdentifier"
 import { setContentDigestHeader } from "./lib/engine/contentDigest"
@@ -38,7 +38,7 @@ import type { EthHttpSigner, SignatureParams, SignOptions } from "./types"
 
 const SIGNATURE_TAG = Symbol("ERC-8128 signature tag")
 type InternalSignOptions = SignOptions & {
-  [SIGNATURE_TAG]?: typeof TAG_DIRECT | typeof TAG_DELEGATED
+  [SIGNATURE_TAG]?: typeof TAG_REQUEST | typeof TAG_DELEGATED
 }
 
 /**
@@ -161,7 +161,7 @@ export async function signRequest(
     created,
     expires,
     keyid,
-    tag: resolvedOpts[SIGNATURE_TAG] ?? TAG_DIRECT,
+    tag: resolvedOpts[SIGNATURE_TAG] ?? TAG_REQUEST,
     ...(nonce ? { nonce } : {})
   }
 

@@ -27,7 +27,7 @@ const signedRequest = await signRequest(
   'https://api.example.com/resource',
   { method: 'POST', body: '{"data": "value"}' },
   signer,
-  { ttlSeconds: 300 }
+  { ttlSeconds: 15 }
 )
 ```
 
@@ -92,7 +92,7 @@ Common signing patterns showing TTL customization, custom nonces, and replayable
 const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
-  { ttlSeconds: 300 } // Valid for 5 minutes
+  { ttlSeconds: 15 } // Prefer the shortest delivery-safe window
 )
 ```
 

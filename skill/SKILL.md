@@ -95,7 +95,7 @@ if (result.ok) {
 |--------|------|---------|-------------|
 | `binding` | `"request-bound"` \| `"class-bound"` | `"request-bound"` | What to sign |
 | `replay` | `"non-replayable"` \| `"replayable"` | `"non-replayable"` | Include nonce |
-| `ttlSeconds` | `number` | `60` | Signature validity |
+| `ttlSeconds` | `number` | `60` | Library default; use the shortest delivery-safe validity |
 | `components` | `string[]` | — | Additional components to sign |
 | `contentDigest` | `"auto"` \| `"recompute"` \| `"require"` \| `"off"` | `"auto"` | Content-Digest handling |
 

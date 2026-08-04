@@ -17,7 +17,7 @@ export type SignOptions = {
 
   created?: number // unix seconds; default now
   expires?: number // unix seconds; default created + ttlSeconds
-  ttlSeconds?: number // default 60
+  ttlSeconds?: number // library default 60; choose the shortest delivery-safe window
 
   /** A nonce makes the request Non-Replayable. `null` explicitly omits it. */
   nonce?: string | (() => Promise<string>) | null

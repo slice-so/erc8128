@@ -10,7 +10,7 @@ import {
   normalizeAudienceOrigin,
   parseDelegationField,
   TAG_DELEGATED,
-  TAG_DIRECT
+  TAG_REQUEST
 } from "./lib/delegation/delegationField"
 import { Erc8128Error, VerificationUnavailableError } from "./lib/Erc8128Error"
 import { verifyCanonicalEoaSignature } from "./lib/ecdsa"
@@ -77,7 +77,7 @@ export async function verifyRequest(
   if (!selected.ok) return selected.result
 
   const candidates = selected.selected.filter(
-    ({ params }) => params.tag === TAG_DIRECT || params.tag === TAG_DELEGATED
+    ({ params }) => params.tag === TAG_REQUEST || params.tag === TAG_DELEGATED
   )
   if (candidates.length === 0) {
     return { ok: false, reason: "no_acceptable_signature" }
@@ -171,7 +171,7 @@ export async function verifyRequest(
             ...context,
             candidate: { candidate, key }
           })
-        : await verifyDirectCandidate({
+        : await verifyBaseCandidate({
             ...context,
             candidate: { candidate, key }
           })
@@ -197,7 +197,7 @@ function validateCandidateEnvelope(
   return null
 }
 
-async function verifyDirectCandidate(
+async function verifyBaseCandidate(
   args: CommonCandidateArgs
 ): Promise<VerifyResult> {
   const { candidate, key } = args.candidate

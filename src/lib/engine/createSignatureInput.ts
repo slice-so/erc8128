@@ -5,7 +5,7 @@ import type {
   SfItem,
   SignatureParams
 } from "../../types"
-import { TAG_DELEGATED, TAG_DIRECT } from "../delegation/delegationField"
+import { TAG_DELEGATED, TAG_REQUEST } from "../delegation/delegationField"
 import { Erc8128Error } from "../Erc8128Error"
 import {
   normalizeComponentIdentifier,
@@ -50,7 +50,7 @@ export function parseSignatureInputDictionary(
       }
       const profileTag = member.params?.tag
       const profileCandidate =
-        profileTag === TAG_DIRECT || profileTag === TAG_DELEGATED
+        profileTag === TAG_REQUEST || profileTag === TAG_DELEGATED
       if (
         member.items.length > 32 ||
         Object.keys(member.params ?? {}).length > 16

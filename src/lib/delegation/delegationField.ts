@@ -33,7 +33,7 @@ export const DELEGATION_COMPONENT = {
   name: DELEGATION_FIELD_NAME,
   params: { sf: true }
 } as const satisfies ComponentIdentifier
-export const TAG_DIRECT = "erc8128"
+export const TAG_REQUEST = "erc8128"
 export const TAG_DELEGATED = "erc8128-delegated"
 export const ZERO_DELEGATION_PARENT =
   "0x0000000000000000000000000000000000000000000000000000000000000000"

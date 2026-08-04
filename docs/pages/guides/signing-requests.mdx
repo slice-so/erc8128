@@ -27,7 +27,8 @@ const signedRequest = await signRequest(
 This uses all defaults:
 - **Request-bound** — signs authority, method, path, query, body digest
 - **Non-replayable** — auto-generated nonce
-- **60-second TTL**
+- **60-second library-default TTL** — the standard permits any window and
+  recommends the shortest one the delivery path and clock uncertainty allow
 - **Label: "request"**
 
 ## Creating a Signer
@@ -57,7 +58,7 @@ For repeated requests, use [createSignerClient](/api/createSignerClient) to bind
 import { createSignerClient } from '@slicekit/erc8128'
 
 const client = createSignerClient(signer, {
-  ttlSeconds: 120,
+  ttlSeconds: 15,
 })
 
 // Use client.fetch
@@ -84,7 +85,7 @@ Customize TTL, timestamps, nonce generation, and other signature parameters via 
 const signedRequest = await signRequest(
   'https://api.example.com/resource',
   signer,
-  { ttlSeconds: 300 } // Valid for 5 minutes
+  { ttlSeconds: 15 } // Prefer the shortest delivery-safe window
 )
 ```
 
@@ -96,7 +97,7 @@ const signedRequest = await signRequest(
   signer,
   {
     created: now,
-    expires: now + 120, // 2 minutes
+    expires: now + 15,
   }
 )
 ```

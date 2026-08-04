@@ -28,7 +28,7 @@ export {
   parseDelegationField,
   serializeDelegationComponent,
   TAG_DELEGATED,
-  TAG_DIRECT,
+  TAG_REQUEST,
   ZERO_DELEGATION_PARENT
 } from "./lib/delegation/delegationField"
 export {

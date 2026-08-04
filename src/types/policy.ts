@@ -34,9 +34,9 @@ export type RoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]> & {
 }
 
 export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
-  /** Select direct, delegated, or either principal class. */
+  /** Select base-profile (`direct`), delegated, or either principal class. */
   principal?: "direct" | "delegated" | "either"
-  /** Explicit direct-account verification policy. */
+  /** Explicit base-profile account verification policy. */
   accountVerification?: "universal" | "eoa-only"
   /**
    * If one of these request fields is present, every eligible signature must
@@ -76,7 +76,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   /** Time policy */
   now?: () => number // unix seconds; default unixNow()
   clockSkewSec?: number // default 30; allow +/- drift when checking created/expires
-  maxValiditySec?: number // default 300; cap (expires - created)
+  maxValiditySec?: number // library default 300; route cap for expires - created
   maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
 
   /** Replay protection */
