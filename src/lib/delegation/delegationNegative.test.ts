@@ -29,19 +29,19 @@ const delegateId = `eip155:1:${delegate.address.toLowerCase()}`
 const leafId = `eip155:1:${leaf.address.toLowerCase()}`
 
 const baseGrant: Delegation = {
-  root: rootId,
+  issuer: rootId,
   delegate: delegateId,
-  aud: ["https://api.example", "https://backup.example"],
+  audiences: ["https://api.example", "https://backup.example"],
   id: `0x${"41".repeat(32)}`,
   epoch: 7,
-  created: now - 100,
-  expires: now + 600,
-  maxAge: 60,
+  validAfter: now - 100,
+  validUntil: now + 600,
+  maxRequestValiditySeconds: 60,
   delegateIsEOA: true,
-  allowReplayable: false,
-  components: [],
-  scope: ["resource:read", "resource:write"],
-  parent: `0x${"00".repeat(32)}`
+  requireNonReplayable: true,
+  requiredComponents: [],
+  permissions: ["resource:read", "resource:write"],
+  parentGrantHash: `0x${"00".repeat(32)}`
 }
 
 const signer = (account: typeof delegate) => ({
@@ -113,7 +113,7 @@ type VerifyOptions = {
   digest?: "unavailable" | "valid" | "invalid"
   maxGrantValiditySec?: number
   now?: number
-  scopeSupported?: boolean
+  permissionsSupported?: boolean
   status?: "valid" | "revoked" | "epoch-mismatch" | "unavailable"
 }
 
@@ -139,9 +139,10 @@ const evaluate = async (request: Request, options: VerifyOptions = {}) => {
             delegation: {
               grantCache: options.cache,
               maxGrantValiditySec: options.maxGrantValiditySec,
-              requiredScopes: ["resource:read"],
-              scopeSupported: options.scopeSupported,
-              verifyStatus: () => options.status ?? "valid"
+              requiredPermissions: ["resource:read"],
+              permissionsSupported: options.permissionsSupported,
+              verifyStatuses: (contexts) =>
+                contexts.map(() => options.status ?? "valid")
             }
           })
     },
@@ -234,7 +235,7 @@ describe("delegated negative and classification vectors", () => {
 
     const badRoot = await makeLink({
       ...baseGrant,
-      parent: `0x${"99".repeat(32)}`
+      parentGrantHash: `0x${"99".repeat(32)}`
     })
     await expectFailure(
       replaceHeader(
@@ -250,14 +251,14 @@ describe("delegated negative and classification vectors", () => {
     const validChild = await makeLink(
       {
         ...baseGrant,
-        root: delegateId,
+        issuer: delegateId,
         delegate: leafId,
-        aud: ["https://api.example"],
+        audiences: ["https://api.example"],
         id: `0x${"42".repeat(32)}`,
-        created: now - 50,
-        expires: now + 300,
-        scope: ["resource:read"],
-        parent: hashDelegation(baseGrant)
+        validAfter: now - 50,
+        validUntil: now + 300,
+        permissions: ["resource:read"],
+        parentGrantHash: hashDelegation(baseGrant)
       },
       delegate
     )
@@ -266,7 +267,7 @@ describe("delegated negative and classification vectors", () => {
       chain: { links: [parent, validChild] }
     })
     const invalidChild = await makeLink(
-      { ...validChild.grant, parent: `0x${"98".repeat(32)}` },
+      { ...validChild.grant, parentGrantHash: `0x${"98".repeat(32)}` },
       delegate
     )
     await expectFailure(
@@ -280,18 +281,18 @@ describe("delegated negative and classification vectors", () => {
     )
   })
 
-  test("rejects audience, scope, window, and max-age attenuation", async () => {
+  test("rejects audience, permissions, window, and validity attenuation", async () => {
     const parent = await makeLink(baseGrant)
     const childBase: Delegation = {
       ...baseGrant,
-      root: delegateId,
+      issuer: delegateId,
       delegate: leafId,
-      aud: ["https://api.example"],
+      audiences: ["https://api.example"],
       id: `0x${"43".repeat(32)}`,
-      created: now - 50,
-      expires: now + 300,
-      scope: ["resource:read"],
-      parent: hashDelegation(baseGrant)
+      validAfter: now - 50,
+      validUntil: now + 300,
+      permissions: ["resource:read"],
+      parentGrantHash: hashDelegation(baseGrant)
     }
     const validChild = await makeLink(childBase, delegate)
     const request = await makeRequest({
@@ -299,11 +300,14 @@ describe("delegated negative and classification vectors", () => {
       chain: { links: [parent, validChild] }
     })
     const broadenings: Delegation[] = [
-      { ...childBase, aud: ["https://outside.example"] },
-      { ...childBase, scope: ["outside:scope"] },
-      { ...childBase, created: baseGrant.created - 1 },
-      { ...childBase, expires: baseGrant.expires + 1 },
-      { ...childBase, maxAge: baseGrant.maxAge + 1 }
+      { ...childBase, audiences: ["https://outside.example"] },
+      { ...childBase, permissions: ["outside:permission"] },
+      { ...childBase, validAfter: baseGrant.validAfter - 1 },
+      { ...childBase, validUntil: baseGrant.validUntil + 1 },
+      {
+        ...childBase,
+        maxRequestValiditySeconds: baseGrant.maxRequestValiditySeconds + 1
+      }
     ]
     for (const broadened of broadenings) {
       await expectFailure(
@@ -327,10 +331,18 @@ describe("delegated negative and classification vectors", () => {
       VerifyFailReason,
       VerifyOptions
     ][] = [
-      [{ created: now + 1, expires: now + 601 }, "grant_not_yet_valid", {}],
-      [{ created: now - 700, expires: now - 1 }, "grant_expired", {}],
+      [
+        { validAfter: now + 1, validUntil: now + 601 },
+        "grant_not_yet_valid",
+        {}
+      ],
+      [{ validAfter: now - 700, validUntil: now - 1 }, "grant_expired", {}],
       [{}, "grant_validity_too_long", { maxGrantValiditySec: 100 }],
-      [{ maxAge: 30 }, "delegation_max_age_exceeded", {}]
+      [
+        { maxRequestValiditySeconds: 30 },
+        "delegation_request_validity_exceeded",
+        {}
+      ]
     ]
     for (const [changes, reason, options] of cases) {
       const changed = await makeLink({ ...baseGrant, ...changes })
@@ -356,7 +368,7 @@ describe("delegated negative and classification vectors", () => {
         earlyRequest,
         "erc-8128-delegation",
         formatDelegationField({
-          links: [await makeLink({ ...baseGrant, created: now })]
+          links: [await makeLink({ ...baseGrant, validAfter: now })]
         })
       ),
       "request_outside_grant_window",
@@ -364,7 +376,7 @@ describe("delegated negative and classification vectors", () => {
     )
   })
 
-  test("classifies component, replay, extension, scope, and status failures", async () => {
+  test("classifies component, replay, permissions, and status failures", async () => {
     const request = await makeRequest()
     for (const [components, reason] of [
       [["@status"], "delegation_components_unsupported"],
@@ -376,7 +388,10 @@ describe("delegated negative and classification vectors", () => {
           "erc-8128-delegation",
           formatDelegationField({
             links: [
-              await makeLink({ ...baseGrant, components: [...components] })
+              await makeLink({
+                ...baseGrant,
+                requiredComponents: [...components]
+              })
             ]
           })
         ),
@@ -385,7 +400,10 @@ describe("delegated negative and classification vectors", () => {
       )
     }
 
-    const replayableGrant = { ...baseGrant, allowReplayable: true }
+    const replayableGrant = {
+      ...baseGrant,
+      requireNonReplayable: false
+    }
     const replayableRequest = await makeRequest({
       chain: { links: [await makeLink(replayableGrant)] },
       nonce: null
@@ -410,8 +428,8 @@ describe("delegated negative and classification vectors", () => {
     await expectFailure(request, "unsupported_delegation", 401, {
       delegation: false
     })
-    await expectFailure(request, "unsupported_scope", 401, {
-      scopeSupported: false
+    await expectFailure(request, "unsupported_permissions", 401, {
+      permissionsSupported: false
     })
     await expectFailure(request, "authorization_epoch_mismatch", 401, {
       status: "epoch-mismatch"

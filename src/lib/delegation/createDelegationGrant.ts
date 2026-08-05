@@ -36,21 +36,21 @@ export function buildDelegationGrant(
   const id =
     args.id instanceof Uint8Array ? bytesToHex(args.id) : args.id.toLowerCase()
   const grant: Delegation = {
-    root: formatKeyId(args.root.chainId, args.root.address),
+    issuer: formatKeyId(args.issuer.chainId, args.issuer.address),
     delegate: formatKeyId(args.delegate.chainId, args.delegate.address),
-    aud: [...args.audiences],
+    audiences: [...args.audiences],
     id: id as Hex,
     epoch: args.epoch,
-    created: args.created ?? unixNow(),
-    expires: args.expires,
-    maxAge: args.maxAge,
+    validAfter: args.validAfter ?? unixNow(),
+    validUntil: args.validUntil,
+    maxRequestValiditySeconds: args.maxRequestValiditySeconds,
     delegateIsEOA: args.delegateIsEOA,
-    allowReplayable: args.allowReplayable,
-    components: (args.components ?? []).map((component) =>
+    requireNonReplayable: args.requireNonReplayable,
+    requiredComponents: (args.requiredComponents ?? []).map((component) =>
       serializeDelegationComponent(normalizeComponentIdentifier(component))
     ),
-    scope: [...(args.scopes ?? [])],
-    parent: args.parent ?? ZERO_DELEGATION_PARENT
+    permissions: [...(args.permissions ?? [])],
+    parentGrantHash: args.parentGrantHash ?? ZERO_DELEGATION_PARENT
   }
   const audiencePolicy = {
     allowLoopbackAudiences: args.allowLoopbackAudiences === true
@@ -98,12 +98,12 @@ export async function signDelegationGrant(
   args: SignDelegationGrantArgs
 ): Promise<DelegationLink> {
   const { signer, ...grantArgs } = args
-  const expectedRoot = formatKeyId(signer.chainId, signer.address)
+  const expectedIssuer = formatKeyId(signer.chainId, signer.address)
   const prepared = buildDelegationGrant(grantArgs)
-  if (prepared.grant.root !== expectedRoot) {
+  if (prepared.grant.issuer !== expectedIssuer) {
     throw new Erc8128Error(
       "INVALID_OPTIONS",
-      "Delegation signer must match the Root Account."
+      "Delegation signer must match the issuer."
     )
   }
   return completeDelegationGrant(

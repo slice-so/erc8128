@@ -119,14 +119,14 @@ if (result.ok) {
 ### Delegated authentication
 
 Use EIP-712 Delegation Grants when a Root Account needs to authorize a
-short-lived leaf signer with attenuated audiences, scopes, request components,
-maximum age, and replay policy. Build and sign each grant with
-`buildDelegationGrant` / `completeDelegationGrant`, then create the leaf client
-with `createDelegatedSignerClient`. Verifiers enable the extension with a
-`policy.delegation` status reader and optional required scopes. HTTP loopback
-audiences are rejected by default; local development must explicitly set
-`allowLoopbackAudiences: true` on grant construction, the delegated signer
-client, and verifier delegation policy.
+short-lived leaf signer with attenuated audiences, permissions, required
+request components, maximum request validity, and non-replayable policy. Build and
+sign each grant with `buildDelegationGrant` / `completeDelegationGrant`, then
+create the leaf client with `createDelegatedSignerClient`. Verifiers enable the
+extension with a `policy.delegation` batched status reader and optional required
+permissions. HTTP loopback audiences are rejected by default; local
+development must explicitly set `allowLoopbackAudiences: true` on grant
+construction, the delegated signer client, and verifier delegation policy.
 
 ## CLI: erc8128 curl
 

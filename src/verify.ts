@@ -339,13 +339,16 @@ async function verifyDelegatedCandidate(
   })
   if (requestTimeFailure) return requestTimeFailure
   if (
-    requestParams.created < leaf.created - args.skew ||
-    requestParams.expires > leaf.expires
+    requestParams.created < leaf.validAfter - args.skew ||
+    requestParams.expires > leaf.validUntil
   ) {
     return { ok: false, reason: "request_outside_grant_window" }
   }
-  if (requestParams.expires - requestParams.created > chain.effectiveMaxAge) {
-    return { ok: false, reason: "delegation_max_age_exceeded" }
+  if (
+    requestParams.expires - requestParams.created >
+    chain.effectiveMaxRequestValiditySeconds
+  ) {
+    return { ok: false, reason: "delegation_request_validity_exceeded" }
   }
 
   let requestOrigin: string
@@ -357,7 +360,7 @@ async function verifyDelegatedCandidate(
   } catch {
     return { ok: false, reason: "audience_mismatch" }
   }
-  if (!chain.effectiveAudience.includes(requestOrigin)) {
+  if (!chain.effectiveAudiences.includes(requestOrigin)) {
     return { ok: false, reason: "audience_mismatch" }
   }
   if (
@@ -368,7 +371,7 @@ async function verifyDelegatedCandidate(
   ) {
     return { ok: false, reason: "delegation_not_covered" }
   }
-  for (const component of chain.effectiveComponents) {
+  for (const component of chain.effectiveRequiredComponents) {
     if (!isSupportedDelegationComponent(component)) {
       return { ok: false, reason: "delegation_components_unsupported" }
     }
@@ -376,14 +379,17 @@ async function verifyDelegatedCandidate(
       return { ok: false, reason: "delegation_components_uncovered" }
     }
   }
-  if (requestParams.nonce === undefined && !chain.effectiveReplayable) {
+  if (
+    requestParams.nonce === undefined &&
+    chain.effectiveRequireNonReplayable
+  ) {
     return { ok: false, reason: "delegation_nonce_required" }
   }
   if (
-    chain.chain.links.some(({ grant }) => grant.scope.length > 0) &&
-    delegationPolicy.scopeSupported === false
+    chain.chain.links.some(({ grant }) => grant.permissions.length > 0) &&
+    delegationPolicy.permissionsSupported === false
   ) {
-    return { ok: false, reason: "unsupported_scope" }
+    return { ok: false, reason: "unsupported_permissions" }
   }
   const requiredWhenPresent = getRequiredWhenPresent(args)
   const built = buildAttempts([args.candidate], {
@@ -399,7 +405,7 @@ async function verifyDelegatedCandidate(
     ...args,
     attempt,
     allowReplayable:
-      chain.effectiveReplayable && (args.policy.replayable ?? false),
+      !chain.effectiveRequireNonReplayable && (args.policy.replayable ?? false),
     missingNonceReason: "replayable_not_allowed"
   })
   if ("failure" in common) return common.failure
@@ -446,16 +452,18 @@ async function verifyDelegatedCandidate(
     }
     if (!proof) return { ok: false, reason: "bad_grant_signature" }
   }
-  for (const link of chain.chain.links) {
-    let status: Awaited<ReturnType<typeof delegationPolicy.verifyStatus>>
-    try {
-      status = await delegationPolicy.verifyStatus({
-        link,
-        request: args.request
-      })
-    } catch {
-      return { ok: false, reason: "revocation_unavailable" }
-    }
+  let statuses: Awaited<ReturnType<typeof delegationPolicy.verifyStatuses>>
+  try {
+    statuses = await delegationPolicy.verifyStatuses(
+      chain.chain.links.map((link) => ({ link, request: args.request }))
+    )
+  } catch {
+    return { ok: false, reason: "revocation_unavailable" }
+  }
+  if (statuses.length !== chain.chain.links.length) {
+    return { ok: false, reason: "revocation_unavailable" }
+  }
+  for (const status of statuses) {
     if (status === "unavailable") {
       return { ok: false, reason: "revocation_unavailable" }
     }
@@ -470,14 +478,18 @@ async function verifyDelegatedCandidate(
     }
   }
 
-  const requiredScopes = delegationPolicy.requiredScopes ?? []
-  if (requiredScopes.some((scope) => !chain.effectiveScope.includes(scope))) {
-    return { ok: false, reason: "insufficient_scope" }
+  const requiredPermissions = delegationPolicy.requiredPermissions ?? []
+  if (
+    requiredPermissions.some(
+      (permission) => !chain.effectivePermissions.includes(permission)
+    )
+  ) {
+    return { ok: false, reason: "insufficient_permissions" }
   }
   const nonceFailure = await consumeNonce(common.noncePlan)
   if (nonceFailure) return nonceFailure
 
-  const principal = parseKeyId(root.root)
+  const principal = parseKeyId(root.issuer)
   if (principal === null) return { ok: false, reason: "bad_delegation_field" }
   return {
     ok: true,
@@ -623,13 +635,13 @@ async function verifyGrantProof(args: {
     // A proof cache is only an optimization.
   }
   if (args.verifyDigest === undefined) return "unavailable"
-  const root = parseKeyId(args.link.grant.root)
-  if (root === null) return false
+  const issuer = parseKeyId(args.link.grant.issuer)
+  if (issuer === null) return false
   const proof = await callDigestVerifier(
     args.verifyDigest,
     {
-      address: root.address,
-      chainId: root.chainId,
+      address: issuer.address,
+      chainId: issuer.chainId,
       digest,
       signature: args.link.signature
     },
@@ -638,7 +650,7 @@ async function verifyGrantProof(args: {
   if (proof !== true) return proof
   const ttl = Math.min(
     args.cacheTtl ?? DEFAULT_GRANT_CACHE_TTL_SEC,
-    Math.max(1, args.link.grant.expires - args.now)
+    Math.max(1, args.link.grant.validUntil - args.now)
   )
   try {
     await args.cache?.set(cacheKey, args.now + ttl)
@@ -654,14 +666,14 @@ function validateGrantTime(args: {
   skew: number
   maximum: number | undefined
 }): Failure | null {
-  const { created, expires } = args.link.grant
-  if (args.now < created - args.skew) {
+  const { validAfter, validUntil } = args.link.grant
+  if (args.now < validAfter - args.skew) {
     return { ok: false, reason: "grant_not_yet_valid" }
   }
-  if (args.now > expires + args.skew) {
+  if (args.now > validUntil + args.skew) {
     return { ok: false, reason: "grant_expired" }
   }
-  if (args.maximum !== undefined && expires - created > args.maximum) {
+  if (args.maximum !== undefined && validUntil - validAfter > args.maximum) {
     return { ok: false, reason: "grant_validity_too_long" }
   }
   return null

@@ -32,51 +32,57 @@ export function resolveDelegationChain(
   if (first === undefined) {
     throw new Erc8128Error("PARSE_ERROR", "Delegation Chain is empty.")
   }
-  if (first.grant.parent !== ZERO_DELEGATION_PARENT) discontinuous()
+  if (first.grant.parentGrantHash !== ZERO_DELEGATION_PARENT) discontinuous()
 
-  let effectiveAudience = [...first.grant.aud]
-  let effectiveComponents = first.grant.components.map(parseDelegationComponent)
-  let effectiveMaxAge = first.grant.maxAge
-  let effectiveReplayable = first.grant.allowReplayable
-  let effectiveScope = [...first.grant.scope]
+  let effectiveAudiences = [...first.grant.audiences]
+  let effectiveRequiredComponents = first.grant.requiredComponents.map(
+    parseDelegationComponent
+  )
+  let effectiveMaxRequestValiditySeconds = first.grant.maxRequestValiditySeconds
+  let effectiveRequireNonReplayable = first.grant.requireNonReplayable
+  let effectivePermissions = [...first.grant.permissions]
 
   for (let index = 1; index < parsed.chain.links.length; index += 1) {
     const parent = parsed.chain.links[index - 1]
     const child = parsed.chain.links[index]
     if (parent === undefined || child === undefined) discontinuous()
     if (
-      child.grant.root !== parent.grant.delegate ||
-      child.grant.parent !== hashDelegation(parent.grant, audiencePolicy)
+      child.grant.issuer !== parent.grant.delegate ||
+      child.grant.parentGrantHash !==
+        hashDelegation(parent.grant, audiencePolicy)
     ) {
       discontinuous()
     }
     if (
-      !isSubset(child.grant.aud, effectiveAudience) ||
-      (child.grant.scope.length > 0 &&
-        !isSubset(child.grant.scope, effectiveScope)) ||
-      child.grant.created < parent.grant.created ||
-      child.grant.expires > parent.grant.expires ||
-      child.grant.maxAge > effectiveMaxAge
+      !isSubset(child.grant.audiences, effectiveAudiences) ||
+      (child.grant.permissions.length > 0 &&
+        !isSubset(child.grant.permissions, effectivePermissions)) ||
+      child.grant.validAfter < parent.grant.validAfter ||
+      child.grant.validUntil > parent.grant.validUntil ||
+      child.grant.maxRequestValiditySeconds > effectiveMaxRequestValiditySeconds
     ) {
       attenuation()
     }
-    effectiveAudience = [...child.grant.aud]
-    effectiveMaxAge = child.grant.maxAge
-    effectiveReplayable = effectiveReplayable && child.grant.allowReplayable
-    if (child.grant.scope.length > 0) effectiveScope = [...child.grant.scope]
-    effectiveComponents = unionComponents(
-      effectiveComponents,
-      child.grant.components.map(parseDelegationComponent)
+    effectiveAudiences = [...child.grant.audiences]
+    effectiveMaxRequestValiditySeconds = child.grant.maxRequestValiditySeconds
+    effectiveRequireNonReplayable =
+      effectiveRequireNonReplayable || child.grant.requireNonReplayable
+    if (child.grant.permissions.length > 0) {
+      effectivePermissions = [...child.grant.permissions]
+    }
+    effectiveRequiredComponents = unionComponents(
+      effectiveRequiredComponents,
+      child.grant.requiredComponents.map(parseDelegationComponent)
     )
   }
 
   return {
     ...parsed,
-    effectiveAudience,
-    effectiveComponents,
-    effectiveMaxAge,
-    effectiveReplayable,
-    effectiveScope
+    effectiveAudiences,
+    effectiveRequiredComponents,
+    effectiveMaxRequestValiditySeconds,
+    effectiveRequireNonReplayable,
+    effectivePermissions
   }
 }
 

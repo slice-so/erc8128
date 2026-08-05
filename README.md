@@ -43,8 +43,9 @@ The `ERC-8128-Delegation` Dictionary contains only ordered `g0` through `gN`
 Byte Sequences, while `Signature-Input` and `Signature` contain exactly one leaf
 request proof tagged
 `erc8128-delegated`. Verifiers opt in with `policy.delegation`, validate the
-canonical revocation status of every link, and receive the root as `principal`,
-the leaf as `signer`, and the ordered `delegationIds`.
+canonical revocation status of every link through one batch verifier call, and
+receive the initial issuer as `principal`, the leaf as `signer`, and the ordered
+`delegationIds`.
 
 Replay posture is inferred only from `nonce`: the signer generates one by
 default, while `{ nonce: null }` deliberately creates a Replayable request.

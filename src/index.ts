@@ -106,6 +106,7 @@ export type {
   DelegationLink,
   DelegationPolicy,
   DelegationSigner,
+  DelegationStatus,
   DelegationStatusContext,
   DelegationStatusVerifier,
   DelegationTypedData,

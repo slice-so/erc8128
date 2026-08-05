@@ -219,20 +219,20 @@ type DelegationPolicy = {
   grantCacheTtlSec?: number
   maxChainDepth?: number
   maxGrantValiditySec?: number
-  requiredScopes?: readonly string[]
-  scopeSupported?: boolean
-  verifyStatus: ({ link, request }: DelegationStatusContext) =>
-    | "valid"
-    | "revoked"
-    | "epoch-mismatch"
-    | "unavailable"
-    | Promise<"valid" | "revoked" | "epoch-mismatch" | "unavailable">
+  requiredPermissions?: readonly string[]
+  permissionsSupported?: boolean
+  verifyStatuses: (
+    contexts: readonly DelegationStatusContext[]
+  ) =>
+    | readonly DelegationStatus[]
+    | Promise<readonly DelegationStatus[]>
 }
 ```
 
-`verifyStatus` checks the protocol-owned canonical registry for every link's
-signed `(root, id, epoch)`. Registry chain and address are not grant fields or
-ordinary signer configuration.
+`verifyStatuses` receives every ordered link in the resolved chain at once and
+returns one status in the same order. This lets registry-backed verifiers use a
+single multicall rather than one RPC request per link. Registry chain and
+address are not grant fields or ordinary signer configuration.
 
 ---
 
@@ -387,11 +387,11 @@ type VerifyFailReason =
   | "bad_grant_signature"
   | "audience_mismatch"
   | "delegation_nonce_required"
-  | "delegation_max_age_exceeded"
+  | "delegation_request_validity_exceeded"
   | "delegation_components_unsupported"
   | "delegation_components_uncovered"
-  | "unsupported_scope"
-  | "insufficient_scope"
+  | "unsupported_permissions"
+  | "insufficient_permissions"
   | "authorization_revoked"
   | "authorization_epoch_mismatch"
   | "grant_verification_unavailable"

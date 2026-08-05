@@ -41,23 +41,23 @@ export const ZERO_DELEGATION_PARENT =
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 export const DELEGATION_TYPE_STRING =
-  "Delegation(string root,string delegate,string[] aud,bytes32 id,uint64 epoch,uint64 created,uint64 expires,uint32 maxAge,bool delegateIsEOA,bool allowReplayable,string[] components,string[] scope,bytes32 parent)"
+  "Delegation(string issuer,string delegate,string[] audiences,bytes32 id,uint64 epoch,uint64 validAfter,uint64 validUntil,uint32 maxRequestValiditySeconds,bool delegateIsEOA,bool requireNonReplayable,string[] requiredComponents,string[] permissions,bytes32 parentGrantHash)"
 
 export const DELEGATION_TYPES = {
   Delegation: [
-    { name: "root", type: "string" },
+    { name: "issuer", type: "string" },
     { name: "delegate", type: "string" },
-    { name: "aud", type: "string[]" },
+    { name: "audiences", type: "string[]" },
     { name: "id", type: "bytes32" },
     { name: "epoch", type: "uint64" },
-    { name: "created", type: "uint64" },
-    { name: "expires", type: "uint64" },
-    { name: "maxAge", type: "uint32" },
+    { name: "validAfter", type: "uint64" },
+    { name: "validUntil", type: "uint64" },
+    { name: "maxRequestValiditySeconds", type: "uint32" },
     { name: "delegateIsEOA", type: "bool" },
-    { name: "allowReplayable", type: "bool" },
-    { name: "components", type: "string[]" },
-    { name: "scope", type: "string[]" },
-    { name: "parent", type: "bytes32" }
+    { name: "requireNonReplayable", type: "bool" },
+    { name: "requiredComponents", type: "string[]" },
+    { name: "permissions", type: "string[]" },
+    { name: "parentGrantHash", type: "bytes32" }
   ]
 } as const
 
@@ -67,7 +67,7 @@ export const ERC8128_REVOCATION_ABI = [
     name: "status",
     stateMutability: "view",
     inputs: [
-      { name: "root", type: "address" },
+      { name: "issuer", type: "address" },
       { name: "id", type: "bytes32" }
     ],
     outputs: [
@@ -87,7 +87,7 @@ export const ERC8128_REVOCATION_ABI = [
     name: "revokeBySig",
     stateMutability: "nonpayable",
     inputs: [
-      { name: "root", type: "address" },
+      { name: "issuer", type: "address" },
       { name: "id", type: "bytes32" },
       { name: "sig", type: "bytes" }
     ],
@@ -104,7 +104,7 @@ export const ERC8128_REVOCATION_ABI = [
     type: "event",
     name: "Revoked",
     inputs: [
-      { name: "root", type: "address", indexed: true },
+      { name: "issuer", type: "address", indexed: true },
       { name: "id", type: "bytes32", indexed: true }
     ]
   },
@@ -112,7 +112,7 @@ export const ERC8128_REVOCATION_ABI = [
     type: "event",
     name: "EpochAdvanced",
     inputs: [
-      { name: "root", type: "address", indexed: true },
+      { name: "issuer", type: "address", indexed: true },
       { name: "newEpoch", type: "uint64", indexed: false }
     ]
   }
@@ -121,20 +121,20 @@ export const ERC8128_REVOCATION_ABI = [
 const encoder = new TextEncoder()
 
 export function getDelegationTypedData(grant: Delegation): DelegationTypedData {
-  const root = requireCanonicalIdentity(grant.root, "root")
+  const issuer = requireCanonicalIdentity(grant.issuer, "issuer")
   return {
     domain: {
       name: "ERC-8128 Delegation",
       version: "1",
-      chainId: root.chainId
+      chainId: issuer.chainId
     },
     types: DELEGATION_TYPES,
     primaryType: "Delegation",
     message: {
       ...grant,
       epoch: BigInt(grant.epoch),
-      created: BigInt(grant.created),
-      expires: BigInt(grant.expires)
+      validAfter: BigInt(grant.validAfter),
+      validUntil: BigInt(grant.validUntil)
     }
   }
 }
@@ -326,31 +326,38 @@ export function validateDelegation(
     typeof grant !== "object" ||
     grant === null ||
     Object.keys(grant).sort().join(",") !==
-      "allowReplayable,aud,components,created,delegate,delegateIsEOA,epoch,expires,id,maxAge,parent,root,scope"
+      "audiences,delegate,delegateIsEOA,epoch,id,issuer,maxRequestValiditySeconds,parentGrantHash,permissions,requireNonReplayable,requiredComponents,validAfter,validUntil"
   ) {
     throw parseError("Delegation has an invalid field set.")
   }
-  requireCanonicalIdentity(grant.root, "root")
+  requireCanonicalIdentity(grant.issuer, "issuer")
   requireCanonicalIdentity(grant.delegate, "delegate")
-  assertArray(grant.aud, "aud", true)
-  for (const audience of grant.aud) normalizeAudienceOrigin(audience, policy)
+  assertArray(grant.audiences, "audiences", true)
+  for (const audience of grant.audiences)
+    normalizeAudienceOrigin(audience, policy)
   assertBytes32(grant.id, "id")
   assertInteger(grant.epoch, "epoch", 0, Number.MAX_SAFE_INTEGER)
-  assertInteger(grant.created, "created", 0, Number.MAX_SAFE_INTEGER)
-  assertInteger(grant.expires, "expires", 1, Number.MAX_SAFE_INTEGER)
-  if (grant.expires <= grant.created)
+  assertInteger(grant.validAfter, "validAfter", 0, Number.MAX_SAFE_INTEGER)
+  assertInteger(grant.validUntil, "validUntil", 1, Number.MAX_SAFE_INTEGER)
+  if (grant.validUntil <= grant.validAfter)
     throw parseError("Grant window is invalid.")
-  assertInteger(grant.maxAge, "maxAge", 1, 0xffff_ffff)
+  assertInteger(
+    grant.maxRequestValiditySeconds,
+    "maxRequestValiditySeconds",
+    1,
+    0xffff_ffff
+  )
   if (typeof grant.delegateIsEOA !== "boolean") {
     throw parseError("delegateIsEOA must be Boolean.")
   }
-  if (typeof grant.allowReplayable !== "boolean") {
-    throw parseError("allowReplayable must be Boolean.")
+  if (typeof grant.requireNonReplayable !== "boolean") {
+    throw parseError("requireNonReplayable must be Boolean.")
   }
-  assertArray(grant.components, "components", false)
-  for (const component of grant.components) parseDelegationComponent(component)
-  assertArray(grant.scope, "scope", false)
-  assertBytes32(grant.parent, "parent")
+  assertArray(grant.requiredComponents, "requiredComponents", false)
+  for (const component of grant.requiredComponents)
+    parseDelegationComponent(component)
+  assertArray(grant.permissions, "permissions", false)
+  assertBytes32(grant.parentGrantHash, "parentGrantHash")
 }
 
 function requireCanonicalIdentity(value: string, name: string) {

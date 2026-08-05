@@ -85,7 +85,7 @@ export function createDelegatedSignerClient(
     options: SignOptions | undefined
   ): Promise<Request> {
     const request = new Request(input, init)
-    assertAudience(request.url, resolved.effectiveAudience, audiencePolicy)
+    assertAudience(request.url, resolved.effectiveAudiences, audiencePolicy)
     const requestOrigin = sanitizeUrl(request.url).origin
     const serverConfig = serverConfigs.get(requestOrigin)
     const routePolicy = matchRoutePolicy(
@@ -94,16 +94,16 @@ export function createDelegatedSignerClient(
       serverConfig?.route_policies
     )
     const now = unixNow()
-    const created = Math.max(options?.created ?? now, leafGrant.created)
+    const created = Math.max(options?.created ?? now, leafGrant.validAfter)
     const requestedTtl = Math.min(
       options?.ttlSeconds ?? defaults?.ttlSeconds ?? 60,
       serverConfig?.max_validity_sec ?? Number.POSITIVE_INFINITY,
-      resolved.effectiveMaxAge
+      resolved.effectiveMaxRequestValiditySeconds
     )
     const expires = Math.min(
       options?.expires ?? created + requestedTtl,
       created + requestedTtl,
-      leafGrant.expires
+      leafGrant.validUntil
     )
     if (expires <= created) {
       throw new Erc8128Error("INVALID_OPTIONS", "Delegation has expired.")
@@ -113,10 +113,10 @@ export function createDelegatedSignerClient(
       (options?.nonce === undefined &&
         (defaults?.nonce === null || defaults?.preferReplayable === true))
     const replayable = requestedReplayable && routePolicy?.replayable !== false
-    if (replayable && !resolved.effectiveReplayable) {
+    if (replayable && resolved.effectiveRequireNonReplayable) {
       throw new Erc8128Error(
         "INVALID_OPTIONS",
-        "Delegation does not authorize Replayable requests."
+        "Delegation requires non-replayable requests."
       )
     }
 
@@ -132,7 +132,7 @@ export function createDelegatedSignerClient(
       label = `${options?.label ?? defaults?.label ?? "request"}${suffix}`
       suffix += 1
     }
-    const components = [...resolved.effectiveComponents]
+    const components = [...resolved.effectiveRequiredComponents]
     for (const component of options?.components ?? []) {
       if (
         !components.some((existing) =>
@@ -200,7 +200,7 @@ export function createDelegatedSignerClient(
         throw new Erc8128Error("UNSUPPORTED_REQUEST", "Too many redirects.")
       }
       const target = new URL(location, signed.url)
-      assertAudience(target.href, resolved.effectiveAudience, audiencePolicy)
+      assertAudience(target.href, resolved.effectiveAudiences, audiencePolicy)
       const method = redirectMethod(response.status, signed.method)
       nextInput = target.href
       if (typeof signingOptions?.nonce === "string") {

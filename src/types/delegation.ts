@@ -15,19 +15,19 @@ export type AccountIdentity = { chainId: number; address: Address }
 
 /** The exact EIP-712 Delegation value defined by the delegated extension. */
 export type Delegation = {
-  root: string
+  issuer: string
   delegate: string
-  aud: string[]
+  audiences: string[]
   id: Hex
   epoch: number
-  created: number
-  expires: number
-  maxAge: number
+  validAfter: number
+  validUntil: number
+  maxRequestValiditySeconds: number
   delegateIsEOA: boolean
-  allowReplayable: boolean
-  components: string[]
-  scope: string[]
-  parent: Hex
+  requireNonReplayable: boolean
+  requiredComponents: string[]
+  permissions: string[]
+  parentGrantHash: Hex
 }
 
 /** One signed EIP-712 grant, embedded as one deterministic-CBOR link. */
@@ -41,19 +41,19 @@ export type DelegationChain = {
 }
 
 export type DelegationGrantBuildArgs = DelegationAudiencePolicy & {
-  root: AccountIdentity
+  issuer: AccountIdentity
   delegate: AccountIdentity
   audiences: readonly string[]
   id: Hex | Uint8Array
   epoch: number
-  created?: number
-  expires: number
-  maxAge: number
+  validAfter?: number
+  validUntil: number
+  maxRequestValiditySeconds: number
   delegateIsEOA: boolean
-  allowReplayable: boolean
-  components?: readonly CoveredComponent[]
-  scopes?: readonly string[]
-  parent?: Hex
+  requireNonReplayable: boolean
+  requiredComponents?: readonly CoveredComponent[]
+  permissions?: readonly string[]
+  parentGrantHash?: Hex
 }
 
 export type DelegationTypedData = {
@@ -64,26 +64,29 @@ export type DelegationTypedData = {
   }
   types: {
     Delegation: readonly [
-      { readonly name: "root"; readonly type: "string" },
+      { readonly name: "issuer"; readonly type: "string" },
       { readonly name: "delegate"; readonly type: "string" },
-      { readonly name: "aud"; readonly type: "string[]" },
+      { readonly name: "audiences"; readonly type: "string[]" },
       { readonly name: "id"; readonly type: "bytes32" },
       { readonly name: "epoch"; readonly type: "uint64" },
-      { readonly name: "created"; readonly type: "uint64" },
-      { readonly name: "expires"; readonly type: "uint64" },
-      { readonly name: "maxAge"; readonly type: "uint32" },
+      { readonly name: "validAfter"; readonly type: "uint64" },
+      { readonly name: "validUntil"; readonly type: "uint64" },
+      {
+        readonly name: "maxRequestValiditySeconds"
+        readonly type: "uint32"
+      },
       { readonly name: "delegateIsEOA"; readonly type: "bool" },
-      { readonly name: "allowReplayable"; readonly type: "bool" },
-      { readonly name: "components"; readonly type: "string[]" },
-      { readonly name: "scope"; readonly type: "string[]" },
-      { readonly name: "parent"; readonly type: "bytes32" }
+      { readonly name: "requireNonReplayable"; readonly type: "bool" },
+      { readonly name: "requiredComponents"; readonly type: "string[]" },
+      { readonly name: "permissions"; readonly type: "string[]" },
+      { readonly name: "parentGrantHash"; readonly type: "bytes32" }
     ]
   }
   primaryType: "Delegation"
-  message: Omit<Delegation, "epoch" | "created" | "expires"> & {
+  message: Omit<Delegation, "epoch" | "validAfter" | "validUntil"> & {
     epoch: bigint
-    created: bigint
-    expires: bigint
+    validAfter: bigint
+    validUntil: bigint
   }
 }
 
@@ -99,14 +102,15 @@ export type DelegationStatusContext = {
   request: Request
 }
 
-export type DelegationStatusVerifier = (
-  context: DelegationStatusContext
-) =>
+export type DelegationStatus =
   | "valid"
   | "revoked"
   | "epoch-mismatch"
   | "unavailable"
-  | Promise<"valid" | "revoked" | "epoch-mismatch" | "unavailable">
+
+export type DelegationStatusVerifier = (
+  contexts: readonly DelegationStatusContext[]
+) => readonly DelegationStatus[] | Promise<readonly DelegationStatus[]>
 
 export interface DelegationGrantCache {
   get(key: string): true | undefined | Promise<true | undefined>
@@ -119,9 +123,9 @@ export type DelegationPolicy = {
   grantCacheTtlSec?: number
   maxChainDepth?: number
   maxGrantValiditySec?: number
-  requiredScopes?: readonly string[]
-  scopeSupported?: boolean
-  verifyStatus: DelegationStatusVerifier
+  requiredPermissions?: readonly string[]
+  permissionsSupported?: boolean
+  verifyStatuses: DelegationStatusVerifier
 }
 
 export type DelegatedSignerClientOptions = Omit<
@@ -144,9 +148,9 @@ export type ParsedDelegationField = {
 }
 
 export type ResolvedDelegationChain = ParsedDelegationField & {
-  effectiveAudience: string[]
-  effectiveComponents: ComponentIdentifier[]
-  effectiveMaxAge: number
-  effectiveReplayable: boolean
-  effectiveScope: string[]
+  effectiveAudiences: string[]
+  effectiveRequiredComponents: ComponentIdentifier[]
+  effectiveMaxRequestValiditySeconds: number
+  effectiveRequireNonReplayable: boolean
+  effectivePermissions: string[]
 }

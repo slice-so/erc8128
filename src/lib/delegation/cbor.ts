@@ -204,19 +204,19 @@ export function encodeDelegationLinkCbor(link: DelegationLink): Uint8Array {
   const { grant } = link
   const encoder = new LinkEncoder()
   encoder.append(encodeHead(4, BigInt(ARRAY_ELEMENT_COUNT)))
-  appendString(encoder, grant.root)
+  appendString(encoder, grant.issuer)
   appendString(encoder, grant.delegate)
-  appendStringArray(encoder, grant.aud)
+  appendStringArray(encoder, grant.audiences)
   appendBytes(encoder, hexToBytes(grant.id))
   appendUint(encoder, grant.epoch)
-  appendUint(encoder, grant.created)
-  appendUint(encoder, grant.expires)
-  appendUint(encoder, grant.maxAge)
+  appendUint(encoder, grant.validAfter)
+  appendUint(encoder, grant.validUntil)
+  appendUint(encoder, grant.maxRequestValiditySeconds)
   encoder.append(Uint8Array.of(grant.delegateIsEOA ? 0xf5 : 0xf4))
-  encoder.append(Uint8Array.of(grant.allowReplayable ? 0xf5 : 0xf4))
-  appendStringArray(encoder, grant.components)
-  appendStringArray(encoder, grant.scope)
-  appendBytes(encoder, hexToBytes(grant.parent))
+  encoder.append(Uint8Array.of(grant.requireNonReplayable ? 0xf5 : 0xf4))
+  appendStringArray(encoder, grant.requiredComponents)
+  appendStringArray(encoder, grant.permissions)
+  appendBytes(encoder, hexToBytes(grant.parentGrantHash))
   appendBytes(encoder, hexToBytes(link.signature))
   return encoder.finish()
 }
@@ -232,19 +232,22 @@ export function decodeDelegationLinkCbor(bytes: Uint8Array): DelegationLink {
     )
   }
   const grant: Delegation = {
-    root: decoder.readString("root"),
+    issuer: decoder.readString("issuer"),
     delegate: decoder.readString("delegate"),
-    aud: decoder.readStringArray("aud"),
+    audiences: decoder.readStringArray("audiences"),
     id: bytesToHex(decoder.readBytes("id", 32)) as Hex,
     epoch: decoder.readUint("epoch"),
-    created: decoder.readUint("created"),
-    expires: decoder.readUint("expires"),
-    maxAge: decoder.readUint("maxAge", UINT32_MAX),
+    validAfter: decoder.readUint("validAfter"),
+    validUntil: decoder.readUint("validUntil"),
+    maxRequestValiditySeconds: decoder.readUint(
+      "maxRequestValiditySeconds",
+      UINT32_MAX
+    ),
     delegateIsEOA: decoder.readBoolean("delegateIsEOA"),
-    allowReplayable: decoder.readBoolean("allowReplayable"),
-    components: decoder.readStringArray("components"),
-    scope: decoder.readStringArray("scope"),
-    parent: bytesToHex(decoder.readBytes("parent", 32)) as Hex
+    requireNonReplayable: decoder.readBoolean("requireNonReplayable"),
+    requiredComponents: decoder.readStringArray("requiredComponents"),
+    permissions: decoder.readStringArray("permissions"),
+    parentGrantHash: bytesToHex(decoder.readBytes("parentGrantHash", 32)) as Hex
   }
   const signatureBytes = decoder.readBytes("signature")
   if (signatureBytes.length === 0) {

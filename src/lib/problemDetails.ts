@@ -53,11 +53,11 @@ const VERIFY_FAILURE_REASONS = new Set<VerifyFailReason>([
   "bad_grant_signature",
   "audience_mismatch",
   "delegation_nonce_required",
-  "delegation_max_age_exceeded",
+  "delegation_request_validity_exceeded",
   "delegation_components_unsupported",
   "delegation_components_uncovered",
-  "unsupported_scope",
-  "insufficient_scope",
+  "unsupported_permissions",
+  "insufficient_permissions",
   "grant_verification_unavailable",
   "authorization_revoked",
   "authorization_epoch_mismatch",
@@ -75,7 +75,7 @@ export function formatErc8128ProblemDetails(
     ? 503
     : BAD_REQUEST_REASONS.has(failure.reason)
       ? 400
-      : failure.reason === "insufficient_scope"
+      : failure.reason === "insufficient_permissions"
         ? 403
         : 401
   return {

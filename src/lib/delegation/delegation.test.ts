@@ -41,50 +41,51 @@ const delegateC = privateKeyToAccount(
 )
 
 const g0Grant: Delegation = {
-  root: `eip155:1:${root.address.toLowerCase()}`,
+  issuer: `eip155:1:${root.address.toLowerCase()}`,
   delegate: `eip155:1:${delegateA.address.toLowerCase()}`,
-  aud: ["https://api.example", "https://backup.example"],
+  audiences: ["https://api.example", "https://backup.example"],
   id: `0x${"11".repeat(32)}`,
   epoch: 7,
-  created: 1_699_999_000,
-  expires: 1_700_003_600,
-  maxAge: 60,
+  validAfter: 1_699_999_000,
+  validUntil: 1_700_003_600,
+  maxRequestValiditySeconds: 60,
   delegateIsEOA: true,
-  allowReplayable: true,
-  components: ["@authority"],
-  scope: ["resource:read", "resource:write"],
-  parent: `0x${"00".repeat(32)}`
+  requireNonReplayable: true,
+  requiredComponents: ["@authority"],
+  permissions: ["resource:read", "resource:write"],
+  parentGrantHash: `0x${"00".repeat(32)}`
 }
 const g0: DelegationLink = {
   grant: g0Grant,
   signature:
-    "0x537590cfd51670d5327bdbb8a62ad78db94e9c6a3435bcea00a8c2bf8580cbab714ecb346e551920aa78cd4c1e36a44c89f7a6e6db3b2151285761c851cfa4921c"
+    "0x479e35478cb0051c60f6b7e9f5ccbf4680508efbf4f689dbec460322ad61d41b394997be2fab4c7f05893d6d60e8c211547925a69f5e575f8afe0f4d5dcfc8691c"
 }
 const g1Grant: Delegation = {
-  root: `eip155:1:${delegateA.address.toLowerCase()}`,
+  issuer: `eip155:1:${delegateA.address.toLowerCase()}`,
   delegate: `eip155:1:${delegateB.address.toLowerCase()}`,
-  aud: ["https://api.example"],
+  audiences: ["https://api.example"],
   id: `0x${"22".repeat(32)}`,
   epoch: 3,
-  created: 1_699_999_500,
-  expires: 1_700_001_800,
-  maxAge: 60,
+  validAfter: 1_699_999_500,
+  validUntil: 1_700_001_800,
+  maxRequestValiditySeconds: 60,
   delegateIsEOA: true,
-  allowReplayable: true,
-  components: ["@method"],
-  scope: ["resource:read"],
-  parent: "0xf2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366"
+  requireNonReplayable: true,
+  requiredComponents: ["@method"],
+  permissions: ["resource:read"],
+  parentGrantHash:
+    "0x4a274dc6f56120c748e8494b1e5d4d058849594fef1b885759eb97ea6d5c63c2"
 }
 const g1: DelegationLink = {
   grant: g1Grant,
   signature:
-    "0x03e5baed77bd76300a15567ac9ef02994a891e10cf728f6e75ac292748fd31b41ecf0187c091f8d3997a34243a96df13ecbe11f93186f32b087caba7a0e24e0b1c"
+    "0x5f10163c0c576641abebbd758589d380b283ecbabdb14e0d071b09a5d99af39570bc80e418c6a5888e068965073f38755fccead52d5830bb29e109a9fdccc00e1b"
 }
 // Cross-checked byte-for-byte against @ipld/dag-cbor 9.2.7.
 const g0Cbor =
-  "0x8e78336569703135353a313a30783262356164356334373935633032363531346638333137633761323135653231386463636436636678336569703135353a313a307836383133656239333632333732656566363230306633623164626333663831393637316362613639827368747470733a2f2f6170692e6578616d706c657668747470733a2f2f6261636b75702e6578616d706c6558201111111111111111111111111111111111111111111111111111111111111111071a6553ed181a6553ff10183cf5f5816a40617574686f72697479826d7265736f757263653a726561646e7265736f757263653a7772697465582000000000000000000000000000000000000000000000000000000000000000005841537590cfd51670d5327bdbb8a62ad78db94e9c6a3435bcea00a8c2bf8580cbab714ecb346e551920aa78cd4c1e36a44c89f7a6e6db3b2151285761c851cfa4921c"
+  "0x8e78336569703135353a313a30783262356164356334373935633032363531346638333137633761323135653231386463636436636678336569703135353a313a307836383133656239333632333732656566363230306633623164626333663831393637316362613639827368747470733a2f2f6170692e6578616d706c657668747470733a2f2f6261636b75702e6578616d706c6558201111111111111111111111111111111111111111111111111111111111111111071a6553ed181a6553ff10183cf5f5816a40617574686f72697479826d7265736f757263653a726561646e7265736f757263653a7772697465582000000000000000000000000000000000000000000000000000000000000000005841479e35478cb0051c60f6b7e9f5ccbf4680508efbf4f689dbec460322ad61d41b394997be2fab4c7f05893d6d60e8c211547925a69f5e575f8afe0f4d5dcfc8691c"
 const g1Cbor =
-  "0x8e78336569703135353a313a30783638313365623933363233373265656636323030663362316462633366383139363731636261363978336569703135353a313a307831656666343762633361313061343564346232333062356431306533373735316665366161373138817368747470733a2f2f6170692e6578616d706c6558202222222222222222222222222222222222222222222222222222222222222222031a6553ef0c1a6553f808183cf5f58167406d6574686f64816d7265736f757263653a726561645820f2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366584103e5baed77bd76300a15567ac9ef02994a891e10cf728f6e75ac292748fd31b41ecf0187c091f8d3997a34243a96df13ecbe11f93186f32b087caba7a0e24e0b1c"
+  "0x8e78336569703135353a313a30783638313365623933363233373265656636323030663362316462633366383139363731636261363978336569703135353a313a307831656666343762633361313061343564346232333062356431306533373735316665366161373138817368747470733a2f2f6170692e6578616d706c6558202222222222222222222222222222222222222222222222222222222222222222031a6553ef0c1a6553f808183cf5f58167406d6574686f64816d7265736f757263653a7265616458204a274dc6f56120c748e8494b1e5d4d058849594fef1b885759eb97ea6d5c63c258415f10163c0c576641abebbd758589d380b283ecbabdb14e0d071b09a5d99af39570bc80e418c6a5888e068965073f38755fccead52d5830bb29e109a9fdccc00e1b"
 
 const signer = (account: typeof delegateA) => ({
   address: account.address,
@@ -98,7 +99,8 @@ const verify = (
   options: {
     maximumDepth?: number
     nonceStore?: NonceStore
-    requiredScopes?: readonly string[]
+    requiredPermissions?: readonly string[]
+    statusBatch?: (links: readonly DelegationLink[]) => void
     status?: (
       link: DelegationLink
     ) => "valid" | "revoked" | "epoch-mismatch" | "unavailable"
@@ -115,8 +117,12 @@ const verify = (
         ...(options.maximumDepth === undefined
           ? {}
           : { maxChainDepth: options.maximumDepth }),
-        requiredScopes: options.requiredScopes ?? ["resource:read"],
-        verifyStatus: ({ link }) => options.status?.(link) ?? "valid"
+        requiredPermissions: options.requiredPermissions ?? ["resource:read"],
+        verifyStatuses: (contexts) => {
+          const links = contexts.map(({ link }) => link)
+          options.statusBatch?.(links)
+          return links.map((link) => options.status?.(link) ?? "valid")
+        }
       }
     },
     verifyDigest: async ({ address, digest, signature }) =>
@@ -179,19 +185,19 @@ describe("EIP-712 Delegation grants", () => {
         primaryType: g0TypedData.primaryType,
         types
       })
-    ).toBe("0x7cefd4d1cce7b03b79be8d638f5909e38750c665d4db0c28d4392fa55851225a")
+    ).toBe("0x82906303eba6d0fa5d1b6315869673e5e80e4cb0b19230f8b32cd5aeb9921536")
     expect(
       hashStruct({
         data: g1TypedData.message,
         primaryType: g1TypedData.primaryType,
         types
       })
-    ).toBe("0x1cfbf6c5aa0cd9c2782845217b275001605d2287d60362c2d6c661a9006cf5e1")
+    ).toBe("0xab39f11f8d1d4060992c0fc26f6c8e043d77db6e8afc52d4fd6f84780ab5be82")
     expect(hashDelegation(g0Grant)).toBe(
-      "0xf2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366"
+      "0x4a274dc6f56120c748e8494b1e5d4d058849594fef1b885759eb97ea6d5c63c2"
     )
     expect(hashDelegation(g1Grant)).toBe(
-      "0x0267ed56f6e57f6b0ca5c813abe73a7a6317dff19ba6b2a4a39c03eba1d1dece"
+      "0x2a3352573606edaff0d80c092e6054fafd799302037d306af2c5446dfed638e8"
     )
     expect(await root.signTypedData(getDelegationTypedData(g0Grant))).toBe(
       g0.signature
@@ -228,15 +234,14 @@ describe("EIP-712 Delegation grants", () => {
     const resolved = resolveDelegationChain(
       parseDelegationField(formatDelegationField({ links: [g0, g1] }))
     )
-    expect(resolved.effectiveAudience).toEqual(["https://api.example"])
-    expect(resolved.effectiveScope).toEqual(["resource:read"])
-    expect(resolved.effectiveComponents.map(({ name }) => name)).toEqual([
-      "@authority",
-      "@method"
-    ])
+    expect(resolved.effectiveAudiences).toEqual(["https://api.example"])
+    expect(resolved.effectivePermissions).toEqual(["resource:read"])
+    expect(
+      resolved.effectiveRequiredComponents.map(({ name }) => name)
+    ).toEqual(["@authority", "@method"])
     const broadened = {
       ...g1,
-      grant: { ...g1.grant, maxAge: 61 }
+      grant: { ...g1.grant, maxRequestValiditySeconds: 61 }
     }
     expect(() =>
       resolveDelegationChain(
@@ -257,7 +262,7 @@ describe("Delegated Request Signatures", () => {
       'request=("@scheme" "@authority" "@method" "@path" "@query" "erc-8128-delegation";sf);created=1700000000;expires=1700000060;nonce="ASNFZ4mrze8QMlR2mLrc_g";keyid="eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69";tag="erc8128-delegated"'
     )
     expect(request.headers.get("signature")).toBe(
-      "request=:D1PN9kElOdqmyxzz1BK2KVP2EEVbcw4bBUxBRXJ2ASNjIfuEw8MtSOG8tg5aM6z1SqXQrUsSeV0DttC/uDDqihs=:"
+      "request=:GXzD4Ufm62IUiQU+yrwGx52V9nO34m3ZVw+ULKOFfnYisiECwMvf+6zrx5zPsXg516lSh+7Tulk5W0kIg/2FIhs=:"
     )
     const candidate = parseSignatureInputHeader(
       request.headers.get("signature-input") ?? ""
@@ -271,7 +276,7 @@ describe("Delegated Request Signatures", () => {
     })
     expect(signatureBase).toHaveLength(834)
     expect(bytesToHex(hashEthereumMessage(signatureBase))).toBe(
-      "0xb0517efe1464eea42a406802fe343b9398842f2e3488cf2d164cf51a3a692d88"
+      "0xb11b7a98450116d11b50079fce56781818eefd4c3d4228edfc29ed084d98f2b7"
     )
     expect(request.headers.get("signature-input")).not.toContain(
       "authorization="
@@ -293,7 +298,7 @@ describe("Delegated Request Signatures", () => {
       "RERERERERERERERERERERA"
     )
     expect(request.headers.get("signature")).toBe(
-      "request=:sPHGMjkcKRmb2UsW5nEyC7TkSUNQNIWxJyNb6TqHeEhHd5q8bMx+1F/I7frgKJhEE1LmH8TChmcVkVbwNBlUNRs=:"
+      "request=:5LUwOoSsWH4LvBtg7RjWRTvubwx5IAf5qOA3Iug+Wf5D1myMWuwmmDcTED1ylafcJ6WJwYu9Llczq1g+7gL/axw=:"
     )
     const candidate = parseSignatureInputHeader(
       request.headers.get("signature-input") ?? ""
@@ -307,7 +312,7 @@ describe("Delegated Request Signatures", () => {
     })
     expect(signatureBase).toHaveLength(1_245)
     expect(bytesToHex(hashEthereumMessage(signatureBase))).toBe(
-      "0xd5c883197a05494ea766fbaa5a28127b1cebcffe551ff5a80feba07576ac7002"
+      "0x60cd8c4caceb661cd173d1a5b02c89994f06c9b1dcebde049a00f08aa651bc86"
     )
     const result = await verify(request)
     expect(result).toMatchObject({
@@ -319,7 +324,7 @@ describe("Delegated Request Signatures", () => {
     })
   })
 
-  test("enforces depth, scopes, and every link's status", async () => {
+  test("enforces depth, permissions, and every link's status", async () => {
     const request = await signedVectorRequest(
       delegateB,
       { links: [g0, g1] },
@@ -334,10 +339,13 @@ describe("Delegated Request Signatures", () => {
     expect(formatErc8128ProblemDetails(tooLong).status).toBe(400)
 
     const insufficient = await verify(request, {
-      requiredScopes: ["resource:write"]
+      requiredPermissions: ["resource:write"]
     })
-    expect(insufficient).toEqual({ ok: false, reason: "insufficient_scope" })
-    if (insufficient.ok) throw new Error("Expected scope failure.")
+    expect(insufficient).toEqual({
+      ok: false,
+      reason: "insufficient_permissions"
+    })
+    if (insufficient.ok) throw new Error("Expected permission failure.")
     expect(formatErc8128ProblemDetails(insufficient).status).toBe(403)
 
     const revoked = await verify(request, {
@@ -351,15 +359,15 @@ describe("Delegated Request Signatures", () => {
   test("checks revocation and epoch state across a derived three-link chain", async () => {
     const g2Grant: Delegation = {
       ...g1Grant,
-      root: `eip155:1:${delegateB.address.toLowerCase()}`,
+      issuer: `eip155:1:${delegateB.address.toLowerCase()}`,
       delegate: `eip155:1:${delegateC.address.toLowerCase()}`,
       id: `0x${"33".repeat(32)}`,
       epoch: 5,
-      created: 1_699_999_600,
-      expires: 1_700_001_200,
-      components: [],
-      scope: [],
-      parent: hashDelegation(g1Grant)
+      validAfter: 1_699_999_600,
+      validUntil: 1_700_001_200,
+      requiredComponents: [],
+      permissions: [],
+      parentGrantHash: hashDelegation(g1Grant)
     }
     const g2: DelegationLink = {
       grant: g2Grant,
@@ -370,6 +378,17 @@ describe("Delegated Request Signatures", () => {
       { links: [g0, g1, g2] },
       "three-link-derived-vector"
     )
+
+    const statusBatches: string[][] = []
+    expect(
+      (
+        await verify(request.clone(), {
+          statusBatch: (links) =>
+            statusBatches.push(links.map(({ grant }) => grant.id))
+        })
+      ).ok
+    ).toBe(true)
+    expect(statusBatches).toEqual([[g0.grant.id, g1.grant.id, g2.grant.id]])
 
     expect(
       await verify(request.clone(), {
@@ -436,11 +455,12 @@ describe("Delegated Request Signatures", () => {
         now: () => 1_700_000_001,
         clockSkewSec: 30,
         delegation: {
-          requiredScopes: ["resource:read"],
-          verifyStatus: ({ link }) => {
-            order.push(`status:${link.grant.id}`)
-            return "valid"
-          }
+          requiredPermissions: ["resource:read"],
+          verifyStatuses: (contexts) =>
+            contexts.map(({ link }) => {
+              order.push(`status:${link.grant.id}`)
+              return "valid"
+            })
         }
       },
       verifyDigest: async ({ digest }) => {

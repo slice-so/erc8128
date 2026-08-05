@@ -12,19 +12,19 @@ import {
 
 const link: DelegationLink = {
   grant: {
-    root: `eip155:1:0x${"11".repeat(20)}`,
+    issuer: `eip155:1:0x${"11".repeat(20)}`,
     delegate: `eip155:1:0x${"22".repeat(20)}`,
-    aud: ["https://api.example"],
+    audiences: ["https://api.example"],
     id: `0x${"33".repeat(32)}`,
     epoch: 7,
-    created: 10,
-    expires: 20,
-    maxAge: 1,
+    validAfter: 10,
+    validUntil: 20,
+    maxRequestValiditySeconds: 1,
     delegateIsEOA: true,
-    allowReplayable: false,
-    components: [],
-    scope: [],
-    parent: `0x${"00".repeat(32)}`
+    requireNonReplayable: true,
+    requiredComponents: [],
+    permissions: [],
+    parentGrantHash: `0x${"00".repeat(32)}`
   },
   signature: "0x01"
 }
@@ -133,7 +133,7 @@ describe("deterministic Delegation Link CBOR", () => {
     const epochOffset = findBytes(encoded, id) + id.length
     const booleanOffset = findBytes(
       encoded,
-      Uint8Array.of(0xf5, 0xf4, 0x80, 0x80)
+      Uint8Array.of(0xf5, 0xf5, 0x80, 0x80)
     )
     const scalarOffset = findBytes(
       encoded,
@@ -193,7 +193,10 @@ describe("deterministic Delegation Link CBOR", () => {
     )
     const parentHead = findBytes(
       encoded,
-      concatenate(Uint8Array.of(0x58, 0x20), hexToBytes(link.grant.parent))
+      concatenate(
+        Uint8Array.of(0x58, 0x20),
+        hexToBytes(link.grant.parentGrantHash)
+      )
     )
     expectErrorCode(
       () =>
@@ -214,7 +217,7 @@ describe("deterministic Delegation Link CBOR", () => {
   test("preserves a leading Unicode byte-order mark as string content", () => {
     const candidate = {
       ...link,
-      grant: { ...link.grant, scope: ["\ufeffresource:read"] }
+      grant: { ...link.grant, permissions: ["\ufeffresource:read"] }
     }
     expect(decodeDelegationLink(encodeDelegationLink(candidate))).toEqual(
       candidate
@@ -232,9 +235,9 @@ describe("deterministic Delegation Link CBOR", () => {
     )
 
     const encoded = encodeDelegationLink(link)
-    const rootLength = new TextEncoder().encode(link.grant.root).length
+    const issuerLength = new TextEncoder().encode(link.grant.issuer).length
     const delegateLength = new TextEncoder().encode(link.grant.delegate).length
-    const audienceOffset = 1 + 2 + rootLength + 2 + delegateLength
+    const audienceOffset = 1 + 2 + issuerLength + 2 + delegateLength
     expectErrorCode(
       () =>
         decodeDelegationLink(
@@ -275,7 +278,7 @@ describe("deterministic Delegation Link CBOR", () => {
       () =>
         encodeDelegationLink({
           ...link,
-          grant: { ...link.grant, scope: ["\ud800"] }
+          grant: { ...link.grant, permissions: ["\ud800"] }
         }),
       "PARSE_ERROR"
     )

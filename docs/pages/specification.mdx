@@ -43,9 +43,9 @@ order, and places the proof last. Indefinite lengths, non-shortest heads,
 unsupported CBOR types, gaps, reordering, and trailing bytes are rejected.
 
 Each grant uses the exact EIP-712 `Delegation` domain and struct. A recursive
-chain attenuates root/delegate continuity, parent digest, exact audiences,
-nested validity windows, maximum request age, replay permission, component
-floors, and scopes.
+chain enforces issuer/delegate continuity and attenuates the parent grant hash,
+exact audiences, nested validity windows, maximum request validity,
+non-replayable requirements, component floors, and permissions.
 
 A delegated HTTP request has exactly one RFC 9421 request signature tagged
 `erc8128-delegated`. Its `keyid` is the leaf delegate and it covers
@@ -54,16 +54,16 @@ authorization, or grant proof appears as another RFC 9421 signature member;
 grant proofs are embedded only in the delegation field.
 
 Verification checks the leaf request proof first, embedded proofs leaf-to-root,
-canonical revocation state for every link, then scopes, and consumes the leaf
-nonce last. Only a leaf with signed `delegateIsEOA=true` receives strict local
-ECDSA verification; roots and child-grant issuers always use Universal Account
-verification.
+canonical revocation state for every link on its issuer's chain, then route
+permissions, and consumes the leaf nonce last. Only a leaf with signed
+`delegateIsEOA=true` receives strict local ECDSA verification; issuers always
+use Universal Account verification for grant proofs.
 
 The canonical registry coordinates are protocol-owned, never signer-selected.
 The current draft has not assigned a production CREATE2 address or runtime hash,
 so production conforming verification must fail closed. This repository pins a
 separate Anvil-only registry for local development and tests.
 
-Invalid proof is normally 401, an authenticated principal missing route scope is
-403, malformed input is 400 where specified, and unavailable proof or revocation
-state is retryable at 503.
+Invalid proof is normally 401, an authenticated principal missing a route
+permission is 403, malformed input is 400 where specified, and unavailable
+proof or revocation state is retryable at 503.

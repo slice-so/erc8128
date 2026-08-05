@@ -1,22 +1,22 @@
 # Delegated principals
 
 The delegated extension carries a recursive chain of signed EIP-712
-`Delegation` values. The root becomes the authenticated `principal`; the leaf
+`Delegation` values. The initial issuer becomes the authenticated `principal`; the leaf
 delegate is the request `signer`.
 
 ```ts
 const prepared = buildDelegationGrant({
-  root,
+  issuer,
   delegate,
   audiences: ["https://api.example"],
   id,
   epoch,
-  expires,
-  maxAge: 60,
+  validUntil,
+  maxRequestValiditySeconds: 60,
   delegateIsEOA: true,
-  allowReplayable: false,
-  components: ["@scheme", "@authority", "@method", "@path", "@query"],
-  scopes: ["orders:read"]
+  requireNonReplayable: true,
+  requiredComponents: [],
+  permissions: ["orders:read"]
 })
 const link = completeDelegationGrant(
   prepared,
@@ -34,9 +34,10 @@ const result = await verifyRequest({
   policy: {
     principal: "delegated",
     delegation: {
-      requiredScopes: ["orders:read"],
-      scopeSupported: true,
-      verifyStatus: ({ link }) => readCanonicalStatus(link.grant)
+      requiredPermissions: ["orders:read"],
+      permissionsSupported: true,
+      verifyStatuses: (contexts) =>
+        readCanonicalStatuses(contexts.map(({ link }) => link.grant))
     }
   }
 })
@@ -54,12 +55,17 @@ EIP-712 proof is the final element of each deterministic-CBOR link. The compact
 wire encoding does not change the signed EIP-712 grant or its digest.
 
 Every child grant names its parent digest and must narrow the inherited
-audience, validity, `maxAge`, replay permission, components, and scope. The
+audiences, validity, maximum request validity, single-use posture, required
+components, and permissions. The
 verifier resolves these effective constraints for arbitrary supported depth,
 verifies request proof before grant proofs, checks every link's canonical
-`(root, id, epoch)` status, and consumes a leaf nonce only after scope succeeds.
+`(issuer chain, issuer, id, epoch)` status through one batch hook, and consumes
+a leaf nonce only after permission checks succeed. Registry-backed
+implementations should group links by issuer chain and resolve each group with
+one multicall per configured RPC/quorum client.
 
 Positive proof caches are keyed by the EIP-712 digest and exact signature bytes.
-Audience, time, attenuation, scope, and revocation remain per-request checks.
-Use `{ nonce: null }` only when every link signs `allowReplayable=true` and the
-destination verifier accepts Replayable requests.
+Audience, time, attenuation, permissions, and revocation remain per-request
+checks. Use `{ nonce: null }` only when every link sets
+`requireNonReplayable=false` and the destination verifier accepts
+Replayable requests.
