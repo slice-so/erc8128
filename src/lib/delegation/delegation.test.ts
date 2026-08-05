@@ -80,6 +80,11 @@ const g1: DelegationLink = {
   signature:
     "0x03e5baed77bd76300a15567ac9ef02994a891e10cf728f6e75ac292748fd31b41ecf0187c091f8d3997a34243a96df13ecbe11f93186f32b087caba7a0e24e0b1c"
 }
+// Cross-checked byte-for-byte against @ipld/dag-cbor 9.2.7.
+const g0Cbor =
+  "0x8e78336569703135353a313a30783262356164356334373935633032363531346638333137633761323135653231386463636436636678336569703135353a313a307836383133656239333632333732656566363230306633623164626333663831393637316362613639827368747470733a2f2f6170692e6578616d706c657668747470733a2f2f6261636b75702e6578616d706c6558201111111111111111111111111111111111111111111111111111111111111111071a6553ed181a6553ff10183cf5f5816a40617574686f72697479826d7265736f757263653a726561646e7265736f757263653a7772697465582000000000000000000000000000000000000000000000000000000000000000005841537590cfd51670d5327bdbb8a62ad78db94e9c6a3435bcea00a8c2bf8580cbab714ecb346e551920aa78cd4c1e36a44c89f7a6e6db3b2151285761c851cfa4921c"
+const g1Cbor =
+  "0x8e78336569703135353a313a30783638313365623933363233373265656636323030663362316462633366383139363731636261363978336569703135353a313a307831656666343762633361313061343564346232333062356431306533373735316665366161373138817368747470733a2f2f6170692e6578616d706c6558202222222222222222222222222222222222222222222222222222222222222222031a6553ef0c1a6553f808183cf5f58167406d6574686f64816d7265736f757263653a726561645820f2095d8d781dcdc7b02ed53da67de81daeb7efaa882f455169a614f70262a366584103e5baed77bd76300a15567ac9ef02994a891e10cf728f6e75ac292748fd31b41ecf0187c091f8d3997a34243a96df13ecbe11f93186f32b087caba7a0e24e0b1c"
 
 const signer = (account: typeof delegateA) => ({
   address: account.address,
@@ -196,12 +201,19 @@ describe("EIP-712 Delegation grants", () => {
     )
   })
 
-  test("strictly round-trips ABI links and rejects trailing bytes", () => {
-    const encoded = encodeDelegationLink(g0)
-    expect(encoded).toHaveLength(1_376)
-    expect(decodeDelegationLink(encoded)).toEqual(g0)
-    const trailing = new Uint8Array(encoded.length + 32)
-    trailing.set(encoded)
+  test("matches the independently verified deterministic CBOR links", () => {
+    const encodedG0 = encodeDelegationLink(g0)
+    const encodedG1 = encodeDelegationLink(g1)
+    expect(encodedG0[0]).toBe(0x8e)
+    expect(encodedG1[0]).toBe(0x8e)
+    expect(encodedG0).toHaveLength(343)
+    expect(encodedG1).toHaveLength(302)
+    expect(bytesToHex(encodedG0)).toBe(g0Cbor)
+    expect(bytesToHex(encodedG1)).toBe(g1Cbor)
+    expect(decodeDelegationLink(encodedG0)).toEqual(g0)
+    expect(decodeDelegationLink(encodedG1)).toEqual(g1)
+    const trailing = new Uint8Array(encodedG0.length + 1)
+    trailing.set(encodedG0)
     expect(() => decodeDelegationLink(trailing)).toThrow()
   })
 
@@ -245,24 +257,22 @@ describe("Delegated Request Signatures", () => {
       'request=("@scheme" "@authority" "@method" "@path" "@query" "erc-8128-delegation";sf);created=1700000000;expires=1700000060;nonce="ASNFZ4mrze8QMlR2mLrc_g";keyid="eip155:1:0x6813eb9362372eef6200f3b1dbc3f819671cba69";tag="erc8128-delegated"'
     )
     expect(request.headers.get("signature")).toBe(
-      "request=:gJVoCxIQDQlHUvCcT1CnW8kAosnj3JLRWw8lj7uIjehaICXcn5uqJErUYy5CY3rRf/xjUZwq4zdEoqPR7MraeBs=:"
+      "request=:D1PN9kElOdqmyxzz1BK2KVP2EEVbcw4bBUxBRXJ2ASNjIfuEw8MtSOG8tg5aM6z1SqXQrUsSeV0DttC/uDDqihs=:"
     )
     const candidate = parseSignatureInputHeader(
       request.headers.get("signature-input") ?? ""
     )[0]
     if (candidate === undefined)
       throw new Error("Request candidate is missing.")
-    expect(
-      bytesToHex(
-        hashEthereumMessage(
-          createSignatureBaseMinimal({
-            request,
-            components: candidate.components,
-            signatureParamsValue: candidate.signatureParamsValue
-          })
-        )
-      )
-    ).toBe("0x781250bf278f8d0cd450927532935236e456b23a43d850647769953b96f668d3")
+    const signatureBase = createSignatureBaseMinimal({
+      request,
+      components: candidate.components,
+      signatureParamsValue: candidate.signatureParamsValue
+    })
+    expect(signatureBase).toHaveLength(834)
+    expect(bytesToHex(hashEthereumMessage(signatureBase))).toBe(
+      "0xb0517efe1464eea42a406802fe343b9398842f2e3488cf2d164cf51a3a692d88"
+    )
     expect(request.headers.get("signature-input")).not.toContain(
       "authorization="
     )
@@ -283,24 +293,22 @@ describe("Delegated Request Signatures", () => {
       "RERERERERERERERERERERA"
     )
     expect(request.headers.get("signature")).toBe(
-      "request=:BFdolKrFYQUmMwPv6ZFiZTMkrtayqRD7naU2mNYuHP13HE+kBmmU+5wawoPE0TpA78GJFz3DU2LeeC7cLKpYBxw=:"
+      "request=:sPHGMjkcKRmb2UsW5nEyC7TkSUNQNIWxJyNb6TqHeEhHd5q8bMx+1F/I7frgKJhEE1LmH8TChmcVkVbwNBlUNRs=:"
     )
     const candidate = parseSignatureInputHeader(
       request.headers.get("signature-input") ?? ""
     )[0]
     if (candidate === undefined)
       throw new Error("Request candidate is missing.")
-    expect(
-      bytesToHex(
-        hashEthereumMessage(
-          createSignatureBaseMinimal({
-            request,
-            components: candidate.components,
-            signatureParamsValue: candidate.signatureParamsValue
-          })
-        )
-      )
-    ).toBe("0x533f834cb1f17536741f048a19d8458a881abc0b7ad16f65d2f6c6e62005bdc7")
+    const signatureBase = createSignatureBaseMinimal({
+      request,
+      components: candidate.components,
+      signatureParamsValue: candidate.signatureParamsValue
+    })
+    expect(signatureBase).toHaveLength(1_245)
+    expect(bytesToHex(hashEthereumMessage(signatureBase))).toBe(
+      "0xd5c883197a05494ea766fbaa5a28127b1cebcffe551ff5a80feba07576ac7002"
+    )
     const result = await verify(request)
     expect(result).toMatchObject({
       ok: true,

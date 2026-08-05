@@ -38,9 +38,10 @@ only EOAs can set `accountVerification: "eoa-only"`.
 
 Delegation uses `buildDelegationGrant`, `completeDelegationGrant`, and
 `createDelegatedSignerClient`. Each link is an exact EIP-712 `Delegation` value
-and its embedded proof. The `ERC-8128-Delegation` Dictionary contains only
-ordered `g0` through `gN` Byte Sequences, while `Signature-Input` and
-`Signature` contain exactly one leaf request proof tagged
+and its embedded proof, transported as a deterministic 14-element CBOR array.
+The `ERC-8128-Delegation` Dictionary contains only ordered `g0` through `gN`
+Byte Sequences, while `Signature-Input` and `Signature` contain exactly one leaf
+request proof tagged
 `erc8128-delegated`. Verifiers opt in with `policy.delegation`, validate the
 canonical revocation status of every link, and receive the root as `principal`,
 the leaf as `signer`, and the ordered `delegationIds`.

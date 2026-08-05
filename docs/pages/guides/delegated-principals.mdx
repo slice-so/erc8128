@@ -50,7 +50,8 @@ The wire request contains:
 - the matching one `Signature` member.
 
 There is no separate RFC 9421 root, authorization, or grant signature. The
-EIP-712 proof is embedded in each ABI-encoded link.
+EIP-712 proof is the final element of each deterministic-CBOR link. The compact
+wire encoding does not change the signed EIP-712 grant or its digest.
 
 Every child grant names its parent digest and must narrow the inherited
 audience, validity, `maxAge`, replay permission, components, and scope. The

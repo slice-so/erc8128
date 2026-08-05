@@ -37,8 +37,10 @@ an early-invalidation policy.
 
 `ERC-8128-Delegation` is an RFC 9651 Dictionary containing only consecutive,
 ordered keys `g0` through `gN`. Each value is a Byte Sequence whose bytes are
-exactly `abi.encode(Delegation grant, bytes signature)`; non-canonical ABI,
-selectors, gaps, reordering, and trailing bytes are rejected.
+the deterministic CBOR encoding of one 14-element Delegation Link array. The
+array keeps canonical CAIP-10 identities as strings, follows the EIP-712 struct
+order, and places the proof last. Indefinite lengths, non-shortest heads,
+unsupported CBOR types, gaps, reordering, and trailing bytes are rejected.
 
 Each grant uses the exact EIP-712 `Delegation` domain and struct. A recursive
 chain attenuates root/delegate continuity, parent digest, exact audiences,

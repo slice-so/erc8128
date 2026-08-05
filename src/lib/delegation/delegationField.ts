@@ -1,9 +1,4 @@
-import {
-  decodeAbiParameters,
-  encodeAbiParameters,
-  hashTypedData,
-  type Hex as ViemHex
-} from "viem"
+import { hashTypedData, type Hex as ViemHex } from "viem"
 import type {
   ComponentIdentifier,
   Delegation,
@@ -27,6 +22,13 @@ import {
 } from "../engine/structuredFields"
 import { formatKeyId, parseKeyId } from "../keyId"
 import { bytesToHex, hexToBytes } from "../utilities"
+import { decodeDelegationLinkCbor, encodeDelegationLinkCbor } from "./cbor"
+import {
+  MAX_DELEGATION_ARRAY_ENTRIES,
+  MAX_DELEGATION_FIELD_BYTES,
+  MAX_DELEGATION_LINK_BYTES,
+  MAX_DELEGATION_STRING_BYTES
+} from "./limits"
 
 export const DELEGATION_FIELD_NAME = "erc-8128-delegation"
 export const DELEGATION_COMPONENT = {
@@ -116,17 +118,6 @@ export const ERC8128_REVOCATION_ABI = [
   }
 ] as const
 
-const DELEGATION_LINK_ABI = [
-  {
-    type: "tuple",
-    components: DELEGATION_TYPES.Delegation
-  },
-  { type: "bytes" }
-] as const
-const MAX_FIELD_BYTES = 16_384
-const MAX_LINK_BYTES = 8_192
-const MAX_ARRAY_ENTRIES = 32
-const MAX_STRING_BYTES = 256
 const encoder = new TextEncoder()
 
 export function getDelegationTypedData(grant: Delegation): DelegationTypedData {
@@ -163,58 +154,20 @@ export function encodeDelegationLink(
   validateDelegation(link.grant, policy)
   const signature = hexToBytes(link.signature)
   if (signature.length === 0) throw invalid("Delegation proof is empty.")
-  return hexToBytes(
-    encodeAbiParameters(DELEGATION_LINK_ABI, [
-      {
-        ...link.grant,
-        epoch: BigInt(link.grant.epoch),
-        created: BigInt(link.grant.created),
-        expires: BigInt(link.grant.expires),
-        maxAge: link.grant.maxAge
-      },
-      link.signature
-    ])
-  )
+  return encodeDelegationLinkCbor(link)
 }
 
 export function decodeDelegationLink(
   bytes: Uint8Array,
   policy: DelegationAudiencePolicy = {}
 ): DelegationLink {
-  if (bytes.length > MAX_LINK_BYTES)
+  if (bytes.length > MAX_DELEGATION_LINK_BYTES)
     throw tooLarge("Delegation Link is too large.")
-  let decoded: ReturnType<
-    typeof decodeAbiParameters<typeof DELEGATION_LINK_ABI>
-  >
-  try {
-    decoded = decodeAbiParameters(DELEGATION_LINK_ABI, bytesToHex(bytes))
-  } catch {
-    throw parseError("Delegation Link ABI is invalid.")
-  }
-  const [value, signature] = decoded
-  const grant: Delegation = {
-    root: value.root,
-    delegate: value.delegate,
-    aud: [...value.aud],
-    id: value.id,
-    epoch: safeInteger(value.epoch, "epoch"),
-    created: safeInteger(value.created, "created"),
-    expires: safeInteger(value.expires, "expires"),
-    maxAge: safeInteger(value.maxAge, "maxAge"),
-    delegateIsEOA: value.delegateIsEOA,
-    allowReplayable: value.allowReplayable,
-    components: [...value.components],
-    scope: [...value.scope],
-    parent: value.parent
-  }
-  const link = { grant, signature }
-  validateDelegation(grant, policy)
-  if (hexToBytes(signature).length === 0) {
-    throw parseError("Delegation proof is empty.")
-  }
+  const link = decodeDelegationLinkCbor(bytes)
+  validateDelegation(link.grant, policy)
   const canonical = encodeDelegationLink(link, policy)
   if (bytesToHex(canonical) !== bytesToHex(bytes)) {
-    throw parseError("Delegation Link ABI is not canonical.")
+    throw parseError("Delegation Link CBOR is not canonical.")
   }
   return link
 }
@@ -224,6 +177,9 @@ export function formatDelegationField(
   policy: DelegationAudiencePolicy = {}
 ): string {
   if (chain.links.length === 0) throw invalid("Delegation Chain is empty.")
+  if (chain.links.length > MAX_DELEGATION_ARRAY_ENTRIES) {
+    throw tooLarge("Delegation Chain has too many links.")
+  }
   const dictionary: SfDictionary = {}
   for (const [index, link] of chain.links.entries()) {
     dictionary[`g${index}`] = {
@@ -231,7 +187,7 @@ export function formatDelegationField(
     }
   }
   const fieldValue = serializeSfDictionary(dictionary)
-  if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
+  if (encoder.encode(fieldValue).length > MAX_DELEGATION_FIELD_BYTES) {
     throw tooLarge("Delegation field is too large.")
   }
   return fieldValue
@@ -241,7 +197,7 @@ export function parseDelegationField(
   fieldValue: string,
   policy: DelegationAudiencePolicy = {}
 ): ParsedDelegationField {
-  if (encoder.encode(fieldValue).length > MAX_FIELD_BYTES) {
+  if (encoder.encode(fieldValue).length > MAX_DELEGATION_FIELD_BYTES) {
     throw tooLarge("Delegation field is too large.")
   }
   let dictionary: SfDictionary
@@ -253,6 +209,9 @@ export function parseDelegationField(
   }
   const entries = Object.entries(dictionary)
   if (entries.length === 0) throw parseError("Delegation field is empty.")
+  if (entries.length > MAX_DELEGATION_ARRAY_ENTRIES) {
+    throw tooLarge("Delegation field has too many links.")
+  }
   const links = entries.map(([key, member], index) => {
     if (key !== `g${index}`) {
       throw parseError("Delegation links must be consecutive and ordered.")
@@ -410,7 +369,7 @@ function assertArray(values: string[], name: string, nonEmpty: boolean): void {
   if (!Array.isArray(values) || (nonEmpty && values.length === 0)) {
     throw parseError(`${name} has an invalid entry count.`)
   }
-  if (values.length > MAX_ARRAY_ENTRIES) {
+  if (values.length > MAX_DELEGATION_ARRAY_ENTRIES) {
     throw tooLarge(`${name} has too many entries.`)
   }
   for (const value of values) assertString(value, name)
@@ -418,7 +377,10 @@ function assertArray(values: string[], name: string, nonEmpty: boolean): void {
 
 function assertString(value: string, name: string): void {
   if (typeof value !== "string") throw parseError(`${name} must be a String.`)
-  if (encoder.encode(value).length > MAX_STRING_BYTES) {
+  if (!value.isWellFormed()) {
+    throw parseError(`${name} must contain well-formed Unicode.`)
+  }
+  if (encoder.encode(value).length > MAX_DELEGATION_STRING_BYTES) {
     throw tooLarge(`${name} String is too large.`)
   }
 }
@@ -438,12 +400,6 @@ function assertInteger(
   if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
     throw parseError(`${name} is outside its supported integer range.`)
   }
-}
-
-function safeInteger(value: bigint | number, name: string): number {
-  const converted = Number(value)
-  assertInteger(converted, name, 0, Number.MAX_SAFE_INTEGER)
-  return converted
 }
 
 function isLoopback(hostname: string): boolean {

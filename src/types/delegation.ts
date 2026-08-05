@@ -30,7 +30,7 @@ export type Delegation = {
   parent: Hex
 }
 
-/** One signed EIP-712 grant, embedded as one ABI-encoded delegation link. */
+/** One signed EIP-712 grant, embedded as one deterministic-CBOR link. */
 export type DelegationLink = {
   grant: Delegation
   signature: Hex

@@ -13,6 +13,7 @@ import { normalizeComponentIdentifier } from "../engine/componentIdentifier"
 import { formatKeyId } from "../keyId"
 import { bytesToHex, hexToBytes, unixNow } from "../utilities"
 import {
+  encodeDelegationLink,
   formatDelegationField,
   getDelegationTypedData,
   hashDelegation,
@@ -21,8 +22,13 @@ import {
   validateDelegation,
   ZERO_DELEGATION_PARENT
 } from "./delegationField"
+import { MAX_DELEGATION_LINK_BYTES } from "./limits"
 
-export const maximumDelegationGrantSignatureBytes = 8_192
+/**
+ * Absolute raw proof ceiling. The usable proof size is lower because the
+ * complete deterministic-CBOR Delegation Link must fit within 8 KiB.
+ */
+export const maximumDelegationGrantSignatureBytes = MAX_DELEGATION_LINK_BYTES
 
 export function buildDelegationGrant(
   args: DelegationGrantBuildArgs
@@ -83,7 +89,9 @@ export function completeDelegationGrant(
       "Delegation signature has an unsupported size."
     )
   }
-  return { grant: prepared.grant, signature: bytesToHex(bytes) }
+  const link = { grant: prepared.grant, signature: bytesToHex(bytes) }
+  encodeDelegationLink(link, audiencePolicy)
+  return link
 }
 
 export async function signDelegationGrant(
