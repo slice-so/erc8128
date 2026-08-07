@@ -46,9 +46,9 @@ export const ZERO_DELEGATION_PARENT =
  * runtime is not deployed.
  */
 export const ERC8128_REVOCATION_REGISTRY_ADDRESS =
-  "0xca20b8c9171c483c91d07ad214272895ab0e32cc" as const
+  "0x0b81c72361340e95e63f69fadcf072c2e645c176" as const
 export const ERC8128_REVOCATION_REGISTRY_RUNTIME_CODE_HASH =
-  "0x697f213d02ad0688a59a1fe4706f77bbdfca3381fab41da010dd96ab57b94c1b" as const
+  "0x7a5513b468a5a81bcac7a22089970e96863d83d7890834f030a9417e2ffe4b49" as const
 
 export const DELEGATION_TYPE_STRING =
   "Delegation(string issuer,string delegate,string[] audiences,bytes32 id,uint64 epoch,uint64 validAfter,uint64 validUntil,uint32 maxRequestValiditySeconds,bool delegateIsEOA,bool requireNonReplayable,string[] requiredComponents,string[] permissions,bytes32 parentGrantHash)"
@@ -90,6 +90,21 @@ export const ERC8128_REVOCATION_ABI = [
     outputs: [
       { name: "isRevoked", type: "bool" },
       { name: "epoch", type: "uint64" }
+    ]
+  },
+  {
+    type: "function",
+    name: "eip712Domain",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "fields", type: "bytes1" },
+      { name: "name", type: "string" },
+      { name: "version", type: "string" },
+      { name: "chainId", type: "uint256" },
+      { name: "verifyingContract", type: "address" },
+      { name: "salt", type: "bytes32" },
+      { name: "extensions", type: "uint256[]" }
     ]
   },
   {
