@@ -64,6 +64,13 @@ export const DELEGATION_TYPES = {
 export const ERC8128_REVOCATION_ABI = [
   {
     type: "function",
+    name: "currentEpoch",
+    stateMutability: "view",
+    inputs: [{ name: "issuer", type: "address" }],
+    outputs: [{ name: "currentEpoch", type: "uint64" }]
+  },
+  {
+    type: "function",
     name: "status",
     stateMutability: "view",
     inputs: [
@@ -72,7 +79,7 @@ export const ERC8128_REVOCATION_ABI = [
     ],
     outputs: [
       { name: "isRevoked", type: "bool" },
-      { name: "currentEpoch", type: "uint64" }
+      { name: "epoch", type: "uint64" }
     ]
   },
   {
