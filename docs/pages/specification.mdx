@@ -72,7 +72,9 @@ block finalizes. An issuer may read `currentEpoch` at `latest` when creating a
 grant; during the short window after an epoch advance and before finality, that
 new grant carries the new epoch while verifiers still observe the old epoch and
 reject it. User-facing status reads use the same finalized view as verification
-so they do not claim enforcement earlier than verifiers can observe it.
+so they do not claim enforcement earlier than verifiers can observe it. The
+local Anvil runtime uses one slot per epoch, so its finalized view trails latest
+by two blocks (about two seconds with the configured one-second block time).
 
 Invalid proof is normally 401, an authenticated principal missing a route
 permission is 403, malformed input is 400 where specified, and unavailable
