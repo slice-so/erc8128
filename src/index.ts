@@ -20,6 +20,8 @@ export {
   DELEGATION_TYPES,
   decodeDelegationLink,
   ERC8128_REVOCATION_ABI,
+  ERC8128_REVOCATION_REGISTRY_ADDRESS,
+  ERC8128_REVOCATION_REGISTRY_RUNTIME_CODE_HASH,
   encodeDelegationLink,
   formatDelegationField,
   getDelegationTypedData,

@@ -40,6 +40,16 @@ export const TAG_DELEGATED = "erc8128-delegated"
 export const ZERO_DELEGATION_PARENT =
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 
+/**
+ * Candidate reference deployment coordinates pinned by the Slice
+ * implementation. Verifiers still fail closed on chains where this exact
+ * runtime is not deployed.
+ */
+export const ERC8128_REVOCATION_REGISTRY_ADDRESS =
+  "0xca20b8c9171c483c91d07ad214272895ab0e32cc" as const
+export const ERC8128_REVOCATION_REGISTRY_RUNTIME_CODE_HASH =
+  "0x697f213d02ad0688a59a1fe4706f77bbdfca3381fab41da010dd96ab57b94c1b" as const
+
 export const DELEGATION_TYPE_STRING =
   "Delegation(string issuer,string delegate,string[] audiences,bytes32 id,uint64 epoch,uint64 validAfter,uint64 validUntil,uint32 maxRequestValiditySeconds,bool delegateIsEOA,bool requireNonReplayable,string[] requiredComponents,string[] permissions,bytes32 parentGrantHash)"
 

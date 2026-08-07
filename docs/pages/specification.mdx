@@ -60,9 +60,11 @@ permissions, and consumes the leaf nonce last. Only a leaf with signed
 use Universal Account verification for grant proofs.
 
 The canonical registry coordinates are protocol-owned, never signer-selected.
-The current draft has not assigned a production CREATE2 address or runtime hash,
-so production conforming verification must fail closed. This repository pins a
-separate Anvil-only registry for local development and tests.
+Every link derives its registry chain from its signed `issuer`, and the exact
+runtime code hash must be present at the canonical address on that chain. The
+standards draft has not yet populated its final address and hash table; this
+repository pins the Slice reference-deployment candidate for production and
+local testing, while failing closed if that exact deployment is absent.
 
 Invalid proof is normally 401, an authenticated principal missing a route
 permission is 403, malformed input is 400 where specified, and unavailable
