@@ -42,7 +42,10 @@
     "viem": "catalog:"
   },
   "devDependencies": {
-    "@slice/typescript-config": "workspace:*"
+    "@slice/typescript-config": "workspace:*",
+    "commander": "^14.0.0",
+    "drizzle-orm": "~0.41.0",
+    "postgres": "~3.4.7"
   },
   "peerDependencies": {},
   "repository": {
