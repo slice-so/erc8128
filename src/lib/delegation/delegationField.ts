@@ -46,9 +46,9 @@ export const ZERO_DELEGATION_PARENT =
  * runtime is not deployed.
  */
 export const ERC8128_REVOCATION_REGISTRY_ADDRESS =
-  "0x0b81c72361340e95e63f69fadcf072c2e645c176" as const
+  "0xb2a9330825d6aabbf7cc7004bc0916291c3322ad" as const
 export const ERC8128_REVOCATION_REGISTRY_RUNTIME_CODE_HASH =
-  "0x7a5513b468a5a81bcac7a22089970e96863d83d7890834f030a9417e2ffe4b49" as const
+  "0x5a93f9fbc9de24c9d2b5fe7e9fd81ac3b59a8bb6919977a844c24227b7d58804" as const
 
 export const DELEGATION_TYPE_STRING =
   "Delegation(string issuer,string delegate,string[] audiences,bytes32 id,uint64 epoch,uint64 validAfter,uint64 validUntil,uint32 maxRequestValiditySeconds,bool delegateIsEOA,bool requireNonReplayable,string[] requiredComponents,string[] permissions,bytes32 parentGrantHash)"
