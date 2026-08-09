@@ -19,7 +19,8 @@ import {
   hashDelegation,
   parseDelegationField,
   serializeDelegationComponent,
-  validateDelegation,
+  validateDelegationAudiences,
+  validateDelegationStructure,
   ZERO_DELEGATION_PARENT
 } from "./delegationField"
 import { MAX_DELEGATION_LINK_BYTES } from "./limits"
@@ -55,15 +56,13 @@ export function buildDelegationGrant(
   const audiencePolicy = {
     allowLoopbackAudiences: args.allowLoopbackAudiences === true
   }
-  validateDelegation(grant, audiencePolicy)
+  validateDelegationStructure(grant)
+  validateDelegationAudiences(grant, audiencePolicy)
   const typedData = getDelegationTypedData(grant)
   return {
     grant,
-    digest: hashDelegation(grant, audiencePolicy),
-    typedData,
-    ...(args.allowLoopbackAudiences === true
-      ? { allowLoopbackAudiences: true }
-      : {})
+    digest: hashDelegation(grant),
+    typedData
   }
 }
 
@@ -71,11 +70,8 @@ export function completeDelegationGrant(
   prepared: PreparedDelegationGrant,
   signature: Hex | Uint8Array
 ): DelegationLink {
-  const audiencePolicy = {
-    allowLoopbackAudiences: prepared.allowLoopbackAudiences === true
-  }
-  validateDelegation(prepared.grant, audiencePolicy)
-  if (hashDelegation(prepared.grant, audiencePolicy) !== prepared.digest) {
+  validateDelegationStructure(prepared.grant)
+  if (hashDelegation(prepared.grant) !== prepared.digest) {
     throw new Erc8128Error("INVALID_OPTIONS", "Delegation digest changed.")
   }
   const bytes =
@@ -90,7 +86,7 @@ export function completeDelegationGrant(
     )
   }
   const link = { grant: prepared.grant, signature: bytesToHex(bytes) }
-  encodeDelegationLink(link, audiencePolicy)
+  encodeDelegationLink(link)
   return link
 }
 
@@ -117,8 +113,6 @@ export function createDelegationChain(
   audiencePolicy: DelegationAudiencePolicy = {}
 ): DelegationChain {
   const chain = { links: [...links] }
-  return parseDelegationField(
-    formatDelegationField(chain, audiencePolicy),
-    audiencePolicy
-  ).chain
+  return parseDelegationField(formatDelegationField(chain), audiencePolicy)
+    .chain
 }

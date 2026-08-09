@@ -1,64 +1,266 @@
-# `@slicekit/erc8128`
+# @slicekit/erc8128
 
-Sign and verify ERC-8128 Ethereum HTTP requests, including recursive delegated
-authentication, using RFC 9421, RFC 9530, and RFC 9651.
+Sign and verify HTTP requests with Ethereum accounts using
+[ERC-8128](https://erc8128.org). The package implements the ERC-8128 base
+profile and recursive delegated authentication on top of RFC 9421, RFC 9530,
+and RFC 9651.
+
+## Features
+
+- **Fetch-native** — Works with standard `Request`, `Response`, and `fetch`
+  APIs in browsers, workers, Node.js, Bun, and Deno.
+- **Secure defaults** — Request-bound, non-replayable signatures with a
+  generated nonce and a 60-second validity window.
+- **Universal accounts** — Supports EOAs, deployed ERC-1271 accounts, and
+  counterfactual ERC-6492 accounts.
+- **Delegated principals** — Carries recursive, attenuated EIP-712 delegation
+  chains with audience, validity, permission, and revocation constraints.
+- **Standards-compliant HTTP** — Uses HTTP Message Signatures, Content-Digest,
+  and Structured Fields.
+
+## Installation
 
 ```sh
 npm install @slicekit/erc8128
 ```
 
+## Quick start
+
+### Sign a request
+
+Create an `EthHttpSigner` from an Ethereum account and use the signer client to
+sign or send requests.
+
 ```ts
-import {
-  createSignerClient,
-  createUniversalAccountVerifier,
-  createVerifierClient
-} from "@slicekit/erc8128"
+import { createSignerClient } from "@slicekit/erc8128"
+import { privateKeyToAccount } from "viem/accounts"
 
-const signerClient = createSignerClient(signer)
-const signed = await signerClient.signRequest("https://api.example/orders")
+const account = privateKeyToAccount("0x...")
+const signer = {
+  address: account.address,
+  chainId: 1,
+  signMessage: (message: Uint8Array) =>
+    account.signMessage({ message: { raw: message } })
+}
 
-const verifyMessage = createUniversalAccountVerifier({
-  getCode: ({ address }) => publicClient.getCode({ address }),
-  // This callback verifies ERC-6492 or ERC-1271 only; it must not ECDSA-fallback.
-  verifySmartAccount
+const client = createSignerClient(signer)
+
+const signed = await client.signRequest("https://api.example.com/orders", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ amount: "100" })
 })
-const verifier = createVerifierClient({ nonceStore, verifyMessage })
-const result = await verifier.verifyRequest({ request: signed })
-if (result.ok) console.log(result.principal, result.signer, result.delegated)
+
+// Or sign and send in one operation:
+const response = await client.fetch("https://api.example.com/orders", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ amount: "100" })
+})
 ```
 
-Base-profile request signatures always use `tag="erc8128"` and CAIP-10 key identifiers. The
-request-bound floor covers `@scheme`, `@authority`, `@method`, `@path`, and
-`@query`; received content additionally requires a verified Content-Digest and
-received Content-Type coverage.
+The signer adds `Signature-Input`, `Signature`, and, when the request has
+content, a verified `Content-Digest` header.
 
-Universal Account verification is the default: ERC-6492, code-bearing ERC-1271
-accounts, then strict code-free EOA recovery. Routes that intentionally accept
-only EOAs can set `accountVerification: "eoa-only"`.
+### Verify a request
 
-Delegation uses `buildDelegationGrant`, `completeDelegationGrant`, and
-`createDelegatedSignerClient`. Each link is an exact EIP-712 `Delegation` value
-and its embedded proof, transported as a deterministic 14-element CBOR array.
-The `ERC-8128-Delegation` Dictionary contains only ordered `g0` through `gN`
-Byte Sequences, while `Signature-Input` and `Signature` contain exactly one leaf
-request proof tagged
-`erc8128-delegated`. Verifiers opt in with `policy.delegation`, validate the
-canonical revocation status of every link through one batch verifier call, and
-receive the initial issuer as `principal`, the leaf as `signer`, and the ordered
+Bind a message verifier and an atomic nonce store once, then verify each
+incoming request.
+
+```ts
+import {
+  BoundedMemoryNonceStore,
+  createVerifierClient
+} from "@slicekit/erc8128"
+import { createPublicClient, http } from "viem"
+import { mainnet } from "viem/chains"
+
+const publicClient = createPublicClient({
+  chain: mainnet,
+  transport: http()
+})
+
+const verifier = createVerifierClient({
+  nonceStore: new BoundedMemoryNonceStore(),
+  verifyMessage: ({ address, message, signature }) =>
+    publicClient.verifyMessage({ address, message, signature })
+})
+
+const result = await verifier.verifyRequest({ request })
+
+if (result.ok) {
+  console.log(result.principal.address, result.principal.chainId)
+} else {
+  console.error(result.reason)
+}
+```
+
+`BoundedMemoryNonceStore` is intended for bounded single-process use. Use
+`createRedisNonceStore`, `createUniqueInsertNonceStore`, or another atomic
+persistent implementation in distributed production deployments.
+
+## Core API
+
+### `createSignerClient(signer, options?)`
+
+Creates a reusable signing client.
+
+```ts
+const client = createSignerClient(signer, {
+  ttlSeconds: 30,
+  contentDigest: "auto"
+})
+
+await client.signRequest(input, init, options)
+await client.fetch(input, init, options)
+client.setServerConfig(origin, discoveryDocument)
+```
+
+### `createVerifierClient(config)`
+
+Creates a reusable verifier with bound cryptographic and replay-protection
+dependencies.
+
+```ts
+const verifier = createVerifierClient({
+  verifyMessage,
+  verifyDigest,
+  nonceStore,
+  defaults: {
+    maxValiditySec: 120,
+    replayable: false
+  }
+})
+```
+
+`verifyDigest` is required when accepting delegated EIP-712 grant proofs.
+
+### `verifyRequest(args)`
+
+Verifies one signed request. A successful direct result identifies the same
+account as `principal` and `signer`; a delegated result identifies the initial
+issuer as `principal`, the leaf delegate as `signer`, and includes the ordered
 `delegationIds`.
 
-Replay posture is inferred only from `nonce`: the signer generates one by
-default, while `{ nonce: null }` deliberately creates a Replayable request.
-The SDK defaults to a 60-second validity window for interoperability, while
-signers should choose the shortest window their delivery path and clock
-uncertainty allow. Route verifiers document their own maximum.
+```ts
+type VerifyResult =
+  | {
+      ok: true
+      principal: { address: Address; chainId: number }
+      signer: { address: Address; chainId: number }
+      delegated: boolean
+      replay: "non-replayable" | "replayable"
+      binding: "request-bound" | "class-bound"
+    }
+  | { ok: false; reason: VerifyFailReason; detail?: string }
+```
 
-Verification-unavailable failures are distinct from invalid authentication and
-can be serialized as RFC 9457 problem details. `Accept-Signature` advertises
-repairable signing posture including mandatory tags.
+### Universal account verification
 
-Universal Account classification and proof calls share a per-request budget
-across base-profile and delegated candidates. Configure it with
-`maxAccountVerificationCalls`; the default is `2 + maxChainDepth` (6 with the
-default maximum delegation depth of 4). Budget exhaustion fails with the
-applicable verification-unavailable reason.
+`createUniversalAccountVerifier` and
+`createUniversalAccountDigestVerifier` classify an account by its onchain code:
+
+1. ERC-6492 signatures are sent to the supplied smart-account verifier.
+2. Code-bearing accounts are verified through ERC-1271.
+3. Code-free accounts use strict EOA recovery.
+
+The built-in EOA path requires canonical secp256k1 public-key recovery and
+Keccak-256, which are not available through WebCrypto's `SubtleCrypto` API.
+
+### Delegated requests
+
+Build and sign an EIP-712 grant, create a chain, then give the leaf signer a
+delegated client.
+
+```ts
+import {
+  buildDelegationGrant,
+  completeDelegationGrant,
+  createDelegatedSignerClient,
+  createDelegationChain
+} from "@slicekit/erc8128"
+
+const prepared = buildDelegationGrant({
+  issuer,
+  delegate,
+  audiences: ["https://api.example.com"],
+  id,
+  epoch: 0,
+  validUntil,
+  maxRequestValiditySeconds: 60,
+  delegateIsEOA: true,
+  requireNonReplayable: true,
+  permissions: ["orders:read"]
+})
+
+const link = completeDelegationGrant(
+  prepared,
+  await issuerSigner.signTypedData(prepared.typedData)
+)
+const chain = createDelegationChain([link])
+const delegated = createDelegatedSignerClient(delegateSigner, chain)
+
+const request = await delegated.signRequest(
+  "https://api.example.com/orders"
+)
+```
+
+Verifiers opt in through `policy.delegation`, supply a batch
+`verifyStatuses` callback, and may require permissions. HTTP loopback audiences
+are rejected by default; local development must opt in at grant creation and at
+the parsing, signing, or verification boundary that consumes the grant.
+Deterministic EIP-712 hashing and CBOR serialization are independent of that
+runtime transport policy.
+
+## Options
+
+### Signing options
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `binding` | `"request-bound" \| "class-bound"` | `"request-bound"` | Select the component coverage posture. |
+| `nonce` | `string \| function \| null` | generated | A nonce makes the request non-replayable; `null` deliberately omits it. |
+| `ttlSeconds` | `number` | `60` | Maximum interval between `created` and `expires`. |
+| `created` / `expires` | `number` | current time / TTL | Explicit Unix timestamps. |
+| `label` | `string` | `"request"` | HTTP Message Signature label. |
+| `contentDigest` | `"auto" \| "recompute" \| "require" \| "off"` | `"auto"` | Content-Digest handling. |
+| `components` | `CoveredComponent[]` | profile floor | Additional or explicit covered components. |
+
+The request-bound floor covers `@scheme`, `@authority`, `@method`, `@path`, and
+`@query` when present. Received content additionally requires a verified
+Content-Digest and Content-Type coverage.
+
+### Verification policy
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `principal` | `"direct" \| "delegated" \| "either"` | `"either"` | Accepted principal class. |
+| `accountVerification` | `"universal" \| "eoa-only"` | `"universal"` | Base-profile account verification mode. |
+| `maxValiditySec` | `number` | `300` | Maximum accepted signature validity window. |
+| `clockSkewSec` | `number` | `30` | Allowed clock uncertainty in seconds. |
+| `replayable` | `boolean` | `false` | Whether nonce-less signatures are accepted. |
+| `additionalRequestBoundComponents` | `CoveredComponent[]` | none | Extra request-bound coverage requirements. |
+| `classBoundPolicies` | `CoveredComponent[] \| CoveredComponent[][]` | disabled | Accepted class-bound component policies. |
+| `delegation` | `DelegationPolicy` | disabled | Delegation, permissions, proof-cache, and revocation policy. |
+
+## Nonce stores
+
+Non-replayable verification requires an atomic consume operation:
+
+```ts
+interface NonceStore {
+  consume(key: string, ttlSeconds: number): Promise<boolean>
+}
+```
+
+It must return `true` exactly once for a new key and `false` for every reuse
+until the TTL expires.
+
+## Documentation
+
+Full guides, API reference, protocol details, and the CLI are available at
+[erc8128.org](https://erc8128.org).
+
+## License
+
+MIT

@@ -171,43 +171,31 @@ export function getDelegationTypedData(grant: Delegation): DelegationTypedData {
   }
 }
 
-export function hashDelegation(
-  grant: Delegation,
-  policy: DelegationAudiencePolicy = {}
-): ViemHex {
-  validateDelegation(grant, policy)
+export function hashDelegation(grant: Delegation): ViemHex {
+  validateDelegationStructure(grant)
   return hashTypedData(getDelegationTypedData(grant))
 }
 
-export function encodeDelegationLink(
-  link: DelegationLink,
-  policy: DelegationAudiencePolicy = {}
-): Uint8Array {
-  validateDelegation(link.grant, policy)
+export function encodeDelegationLink(link: DelegationLink): Uint8Array {
+  validateDelegationStructure(link.grant)
   const signature = hexToBytes(link.signature)
   if (signature.length === 0) throw invalid("Delegation proof is empty.")
   return encodeDelegationLinkCbor(link)
 }
 
-export function decodeDelegationLink(
-  bytes: Uint8Array,
-  policy: DelegationAudiencePolicy = {}
-): DelegationLink {
+export function decodeDelegationLink(bytes: Uint8Array): DelegationLink {
   if (bytes.length > MAX_DELEGATION_LINK_BYTES)
     throw tooLarge("Delegation Link is too large.")
   const link = decodeDelegationLinkCbor(bytes)
-  validateDelegation(link.grant, policy)
-  const canonical = encodeDelegationLink(link, policy)
+  validateDelegationStructure(link.grant)
+  const canonical = encodeDelegationLink(link)
   if (bytesToHex(canonical) !== bytesToHex(bytes)) {
     throw parseError("Delegation Link CBOR is not canonical.")
   }
   return link
 }
 
-export function formatDelegationField(
-  chain: DelegationChain,
-  policy: DelegationAudiencePolicy = {}
-): string {
+export function formatDelegationField(chain: DelegationChain): string {
   if (chain.links.length === 0) throw invalid("Delegation Chain is empty.")
   if (chain.links.length > MAX_DELEGATION_ARRAY_ENTRIES) {
     throw tooLarge("Delegation Chain has too many links.")
@@ -215,7 +203,7 @@ export function formatDelegationField(
   const dictionary: SfDictionary = {}
   for (const [index, link] of chain.links.entries()) {
     dictionary[`g${index}`] = {
-      value: sfBinary(encodeDelegationLink(link, policy))
+      value: sfBinary(encodeDelegationLink(link))
     }
   }
   const fieldValue = serializeSfDictionary(dictionary)
@@ -256,10 +244,12 @@ export function parseDelegationField(
     ) {
       throw parseError("Delegation links must be bare Byte Sequences.")
     }
-    return decodeDelegationLink(member.value.value, policy)
+    const link = decodeDelegationLink(member.value.value)
+    validateDelegationAudiences(link.grant, policy)
+    return link
   })
   const chain = { links }
-  formatDelegationField(chain, policy)
+  formatDelegationField(chain)
   return { chain, fieldValue }
 }
 
@@ -310,6 +300,19 @@ export function normalizeAudienceOrigin(
   input: string,
   policy: DelegationAudiencePolicy = {}
 ): string {
+  const audience = parseCanonicalAudienceOrigin(input)
+  if (audience.httpLoopback && policy.allowLoopbackAudiences !== true) {
+    throw invalid(
+      "HTTP loopback Audience requires explicit local-development policy."
+    )
+  }
+  return audience.origin
+}
+
+function parseCanonicalAudienceOrigin(input: string): {
+  httpLoopback: boolean
+  origin: string
+} {
   if (
     input.includes("*") ||
     /:\/\/[^/]*@/.test(input) ||
@@ -334,26 +337,25 @@ export function normalizeAudienceOrigin(
   ) {
     throw invalid("Audience must contain only an RFC 6454 origin.")
   }
-  const loopback = isLoopback(url.hostname)
-  if (
-    url.protocol !== "https:" &&
-    !(
-      url.protocol === "http:" &&
-      loopback &&
-      policy.allowLoopbackAudiences === true
-    )
-  ) {
+  const httpLoopback = url.protocol === "http:" && isLoopback(url.hostname)
+  if (url.protocol !== "https:" && !httpLoopback) {
     throw invalid("Audience must use HTTPS except for loopback development.")
   }
   const normalized = url.origin.toLowerCase()
   if (normalized !== input) throw invalid("Audience must be canonical.")
-  return normalized
+  return { httpLoopback, origin: normalized }
 }
 
-export function validateDelegation(
+export function validateDelegationAudiences(
   grant: Delegation,
   policy: DelegationAudiencePolicy = {}
 ): void {
+  for (const audience of grant.audiences) {
+    normalizeAudienceOrigin(audience, policy)
+  }
+}
+
+export function validateDelegationStructure(grant: Delegation): void {
   if (
     typeof grant !== "object" ||
     grant === null ||
@@ -365,8 +367,7 @@ export function validateDelegation(
   requireCanonicalIdentity(grant.issuer, "issuer")
   requireCanonicalIdentity(grant.delegate, "delegate")
   assertArray(grant.audiences, "audiences", true)
-  for (const audience of grant.audiences)
-    normalizeAudienceOrigin(audience, policy)
+  for (const audience of grant.audiences) parseCanonicalAudienceOrigin(audience)
   assertBytes32(grant.id, "id")
   assertInteger(grant.epoch, "epoch", 0, Number.MAX_SAFE_INTEGER)
   assertInteger(grant.validAfter, "validAfter", 0, Number.MAX_SAFE_INTEGER)

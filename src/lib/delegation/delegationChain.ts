@@ -1,6 +1,5 @@
 import type {
   ComponentIdentifier,
-  DelegationAudiencePolicy,
   ParsedDelegationField,
   ResolvedDelegationChain
 } from "../../types"
@@ -15,8 +14,7 @@ export const DEFAULT_MAX_DELEGATION_CHAIN_DEPTH = 4
 
 export function resolveDelegationChain(
   parsed: ParsedDelegationField,
-  maximumDepth = DEFAULT_MAX_DELEGATION_CHAIN_DEPTH,
-  audiencePolicy: DelegationAudiencePolicy = {}
+  maximumDepth = DEFAULT_MAX_DELEGATION_CHAIN_DEPTH
 ): ResolvedDelegationChain {
   if (
     !Number.isSafeInteger(maximumDepth) ||
@@ -48,8 +46,7 @@ export function resolveDelegationChain(
     if (parent === undefined || child === undefined) discontinuous()
     if (
       child.grant.issuer !== parent.grant.delegate ||
-      child.grant.parentGrantHash !==
-        hashDelegation(parent.grant, audiencePolicy)
+      child.grant.parentGrantHash !== hashDelegation(parent.grant)
     ) {
       discontinuous()
     }

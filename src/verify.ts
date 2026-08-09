@@ -289,11 +289,7 @@ async function verifyDelegatedCandidate(
   }
   let chain: ResolvedDelegationChain
   try {
-    chain = resolveDelegationChain(
-      parsed,
-      delegationPolicy.maxChainDepth,
-      delegationPolicy
-    )
+    chain = resolveDelegationChain(parsed, delegationPolicy.maxChainDepth)
   } catch (error) {
     if (error instanceof Erc8128Error) {
       if (error.code === "DELEGATION_CHAIN_TOO_LONG") {
@@ -444,8 +440,7 @@ async function verifyDelegatedCandidate(
       now: args.now,
       cache: delegationPolicy.grantCache,
       cacheTtl: delegationPolicy.grantCacheTtlSec,
-      accountVerificationBudget: args.accountVerificationBudget,
-      allowLoopbackAudiences: delegationPolicy.allowLoopbackAudiences
+      accountVerificationBudget: args.accountVerificationBudget
     })
     if (proof === "unavailable") {
       return { ok: false, reason: "grant_verification_unavailable" }
@@ -623,11 +618,8 @@ async function verifyGrantProof(args: {
   >["grantCache"]
   cacheTtl: number | undefined
   accountVerificationBudget: AccountVerificationBudget
-  allowLoopbackAudiences?: boolean
 }): Promise<boolean | "unavailable"> {
-  const digest = hashDelegation(args.link.grant, {
-    allowLoopbackAudiences: args.allowLoopbackAudiences === true
-  })
+  const digest = hashDelegation(args.link.grant)
   const cacheKey = `${digest}\u0000${args.link.signature}`
   try {
     if ((await args.cache?.get(cacheKey)) === true) return true

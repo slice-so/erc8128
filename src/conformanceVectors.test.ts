@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { type Hex, hashMessage } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
-import fixture from "../conformance-vectors.json"
+import fixture from "../test/fixtures/conformance-vectors.json"
 import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
 import {
   parseSignatureHeader,

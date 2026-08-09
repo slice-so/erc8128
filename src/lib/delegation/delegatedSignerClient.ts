@@ -51,11 +51,10 @@ export function createDelegatedSignerClient(
   const audiencePolicy = {
     allowLoopbackAudiences: defaults?.allowLoopbackAudiences === true
   }
-  const fieldValue = formatDelegationField(delegation, audiencePolicy)
+  const fieldValue = formatDelegationField(delegation)
   const resolved = resolveDelegationChain(
     parseDelegationField(fieldValue, audiencePolicy),
-    undefined,
-    audiencePolicy
+    undefined
   )
   const leaf = resolved.chain.links.at(-1)?.grant
   if (leaf === undefined) {

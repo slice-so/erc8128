@@ -94,7 +94,6 @@ export type PreparedDelegationGrant = {
   grant: Delegation
   digest: Hex
   typedData: DelegationTypedData
-  allowLoopbackAudiences?: boolean
 }
 
 export type DelegationStatusContext = {

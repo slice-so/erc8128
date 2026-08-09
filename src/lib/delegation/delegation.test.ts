@@ -156,6 +156,20 @@ describe("EIP-712 Delegation grants", () => {
       expect(
         normalizeAudienceOrigin(origin, { allowLoopbackAudiences: true })
       ).toBe(origin)
+
+      const loopbackLink = {
+        ...g0,
+        grant: { ...g0.grant, audiences: [origin] }
+      }
+      expect(() => hashDelegation(loopbackLink.grant)).not.toThrow()
+      expect(() => encodeDelegationLink(loopbackLink)).not.toThrow()
+      const fieldValue = formatDelegationField({ links: [loopbackLink] })
+      expect(() => parseDelegationField(fieldValue)).toThrow()
+      expect(
+        parseDelegationField(fieldValue, {
+          allowLoopbackAudiences: true
+        }).chain
+      ).toEqual({ links: [loopbackLink] })
     }
   })
 
