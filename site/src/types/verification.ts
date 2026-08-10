@@ -69,8 +69,8 @@ export type VerificationHttpPayloadValue =
   | boolean
   | string[]
   | SuccessfulVerification["principal"]
-  | SuccessfulVerification["components"]
-  | SuccessfulVerification["params"]
+  | SuccessfulDirectVerification["components"]
+  | SuccessfulDirectVerification["params"]
   | undefined
 
 export type VerificationHttpResponse = {
