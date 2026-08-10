@@ -83,6 +83,12 @@ export function parseSignatureBase(base: string): {
     return null
   }
   try {
+    if (
+      serializeSfMember(parseSfInnerList(signatureParams.value)) !==
+      signatureParams.value
+    ) {
+      return null
+    }
     const [member] = parseSignatureInputHeader(
       `request=${signatureParams.value}`
     )

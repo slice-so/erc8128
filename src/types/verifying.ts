@@ -166,7 +166,8 @@ export type ResolvedPosture = {
   replay: ReplayMode
   components: import("./core").CoveredComponent[] | undefined
   contentDigest: import("./signing").ContentDigestMode | undefined
-  ttlSeconds: number
+  defaultTtlSeconds: number
+  maximumTtlSeconds: number
 }
 
 export type RedisNonceStoreClient = {

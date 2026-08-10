@@ -125,6 +125,35 @@ const signedRequest = await signRequest(
 
 :::
 
+`ttlSeconds` is a default, not a ceiling over `expires`. An explicit expiry is
+kept unless a signer client has discovered a server `max_validity_sec` or has
+an earlier authorization expiry.
+
+## Accept-Signature retries
+
+The retry helpers treat a request-bound, non-replayable signature as the
+client's minimum posture by default. Consequently,
+`parseAcceptSignatureHeader` omits `signOptions`, and
+`selectAcceptSignatureRetryOptions` returns `null`, when a server advertises
+only class-bound or replayable signatures.
+
+Pass `minimumOptions` only when the client deliberately accepts a weaker
+posture:
+
+```typescript
+const retryOptions = selectAcceptSignatureRetryOptions({
+  members,
+  requestShape: request,
+  minimumOptions: {
+    binding: 'class-bound',
+    replay: 'replayable',
+  },
+})
+```
+
+The same minimum may be passed as the third argument to
+`parseAcceptSignatureHeader` when deriving each member's `signOptions`.
+
 ## Binding Modes
 
 Request-bound (default) signs all applicable components for maximum security. Class-bound signs only the components you explicitly specify.

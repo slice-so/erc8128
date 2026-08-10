@@ -163,6 +163,7 @@ type VerifyPolicy = {
    * Class-bound policies (one list or a list of lists).
    * If any policy list is covered by the signed components, the signature is accepted.
    * `@authority` is always required (added if missing).
+   * An empty list disables class-bound acceptance.
    */
   classBoundPolicies?: string[] | string[][]
   

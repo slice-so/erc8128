@@ -5,10 +5,10 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "rootDir": "..",
     "target": "ES2024",
     "noEmit": true,
     "types": ["bun-types"],
-    "baseUrl": ".",
     "paths": {
       "@slicekit/erc8128": ["../src/index.ts"]
     }

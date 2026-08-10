@@ -1,5 +1,4 @@
 import type {
-  ContentDigestMode,
   CoveredComponent,
   ResolveAuthorizedPostureParameters,
   ResolvedAuthorizedPosture
@@ -8,6 +7,7 @@ import {
   componentIdentifierEquals,
   normalizeComponentIdentifier
 } from "./engine/componentIdentifier"
+import { resolveContentDigestMode } from "./resolveContentDigest"
 
 const positiveInteger = (value: number | undefined) =>
   value !== undefined && Number.isSafeInteger(value) && value > 0
@@ -57,17 +57,6 @@ const selectClassBoundPolicy = (
     ).length
     return candidateExtra < bestExtra ? candidate : best
   })
-}
-
-const resolveContentDigest = (
-  requested: ContentDigestMode | undefined,
-  required: ContentDigestMode | undefined
-): ContentDigestMode => {
-  if (required === undefined || required === "off") {
-    return requested ?? required ?? "auto"
-  }
-  if (requested === undefined || requested === "off") return required
-  return requested
 }
 
 /**
@@ -142,10 +131,11 @@ export const resolveAuthorizedPosture = ({
   return {
     binding,
     components,
-    contentDigest: resolveContentDigest(
-      requestOptions.contentDigest,
-      routePolicy?.contentDigest
-    ),
+    contentDigest:
+      resolveContentDigestMode(
+        requestOptions.contentDigest,
+        routePolicy?.contentDigest
+      ) ?? "auto",
     replay: replayable ? "replayable" : "non-replayable",
     ttlSeconds: Math.min(...validityCaps)
   }

@@ -18,6 +18,7 @@ import {
   redirectStatuses,
   unsignedRedirectHeaders
 } from "../redirects"
+import { resolveContentDigestMode } from "../resolveContentDigest"
 import { sanitizeUrl, unixNow } from "../utilities"
 import { resolveDelegationChain } from "./delegationChain"
 import {
@@ -165,7 +166,7 @@ export function createDelegatedSignerClient(
           : (options?.nonce ?? (useDefaultNonce ? defaults?.nonce : undefined)),
       created,
       expires,
-      contentDigest: resolveContentDigest(
+      contentDigest: resolveContentDigestMode(
         options?.contentDigest ?? defaults?.contentDigest,
         routePolicy?.contentDigest
       ),
@@ -257,17 +258,6 @@ export function createDelegatedSignerClient(
       else serverConfigs.set(normalized, config)
     }
   }
-}
-
-function resolveContentDigest(
-  requested: SignOptions["contentDigest"],
-  required: SignOptions["contentDigest"]
-): SignOptions["contentDigest"] {
-  if (required === undefined || required === "off") {
-    return requested ?? required
-  }
-  if (requested === undefined || requested === "off") return required
-  return requested
 }
 
 function splitInitAndOptions<T extends SignOptions>(

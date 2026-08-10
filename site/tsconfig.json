@@ -1,11 +1,10 @@
 {
   "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
+    "rootDir": "..",
     "types": ["bun-types"],
     "paths": {
-      "@slicekit/erc8128": ["../src/index.ts"],
-      "react": ["./node_modules/@types/react"],
-      "react-dom": ["./node_modules/@types/react-dom"]
+      "@slicekit/erc8128": ["../src/index.ts"]
     }
   }
 }

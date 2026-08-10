@@ -116,6 +116,15 @@ const result = await verifyRequest({
 // Otherwise: result.reason === "bad_content_digest" or "content_digest_required"
 ```
 
+### `;bs` field-value limitation
+
+The Fetch `Headers` API joins repeated field lines before the signer sees them.
+For a covered component using RFC 9421's `;bs` parameter, this implementation
+splits that joined value at top-level commas and encodes each part separately.
+It is therefore interoperable only when each original field line is itself
+comma-free. A comma within one field line is indistinguishable from the join
+between repeated lines and is encoded as multiple byte sequences.
+
 ## Class-Bound Signatures
 
 A **class-bound** signature authorizes a *class of requests* rather than a single concrete request. Instead of binding the signature to all request components (method, path, query, body), only the explicitly specified components are signed. Any request that matches the signed components is authorized by the same signature.
@@ -252,6 +261,10 @@ const result = await verifyRequest({
 ```
 
 Request-bound signatures are **always** accepted when valid, even if `classBoundPolicies` is set. The verifier also requires `@authority` in every class-bound policy (it is added if missing).
+
+An explicit empty list, `classBoundPolicies: []`, disables class-bound
+acceptance. It is equivalent to omitting the field, not shorthand for an
+`@authority`-only policy.
 
 ## Best Practices
 

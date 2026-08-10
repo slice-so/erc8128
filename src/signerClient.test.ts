@@ -58,6 +58,32 @@ describe("createSignerClient authorization constraints", () => {
     )
   })
 
+  test("preserves explicit expiry without an external validity ceiling", async () => {
+    const created = 1_700_000_000
+    const client = createSignerClient(signer)
+    const request = await client.signRequest("https://api.example/accounts", {
+      created,
+      expires: created + 300
+    })
+
+    expect(signatureParams(request)?.expires).toBe(created + 300)
+  })
+
+  test("clamps explicit expiry only to discovered route limits", async () => {
+    const created = 1_700_000_000
+    const client = createSignerClient(signer, {
+      serverConfigs: {
+        "https://api.example": { max_validity_sec: 40 }
+      }
+    })
+    const request = await client.signRequest("https://api.example/accounts", {
+      created,
+      expires: created + 300
+    })
+
+    expect(signatureParams(request)?.expires).toBe(created + 40)
+  })
+
   test("normalizes configured origins before applying route policy", async () => {
     const client = createSignerClient(signer, {
       preferReplayable: true,
@@ -73,14 +99,11 @@ describe("createSignerClient authorization constraints", () => {
     expect(signatureParams(request)?.nonce).toBeDefined()
   })
 
-  test("clamps default signing to route and authorization expiry", async () => {
+  test("clamps default signing to the authorization expiry", async () => {
     const created = 1_700_000_000
     const client = createSignerClient(signer, {
       authorizationExpiresAt: created + 30,
-      ttlSeconds: 120,
-      serverConfigs: {
-        "https://api.example": { max_validity_sec: 40 }
-      }
+      ttlSeconds: 120
     })
 
     const request = await client.signRequest("https://api.example/resource", {
@@ -88,6 +111,30 @@ describe("createSignerClient authorization constraints", () => {
       expires: created + 300
     })
     expect(signatureParams(request)?.expires).toBe(created + 30)
+  })
+
+  test("route recompute overrides a requested automatic digest", async () => {
+    const client = createSignerClient(signer, {
+      serverConfigs: {
+        "https://api.example": {
+          max_validity_sec: 60,
+          route_policies: {
+            "/resource": { contentDigest: "recompute" }
+          }
+        }
+      }
+    })
+    const request = await client.signRequest(
+      "https://api.example/resource",
+      {
+        method: "POST",
+        headers: { "content-digest": "sha-256=:AAAA:" },
+        body: "updated"
+      },
+      { contentDigest: "auto", components: ["content-digest"] }
+    )
+
+    expect(request.headers.get("content-digest")).not.toBe("sha-256=:AAAA:")
   })
 
   test("re-resolves route policy after each redirect", async () => {

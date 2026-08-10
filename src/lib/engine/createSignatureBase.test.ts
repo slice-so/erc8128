@@ -119,6 +119,20 @@ describe("createSignatureBaseMinimal", () => {
     expect(base).toContain('"x-values";bs: :YQ==:, :Yg==:')
   })
 
+  test("treats a comma in one joined field value as separate bs values", () => {
+    const base = new TextDecoder().decode(
+      createSignatureBaseMinimal({
+        request: new Request("https://example.com", {
+          headers: { "x-values": "a, b" }
+        }),
+        components: [{ name: "x-values", params: { bs: true } }],
+        signatureParamsValue: '("x-values";bs)'
+      })
+    )
+
+    expect(base).toContain('"x-values";bs: :YQ==:, :Yg==:')
+  })
+
   test("throws on missing required header", () => {
     const req = makeRequest("https://example.com")
     expect(() =>

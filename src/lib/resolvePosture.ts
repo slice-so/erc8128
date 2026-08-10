@@ -10,6 +10,7 @@ import {
   normalizeComponentIdentifier
 } from "./engine/componentIdentifier"
 import { matchRoutePolicy } from "./matchRoutePolicy"
+import { resolveContentDigestMode } from "./resolveContentDigest"
 
 /**
  * Resolve the signing posture for a given request based on client preferences
@@ -27,17 +28,17 @@ export function resolvePosture(
   mergedOptions: SignOptions,
   requestedReplay: ReplayMode
 ): ResolvedPosture {
-  const ttlSeconds = Math.min(
-    positiveInteger(mergedOptions.ttlSeconds) ?? 60,
+  const defaultTtlSeconds = positiveInteger(mergedOptions.ttlSeconds) ?? 60
+  const maximumTtlSeconds =
     positiveInteger(serverConfig?.max_validity_sec) ?? Number.POSITIVE_INFINITY
-  )
   if (!serverConfig) {
     return {
       binding: mergedOptions.binding,
       replay: requestedReplay,
       components: mergedOptions.components,
       contentDigest: mergedOptions.contentDigest,
-      ttlSeconds
+      defaultTtlSeconds,
+      maximumTtlSeconds
     }
   }
 
@@ -73,11 +74,12 @@ export function resolvePosture(
       binding: "class-bound",
       replay: replayable ? "replayable" : "non-replayable",
       components: merged,
-      contentDigest: resolveContentDigest(
+      contentDigest: resolveContentDigestMode(
         mergedOptions.contentDigest,
         routePolicy?.contentDigest
       ),
-      ttlSeconds
+      defaultTtlSeconds,
+      maximumTtlSeconds
     }
   }
 
@@ -91,27 +93,17 @@ export function resolvePosture(
     binding: "request-bound",
     replay: replayable ? "replayable" : "non-replayable",
     components: components?.length ? components : undefined,
-    contentDigest: resolveContentDigest(
+    contentDigest: resolveContentDigestMode(
       mergedOptions.contentDigest,
       routePolicy?.contentDigest
     ),
-    ttlSeconds
+    defaultTtlSeconds,
+    maximumTtlSeconds
   }
 }
 
 function positiveInteger(value: number | undefined): number | undefined {
   return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value : undefined
-}
-
-function resolveContentDigest(
-  requested: SignOptions["contentDigest"],
-  required: SignOptions["contentDigest"]
-): SignOptions["contentDigest"] {
-  if (required === undefined || required === "off") {
-    return requested ?? required
-  }
-  if (requested === undefined || requested === "off") return required
-  return requested
 }
 
 /**

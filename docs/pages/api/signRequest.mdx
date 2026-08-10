@@ -82,6 +82,11 @@ The signer that provides the Ethereum address and signing function.
 
 Options for customizing the signature.
 
+`ttlSeconds` supplies the default validity window only when `expires` is
+omitted. An explicit `expires` value is preserved; signer clients clamp it only
+when a discovered `max_validity_sec` or an authorization expiry imposes an
+earlier ceiling.
+
 ## Examples
 
 Common signing patterns showing TTL customization, custom nonces, and replayable signatures.

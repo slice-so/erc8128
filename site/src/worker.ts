@@ -1,5 +1,5 @@
-import { env } from "cloudflare:workers"
 import {
+  formatErc8128ProblemDetails,
   VerificationUnavailableError,
   type VerifyMessageFn
 } from "@slicekit/erc8128"
@@ -27,6 +27,7 @@ import type {
 } from "./types"
 
 type Env = {
+  Bindings: RuntimeBindings
   Variables: {
     storageMode: StorageMode
     verificationRequest: Request
@@ -34,36 +35,57 @@ type Env = {
   }
 }
 
-type RuntimeBindings = CloudflareBindings & {
+export type StorageRuntimeBindings = {
   ERC8128_ENABLE_STORAGE_HEADER?: string
   ERC8128_ENVIRONMENT?: "development" | "production" | "test"
   ERC8128_STORAGE_MODE?: string
 }
 
-const runtimeBindings = env as RuntimeBindings
-const alchemyId = runtimeBindings.ERC8128_SECRET_ALCHEMY_ID?.trim()
-if (!alchemyId) {
-  throw new Error("ERC8128_SECRET_ALCHEMY_ID must be configured.")
-}
-const alchemyRpcUrl = `https://eth-mainnet.g.alchemy.com/v2/${alchemyId}`
-const MAX_VERIFY_BODY_BYTES = 1_048_576
+type RuntimeBindings = CloudflareBindings & StorageRuntimeBindings
 
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(alchemyRpcUrl)
-})
+export const MAX_VERIFY_BODY_BYTES = 1_048_576
 
-const verifyMessage: VerifyMessageFn = async (args) => {
-  try {
-    return await publicClient.verifyMessage(args)
-  } catch {
-    throw new VerificationUnavailableError(
-      "The Ethereum account-verification RPC is unavailable."
+export function resolveStorageSelection(
+  bindings: StorageRuntimeBindings,
+  headers: Headers
+) {
+  const configuredStorageMode = parseConfiguredStorageMode(
+    bindings.ERC8128_STORAGE_MODE
+  )
+  const allowHeaderOverride =
+    bindings.ERC8128_ENVIRONMENT !== "production" &&
+    bindings.ERC8128_ENABLE_STORAGE_HEADER === "true"
+  return {
+    allowHeaderOverride,
+    storageMode: parseStorageMode(
+      headers,
+      configuredStorageMode,
+      allowHeaderOverride
     )
   }
 }
 
-async function bufferVerificationRequest(
+function createVerifyMessage(
+  bindings: RuntimeBindings
+): VerifyMessageFn | null {
+  const alchemyId = bindings.ERC8128_SECRET_ALCHEMY_ID?.trim()
+  if (!alchemyId) return null
+  const publicClient = createPublicClient({
+    chain: mainnet,
+    transport: http(`https://eth-mainnet.g.alchemy.com/v2/${alchemyId}`)
+  })
+  return async (args) => {
+    try {
+      return await publicClient.verifyMessage(args)
+    } catch {
+      throw new VerificationUnavailableError(
+        "The Ethereum account-verification RPC is unavailable."
+      )
+    }
+  }
+}
+
+export async function bufferVerificationRequest(
   request: Request
 ): Promise<Request | null> {
   const contentLength = request.headers.get("content-length")
@@ -123,28 +145,40 @@ app.get("/.well-known/erc8128", (c) => {
   return c.json(getDiscoveryDocument(new URL(c.req.url).origin))
 })
 
+app.get("/playground-config", (c) => {
+  const storage = resolveStorageSelection(c.env, new Headers())
+  return c.json({
+    storageMode: storage.storageMode,
+    storageOverrideEnabled: storage.allowHeaderOverride
+  })
+})
+
 app.use("/verify", async (c, next) => {
   const verificationRequest = await bufferVerificationRequest(c.req.raw)
   if (verificationRequest === null) {
     return c.json(
       {
-        ok: false,
-        reason: "request_body_too_large",
+        type: "https://erc8128.org/problems/request-body-too-large",
+        title: "Request body is too large",
+        status: 413,
         detail: `Request bodies are limited to ${MAX_VERIFY_BODY_BYTES} bytes.`
       },
-      413
+      413,
+      { "content-type": "application/problem+json" }
     )
   }
-  const configuredStorageMode = parseConfiguredStorageMode(
-    runtimeBindings.ERC8128_STORAGE_MODE
-  )
-  const allowHeaderOverride =
-    runtimeBindings.ERC8128_ENVIRONMENT !== "production" &&
-    runtimeBindings.ERC8128_ENABLE_STORAGE_HEADER === "true"
-  const storageMode = parseStorageMode(
-    verificationRequest.headers,
-    configuredStorageMode,
-    allowHeaderOverride
+  const verifyMessage = createVerifyMessage(c.env)
+  if (!verifyMessage) {
+    const problem = formatErc8128ProblemDetails({
+      ok: false,
+      reason: "signature_verification_unavailable",
+      detail: "ERC8128_SECRET_ALCHEMY_ID must be configured."
+    })
+    return c.json({ ok: false, ...problem }, problem.status)
+  }
+  const { storageMode } = resolveStorageSelection(
+    c.env,
+    verificationRequest.headers
   )
   let verificationRuntime: VerificationRuntime | undefined
 
@@ -152,10 +186,10 @@ app.use("/verify", async (c, next) => {
     const bindings =
       storageMode === "postgres"
         ? {
-            hyperdrive: runtimeBindings.HYPERDRIVE?.connectionString,
-            databaseUrl: runtimeBindings.DATABASE_URL
+            hyperdrive: c.env.HYPERDRIVE?.connectionString,
+            databaseUrl: c.env.DATABASE_URL
           }
-        : { redisUrl: runtimeBindings.REDIS_URL }
+        : { redisUrl: c.env.REDIS_URL }
     verificationRuntime = await getVerificationRuntime(
       storageMode,
       new URL(c.req.url).origin,

@@ -68,18 +68,19 @@ describe("parseSignatureBase", () => {
     })
   })
 
-  it("uses the received value when legal duplicate parameters are present", () => {
+  it("rejects duplicate signature parameters without replacing received text", () => {
     const duplicate = base.replace(
       ";expires=1800000060",
       ";created=1800000001;expires=1800000060"
     )
-    expect(parseSignatureBase(duplicate)?.params.created).toBe(1_800_000_001)
+    expect(parseSignatureBase(duplicate)).toBeNull()
   })
 
   it("rejects unsupported params, escaping, duplicates, and trailing data", () => {
     const cases = [
       base.replace('"@authority":', '"@method":'),
       base.replace(";keyid=", ";extra=1;keyid="),
+      base.replace(";created=", "; created="),
       base.replace('"@method"', '"\\@method"'),
       `${base}\n`,
       `${base} trailing`,

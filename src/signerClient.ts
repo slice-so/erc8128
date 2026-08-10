@@ -160,13 +160,13 @@ export function createSignerClient(
           "The signing authorization has expired."
         )
       }
-      const ttlSeconds = Math.min(
-        posture.ttlSeconds,
+      const maximumTtlSeconds = Math.min(
+        posture.maximumTtlSeconds,
         remainingAuthorizationSeconds
       )
       const expires = Math.min(
-        mergedOptions.expires ?? created + ttlSeconds,
-        created + ttlSeconds
+        mergedOptions.expires ?? created + posture.defaultTtlSeconds,
+        created + maximumTtlSeconds
       )
       return {
         ...mergedOptions,
@@ -181,7 +181,7 @@ export function createSignerClient(
         contentDigest: posture.contentDigest,
         created,
         expires,
-        ttlSeconds
+        ttlSeconds: posture.defaultTtlSeconds
       }
     }
 

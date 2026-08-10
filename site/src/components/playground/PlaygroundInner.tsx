@@ -85,6 +85,10 @@ const ALL_COMPONENTS = ["@method", "@path", "content-digest", "nonce"] as const
 type AppWalletState = { id: string; publicKey: string; expiry: number }
 
 type StorageMode = "redis" | "postgres"
+type PlaygroundConfig = {
+  storageMode: StorageMode
+  storageOverrideEnabled: boolean
+}
 
 const STORAGE_LABELS: Record<StorageMode, string> = {
   redis: "Redis",
@@ -177,6 +181,8 @@ export function PlaygroundInner() {
     crypto.randomUUID().replaceAll("-", "").slice(0, 16)
   )
   const [storageMode, setStorageMode] = useState<StorageMode>("postgres")
+  const [storageOverrideEnabled, setStorageOverrideEnabled] = useState(false)
+  const [storageConfigLoaded, setStorageConfigLoaded] = useState(false)
 
   // Result state
   const [signedHeadersHtml, setSignedHeadersHtml] = useState(
@@ -206,6 +212,29 @@ export function PlaygroundInner() {
   const hasBody = method !== "GET" && body.length > 0
   const includeContentDigest =
     selectedComponents.has("content-digest") && hasBody
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(new URL("/playground-config", getRequestOrigin()))
+      .then(async (response) => {
+        if (!response.ok)
+          throw new Error("Playground configuration unavailable")
+        return (await response.json()) as PlaygroundConfig
+      })
+      .then((config) => {
+        if (cancelled) return
+        setStorageMode(config.storageMode)
+        setStorageOverrideEnabled(config.storageOverrideEnabled)
+        setStorageConfigLoaded(true)
+      })
+      .catch(() => {
+        if (!cancelled) setStorageConfigLoaded(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -297,6 +326,7 @@ export function PlaygroundInner() {
 
         setVerifyOk(!!payload?.ok)
         setVerifyData(payload)
+        if (payload.storageMode) setStorageMode(payload.storageMode)
 
         if (payload?.ok && payload?.principal) {
           resolveEns(payload.principal.address).then(setEnsName)
@@ -826,19 +856,27 @@ export function PlaygroundInner() {
                             ? "text-[#fbbf24]"
                             : "text-[#60a5fa]"
                           : "text-white/35"
-                      }`}
+                      } ${storageOverrideEnabled ? "" : "cursor-not-allowed opacity-60"}`}
                     >
                       <input
                         type="radio"
                         name="storage-mode"
                         className="component-checkbox"
                         checked={storageMode === mode}
+                        disabled={!storageOverrideEnabled}
                         onChange={() => setStorageMode(mode)}
                       />
                       <span>{STORAGE_LABELS[mode]}</span>
                     </label>
                   ))}
                 </div>
+                <p className="mt-3 font-mono text-[10px] leading-relaxed text-white/45">
+                  {!storageConfigLoaded
+                    ? "Loading deployment storage policy…"
+                    : storageOverrideEnabled
+                      ? "This preview deployment accepts the signed backend override."
+                      : `This deployment is fixed to ${STORAGE_LABELS[storageMode]}; backend switching is disabled.`}
+                </p>
               </div>
             </div>
           </div>

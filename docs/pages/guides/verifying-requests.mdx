@@ -170,6 +170,10 @@ const result = await verifyRequest({
 
 See [Server Enforcement](/concepts/request-binding#server-enforcement-with-additionalrequestboundcomponents-and-classboundpolicies) for details on default behavior, custom components, and the difference between request-bound and class-bound verification.
 
+Set `classBoundPolicies: []` to explicitly disable class-bound signatures. An
+empty list is equivalent to leaving the field unset; it does not create an
+`@authority`-only policy.
+
 :::info
 The component order in signatures does not affect verification — the library reads component order from the signature inputs. This allows clients to produce signatures with components in any order, and verifiers to accept them as long as the required components are present.
 :::
@@ -297,6 +301,12 @@ if (!result.ok) {
   return { status: problem.status, body: problem }
 }
 ```
+
+Infrastructure may reject a request before ERC-8128 verification runs. For
+example, the playground worker's body-size limit returns a generic RFC 9457
+Problem Details response with status `413`. Such responses intentionally do
+not contain a `VerifyFailReason`; use `parseErc8128ProblemDetails` only for
+ERC-8128 verification failures.
 
 ## Multi-Chain Support
 

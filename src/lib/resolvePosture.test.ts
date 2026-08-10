@@ -34,7 +34,8 @@ describe("resolvePosture structural component policies", () => {
       components: [structuredComponent],
       replay: "non-replayable",
       contentDigest: undefined,
-      ttlSeconds: 60
+      defaultTtlSeconds: 60,
+      maximumTtlSeconds: 60
     })
   })
 
@@ -77,5 +78,37 @@ describe("resolvePosture structural component policies", () => {
       { name: "@authority" },
       { name: "x-tenant" }
     ])
+  })
+
+  test("separates the default TTL from externally imposed ceilings", () => {
+    expect(
+      resolvePosture(
+        "GET",
+        "/resource",
+        { max_validity_sec: 40 },
+        { ttlSeconds: Number.NaN },
+        "non-replayable"
+      )
+    ).toMatchObject({
+      defaultTtlSeconds: 60,
+      maximumTtlSeconds: 40
+    })
+  })
+
+  test("takes the stronger content-digest policy", () => {
+    expect(
+      resolvePosture(
+        "POST",
+        "/resource",
+        {
+          max_validity_sec: 60,
+          route_policies: {
+            "/resource": { contentDigest: "recompute" }
+          }
+        },
+        { contentDigest: "auto" },
+        "non-replayable"
+      ).contentDigest
+    ).toBe("recompute")
   })
 })

@@ -13,6 +13,7 @@
       "inputs": [
         "src/**/*.ts",
         "build.ts",
+        "$TURBO_ROOT$/build.ts",
         "package.json",
         "tsconfig.json",
         "tsconfig.build.json"

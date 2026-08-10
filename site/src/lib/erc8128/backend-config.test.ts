@@ -271,6 +271,43 @@ describe("playground erc8128 runtime", () => {
     expect(verifyCalls).toBe(1)
   })
 
+  test("does not reuse a cached class-bound signature after a required header is added", async () => {
+    let verifyCalls = 0
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
+      "https://erc8128.org",
+      async () => {
+        verifyCalls += 1
+        return true
+      }
+    )
+    const signed = await signRequest(
+      "https://erc8128.org/verify",
+      { method: "POST" },
+      TEST_SIGNER,
+      {
+        binding: "class-bound",
+        nonce: null,
+        components: ["@authority"]
+      }
+    )
+
+    const first = await runtime.verifyRequest(signed.clone())
+    const headers = new Headers(signed.headers)
+    headers.set("x-erc8128-storage", "redis")
+    const modified = await runtime.verifyRequest(
+      new Request(signed, { headers })
+    )
+
+    expect(first.result.ok).toBe(true)
+    expect(modified.cachedVerification).toBe(false)
+    expect(modified.result).toMatchObject({
+      ok: false,
+      reason: "insufficient_coverage"
+    })
+    expect(verifyCalls).toBe(1)
+  })
+
   test("rejects a storage-mode header changed after signing", async () => {
     const runtime = createVerificationRuntime(
       createRuntimeConfig(),

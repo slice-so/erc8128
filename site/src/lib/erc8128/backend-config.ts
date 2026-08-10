@@ -40,20 +40,31 @@ import type {
   VerificationRuntimeConfig
 } from "../../types"
 
+const VERIFY_ROUTE_POLICY = [
+  {
+    methods: ["GET", "POST", "PUT"],
+    replayable: true,
+    classBoundPolicies: ["@authority"],
+    requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
+  },
+  {
+    methods: ["DELETE"],
+    replayable: false,
+    requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
+  }
+] satisfies RoutePolicy[]
+
 export const VERIFY_ROUTE_POLICIES: RoutePolicyConfig = {
-  "/verify": [
-    {
-      methods: ["GET", "POST", "PUT"],
-      replayable: true,
-      classBoundPolicies: ["@authority"],
-      requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
-    },
-    {
-      methods: ["DELETE"],
-      replayable: false,
-      requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
-    }
-  ] satisfies RoutePolicy[]
+  "/verify": VERIFY_ROUTE_POLICY
+}
+
+// The playground has no signer-triggered invalidation endpoint yet. Keep its
+// discovery document conservative while still allowing explicit replay demos.
+const DISCOVERY_ROUTE_POLICIES: RoutePolicyConfig = {
+  "/verify": VERIFY_ROUTE_POLICY.map((policy) => ({
+    ...policy,
+    replayable: false
+  }))
 }
 
 const REDIS_KEY_PREFIX = "erc8128-site:erc8128:"
@@ -85,7 +96,9 @@ function isReplayableSignature(signature: { params: { nonce?: string } }) {
 }
 
 async function getVerificationCacheKeys<CfHostMetadata, Cf>(
-  request: Request<CfHostMetadata, Cf>
+  request: Request<CfHostMetadata, Cf>,
+  pathname: string,
+  routePolicy: RoutePolicy
 ): Promise<Array<{ key: string; label: string }>> {
   const signatureInputHeader = request.headers.get("signature-input")
   const signatureHeader = request.headers.get("signature")
@@ -107,6 +120,19 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
       : new Uint8Array(await request.clone().arrayBuffer())
   const encoder = new TextEncoder()
   const signatureBytes = encoder.encode(signatureHeader)
+  const routePolicyBytes = encoder.encode(
+    JSON.stringify({
+      method: request.method.toUpperCase(),
+      pathname,
+      policy: routePolicy,
+      requiredWhenPresent: (
+        routePolicy.requiredCoveredComponentsWhenPresent ?? []
+      ).map((component) => {
+        const name = typeof component === "string" ? component : component.name
+        return [name, request.headers.get(name)]
+      })
+    })
+  )
   const keys: Array<{ key: string; label: string }> = []
 
   for (const candidate of selected.selected.filter(isReplayableSignature)) {
@@ -121,8 +147,9 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
         signatureBytes.length +
           labelBytes.length +
           signatureBase.length +
+          routePolicyBytes.length +
           bodyBytes.length +
-          3
+          4
       )
       let offset = 0
       material.set(signatureBytes, offset)
@@ -131,6 +158,8 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
       offset += labelBytes.length + 1
       material.set(signatureBase, offset)
       offset += signatureBase.length + 1
+      material.set(routePolicyBytes, offset)
+      offset += routePolicyBytes.length + 1
       material.set(bodyBytes, offset)
       const digest = new Uint8Array(
         await crypto.subtle.digest("SHA-256", material)
@@ -193,7 +222,7 @@ export function getDiscoveryDocument(baseURL: string): DiscoveryDocument {
 
   return formatDiscoveryDocument({
     verificationEndpoint: new URL("/verify", normalizedBaseURL).toString(),
-    routePolicy: VERIFY_ROUTE_POLICIES
+    routePolicy: DISCOVERY_ROUTE_POLICIES
   })
 }
 
@@ -430,7 +459,7 @@ export function createVerificationRuntime(
       const signatureHeader = request.headers.get("signature")
       const verificationCacheKeys =
         routePolicy.replayable && signatureHeader
-          ? await getVerificationCacheKeys(request)
+          ? await getVerificationCacheKeys(request, pathname, routePolicy)
           : []
 
       for (const cacheKey of verificationCacheKeys) {
