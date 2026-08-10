@@ -1,22 +1,14 @@
 # @slicekit/erc8128
 
-Sign and verify HTTP requests with Ethereum accounts using
-[ERC-8128](https://erc8128.org). The package implements the ERC-8128 base
-profile and recursive delegated authentication on top of RFC 9421, RFC 9530,
-and RFC 9651.
+Sign and verify HTTP requests with Ethereum accounts using [ERC-8128](https://erc8128.org). The package implements the ERC-8128 base profile and recursive delegated authentication on top of RFC 9421, RFC 9530, and RFC 9651.
 
 ## Features
 
-- **Fetch-native** — Works with standard `Request`, `Response`, and `fetch`
-  APIs in browsers, workers, Node.js, Bun, and Deno.
-- **Secure defaults** — Request-bound, non-replayable signatures with a
-  generated nonce and a 60-second validity window.
-- **Universal accounts** — Supports EOAs, deployed ERC-1271 accounts, and
-  counterfactual ERC-6492 accounts.
-- **Delegated principals** — Carries recursive, attenuated EIP-712 delegation
-  chains with audience, validity, permission, and revocation constraints.
-- **Standards-compliant HTTP** — Uses HTTP Message Signatures, Content-Digest,
-  and Structured Fields.
+- **Fetch-native** — Works with standard `Request`, `Response`, and `fetch` APIs in browsers, workers, Node.js, Bun, and Deno.
+- **Secure defaults** — Request-bound, non-replayable signatures with a generated nonce and a 60-second validity window.
+- **Universal accounts** — Supports EOAs, deployed ERC-1271 accounts, and counterfactual ERC-6492 accounts.
+- **Delegated principals** — Carries recursive, attenuated EIP-712 delegation chains with audience, validity, permission, and revocation constraints.
+- **Standards-compliant HTTP** — Uses HTTP Message Signatures, Content-Digest, and Structured Fields.
 
 ## Installation
 
@@ -28,8 +20,7 @@ npm install @slicekit/erc8128
 
 ### Sign a request
 
-Create an `EthHttpSigner` from an Ethereum account and use the signer client to
-sign or send requests.
+Create an `EthHttpSigner` from an Ethereum account and use the signer client to sign or send requests.
 
 ```ts
 import { createSignerClient } from "@slicekit/erc8128"
@@ -59,13 +50,11 @@ const response = await client.fetch("https://api.example.com/orders", {
 })
 ```
 
-The signer adds `Signature-Input`, `Signature`, and, when the request has
-content, a verified `Content-Digest` header.
+The signer adds `Signature-Input`, `Signature`, and, when the request has content, a verified `Content-Digest` header.
 
 ### Verify a request
 
-Bind a message verifier and an atomic nonce store once, then verify each
-incoming request.
+Bind a message verifier and an atomic nonce store once, then verify each incoming request.
 
 ```ts
 import {
@@ -95,9 +84,7 @@ if (result.ok) {
 }
 ```
 
-`BoundedMemoryNonceStore` is intended for bounded single-process use. Use
-`createRedisNonceStore`, `createUniqueInsertNonceStore`, or another atomic
-persistent implementation in distributed production deployments.
+`BoundedMemoryNonceStore` is intended for bounded single-process use. Use `createRedisNonceStore`, `createUniqueInsertNonceStore`, or another atomic persistent implementation in distributed production deployments.
 
 ## Core API
 
@@ -118,8 +105,7 @@ client.setServerConfig(origin, discoveryDocument)
 
 ### `createVerifierClient(config)`
 
-Creates a reusable verifier with bound cryptographic and replay-protection
-dependencies.
+Creates a reusable verifier with bound cryptographic and replay-protection dependencies.
 
 ```ts
 const verifier = createVerifierClient({
@@ -137,10 +123,7 @@ const verifier = createVerifierClient({
 
 ### `verifyRequest(args)`
 
-Verifies one signed request. A successful direct result identifies the same
-account as `principal` and `signer`; a delegated result identifies the initial
-issuer as `principal`, the leaf delegate as `signer`, and includes the ordered
-`delegationIds`.
+Verifies one signed request. A successful direct result identifies the same account as `principal` and `signer`; a delegated result identifies the initial issuer as `principal`, the leaf delegate as `signer`, and includes the ordered `delegationIds`.
 
 ```ts
 type VerifyResult =
@@ -157,20 +140,17 @@ type VerifyResult =
 
 ### Universal account verification
 
-`createUniversalAccountVerifier` and
-`createUniversalAccountDigestVerifier` classify an account by its onchain code:
+`createUniversalAccountVerifier` and `createUniversalAccountDigestVerifier` classify an account by its onchain code:
 
 1. ERC-6492 signatures are sent to the supplied smart-account verifier.
 2. Code-bearing accounts are verified through ERC-1271.
 3. Code-free accounts use strict EOA recovery.
 
-The built-in EOA path requires canonical secp256k1 public-key recovery and
-Keccak-256, which are not available through WebCrypto's `SubtleCrypto` API.
+The built-in EOA path requires canonical secp256k1 public-key recovery and Keccak-256, which are not available through WebCrypto's `SubtleCrypto` API.
 
 ### Delegated requests
 
-Build and sign an EIP-712 grant, create a chain, then give the leaf signer a
-delegated client.
+Build and sign an EIP-712 grant, create a chain, then give the leaf signer a delegated client.
 
 ```ts
 import {
@@ -205,12 +185,7 @@ const request = await delegated.signRequest(
 )
 ```
 
-Verifiers opt in through `policy.delegation`, supply a batch
-`verifyStatuses` callback, and may require permissions. HTTP loopback audiences
-are rejected by default; local development must opt in at grant creation and at
-the parsing, signing, or verification boundary that consumes the grant.
-Deterministic EIP-712 hashing and CBOR serialization are independent of that
-runtime transport policy.
+Verifiers opt in through `policy.delegation`, supply a batch `verifyStatuses` callback, and may require permissions. HTTP loopback audiences are rejected by default; local development must opt in at grant creation and at the parsing, signing, or verification boundary that consumes the grant. Deterministic EIP-712 hashing and CBOR serialization are independent of that runtime transport policy.
 
 ## Options
 
@@ -226,9 +201,7 @@ runtime transport policy.
 | `contentDigest` | `"auto" \| "recompute" \| "require" \| "off"` | `"auto"` | Content-Digest handling. |
 | `components` | `CoveredComponent[]` | profile floor | Additional or explicit covered components. |
 
-The request-bound floor covers `@scheme`, `@authority`, `@method`, `@path`, and
-`@query` when present. Received content additionally requires a verified
-Content-Digest and Content-Type coverage.
+The request-bound floor covers `@scheme`, `@authority`, `@method`, `@path`, and `@query` when present. Received content additionally requires a verified Content-Digest and Content-Type coverage.
 
 ### Verification policy
 
@@ -253,13 +226,11 @@ interface NonceStore {
 }
 ```
 
-It must return `true` exactly once for a new key and `false` for every reuse
-until the TTL expires.
+It must return `true` exactly once for a new key and `false` for every reuse until the TTL expires.
 
 ## Documentation
 
-Full guides, API reference, protocol details, and the CLI are available at
-[erc8128.org](https://erc8128.org).
+Full guides, API reference, protocol details, and the CLI are available at [erc8128.org](https://erc8128.org).
 
 ## License
 
