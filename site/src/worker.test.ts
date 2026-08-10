@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { signRequest, verifyRequest } from "@slicekit/erc8128"
 import worker, {
   bufferVerificationRequest,
+  getVerifyMessage,
   MAX_VERIFY_BODY_BYTES,
   resolveStorageSelection
 } from "./worker"
@@ -146,6 +147,15 @@ describe("playground worker request policy", () => {
 
     expect(response.status).toBe(503)
     expect(payload.reason).toBe("signature_verification_unavailable")
+  })
+
+  test("reuses the verification client for the same RPC secret", () => {
+    const first = getVerifyMessage({ ERC8128_SECRET_ALCHEMY_ID: "test-id" })
+    const second = getVerifyMessage({ ERC8128_SECRET_ALCHEMY_ID: " test-id " })
+
+    expect(first).not.toBeNull()
+    expect(second).toBe(first)
+    expect(getVerifyMessage({})).toBeNull()
   })
 
   test("keeps discovery available without an RPC secret", async () => {

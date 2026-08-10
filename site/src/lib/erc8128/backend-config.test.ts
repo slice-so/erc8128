@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { signRequest } from "@slicekit/erc8128"
+import {
+  matchRoutePolicy,
+  parseAcceptSignatureHeader,
+  signRequest
+} from "@slicekit/erc8128"
 import { verifyMessage } from "viem"
 import { type Address, privateKeyToAccount } from "viem/accounts"
 import type { CachedVerification, VerificationRuntimeConfig } from "../../types"
@@ -190,6 +194,34 @@ describe("playground erc8128 runtime", () => {
       binding: "class-bound",
       replay: "replayable"
     })
+  })
+
+  test("advertises the same replay policy in discovery and Accept-Signature", async () => {
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
+      "https://erc8128.org",
+      async () => true
+    )
+    const request = await signRequest(
+      "https://erc8128.org/verify",
+      { method: "POST" },
+      TEST_SIGNER,
+      { nonce: `advertisement-${Date.now()}` }
+    )
+
+    const verification = await runtime.verifyRequest(request)
+    const routePolicies = runtime.getConfig().route_policies
+    if (!routePolicies) throw new Error("Expected discovery route policies")
+    const discovered = matchRoutePolicy("POST", "/verify", routePolicies)
+    const acceptSignature = verification.responseHeaders.get("accept-signature")
+    if (!acceptSignature) throw new Error("Expected Accept-Signature header")
+    const advertised = parseAcceptSignatureHeader(acceptSignature)
+    const acceptsReplayable = advertised.some(
+      (member) => !member.requiredParams.includes("nonce")
+    )
+
+    expect(discovered?.replayable ?? false).toBe(acceptsReplayable)
+    expect(acceptsReplayable).toBe(false)
   })
 
   test("returns cachedVerification for repeated replayable requests", async () => {

@@ -1,4 +1,5 @@
 import {
+  buildAcceptSignatureHeader,
   createRedisNonceStore as createAtomicRedisNonceStore,
   createSignatureBaseMinimal,
   createUniqueInsertNonceStore,
@@ -6,6 +7,7 @@ import {
   formatDiscoveryDocument,
   matchRoutePolicy,
   type NonceStore,
+  parseAcceptSignatureHeader,
   parseKeyId,
   type RoutePolicy,
   type RoutePolicyConfig,
@@ -65,6 +67,20 @@ const DISCOVERY_ROUTE_POLICIES: RoutePolicyConfig = {
     ...policy,
     replayable: false
   }))
+}
+
+function alignAcceptSignatureWithAdvertisedPolicy(
+  value: string,
+  routePolicy: RoutePolicy
+): string {
+  const [requestBound, ...classBound] = parseAcceptSignatureHeader(value)
+  if (!requestBound) return value
+
+  return buildAcceptSignatureHeader({
+    requestBoundRequired: requestBound.components,
+    classBoundPolicies: classBound.map((member) => member.components),
+    allowReplayable: routePolicy.replayable ?? false
+  })
 }
 
 const REDIS_KEY_PREFIX = "erc8128-site:erc8128:"
@@ -442,6 +458,11 @@ export function createVerificationRuntime(
         pathname,
         VERIFY_ROUTE_POLICIES
       )
+      const advertisedRoutePolicy = matchRoutePolicy(
+        request.method,
+        pathname,
+        DISCOVERY_ROUTE_POLICIES
+      )
       const responseHeaders = new Headers()
 
       if (!routePolicy) {
@@ -495,7 +516,15 @@ export function createVerificationRuntime(
             runtimeConfig.invalidationStore.getNotBefore(keyId)
         },
         setHeaders: (name, value) => {
-          responseHeaders.set(name, value)
+          responseHeaders.set(
+            name,
+            name.toLowerCase() === "accept-signature" && advertisedRoutePolicy
+              ? alignAcceptSignatureWithAdvertisedPolicy(
+                  value,
+                  advertisedRoutePolicy
+                )
+              : value
+          )
         }
       })
 

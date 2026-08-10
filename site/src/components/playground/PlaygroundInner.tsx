@@ -183,6 +183,7 @@ export function PlaygroundInner() {
   const [storageMode, setStorageMode] = useState<StorageMode>("postgres")
   const [storageOverrideEnabled, setStorageOverrideEnabled] = useState(false)
   const [storageConfigLoaded, setStorageConfigLoaded] = useState(false)
+  const [storageConfigError, setStorageConfigError] = useState(false)
 
   // Result state
   const [signedHeadersHtml, setSignedHeadersHtml] = useState(
@@ -225,10 +226,14 @@ export function PlaygroundInner() {
         if (cancelled) return
         setStorageMode(config.storageMode)
         setStorageOverrideEnabled(config.storageOverrideEnabled)
+        setStorageConfigError(false)
         setStorageConfigLoaded(true)
       })
       .catch(() => {
-        if (!cancelled) setStorageConfigLoaded(true)
+        if (!cancelled) {
+          setStorageConfigError(true)
+          setStorageConfigLoaded(true)
+        }
       })
 
     return () => {
@@ -279,7 +284,6 @@ export function PlaygroundInner() {
     resolveEns(address).then(setUserEnsName)
   }, [address])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers to reset provider on connection change
   useEffect(() => {
     providerRef.current = null
   }, [connector?.id, address, chainId])
@@ -851,7 +855,7 @@ export function PlaygroundInner() {
                     <label
                       key={mode}
                       className={`component-chip ${
-                        storageMode === mode
+                        !storageConfigError && storageMode === mode
                           ? mode === "redis"
                             ? "text-[#fbbf24]"
                             : "text-[#60a5fa]"
@@ -862,7 +866,7 @@ export function PlaygroundInner() {
                         type="radio"
                         name="storage-mode"
                         className="component-checkbox"
-                        checked={storageMode === mode}
+                        checked={!storageConfigError && storageMode === mode}
                         disabled={!storageOverrideEnabled}
                         onChange={() => setStorageMode(mode)}
                       />
@@ -873,9 +877,11 @@ export function PlaygroundInner() {
                 <p className="mt-3 font-mono text-[10px] leading-relaxed text-white/45">
                   {!storageConfigLoaded
                     ? "Loading deployment storage policy…"
-                    : storageOverrideEnabled
-                      ? "This preview deployment accepts the signed backend override."
-                      : `This deployment is fixed to ${STORAGE_LABELS[storageMode]}; backend switching is disabled.`}
+                    : storageConfigError
+                      ? "Deployment storage policy unavailable; backend switching is disabled."
+                      : storageOverrideEnabled
+                        ? "This preview deployment accepts the signed backend override."
+                        : `This deployment is fixed to ${STORAGE_LABELS[storageMode]}; backend switching is disabled.`}
                 </p>
               </div>
             </div>
@@ -944,7 +950,6 @@ export function PlaygroundInner() {
           <div className="relative mb-6">
             <pre
               className="overflow-x-auto bg-white/5 p-4 font-mono text-[13px] leading-7 text-white/45"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML built internally from controlled values
               dangerouslySetInnerHTML={{ __html: signatureBasePreviewHtml }}
             />
             <span className="absolute right-0 top-0 bg-white/15 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/45">

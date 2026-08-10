@@ -43,6 +43,14 @@ export type StorageRuntimeBindings = {
 
 type RuntimeBindings = CloudflareBindings & StorageRuntimeBindings
 
+type VerificationRpcBindings = {
+  ERC8128_SECRET_ALCHEMY_ID?: string
+}
+
+let cachedVerifyMessage:
+  | { alchemyId: string; verifyMessage: VerifyMessageFn }
+  | undefined
+
 export const MAX_VERIFY_BODY_BYTES = 1_048_576
 
 export function resolveStorageSelection(
@@ -65,16 +73,19 @@ export function resolveStorageSelection(
   }
 }
 
-function createVerifyMessage(
-  bindings: RuntimeBindings
+export function getVerifyMessage(
+  bindings: VerificationRpcBindings
 ): VerifyMessageFn | null {
   const alchemyId = bindings.ERC8128_SECRET_ALCHEMY_ID?.trim()
   if (!alchemyId) return null
+  if (cachedVerifyMessage?.alchemyId === alchemyId) {
+    return cachedVerifyMessage.verifyMessage
+  }
   const publicClient = createPublicClient({
     chain: mainnet,
     transport: http(`https://eth-mainnet.g.alchemy.com/v2/${alchemyId}`)
   })
-  return async (args) => {
+  const verifyMessage: VerifyMessageFn = async (args) => {
     try {
       return await publicClient.verifyMessage(args)
     } catch {
@@ -83,6 +94,8 @@ function createVerifyMessage(
       )
     }
   }
+  cachedVerifyMessage = { alchemyId, verifyMessage }
+  return verifyMessage
 }
 
 export async function bufferVerificationRequest(
@@ -167,7 +180,7 @@ app.use("/verify", async (c, next) => {
       { "content-type": "application/problem+json" }
     )
   }
-  const verifyMessage = createVerifyMessage(c.env)
+  const verifyMessage = getVerifyMessage(c.env)
   if (!verifyMessage) {
     const problem = formatErc8128ProblemDetails({
       ok: false,
