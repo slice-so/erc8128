@@ -10,6 +10,7 @@
     "build": "astro build",
     "preview": "wrangler dev",
     "astro": "astro",
+    "type-check": "tsc -p tsconfig.json --noEmit",
     "db:generate": "bunx drizzle-kit generate --config=drizzle.config.ts",
     "db:migrate": "bunx drizzle-kit migrate --config=drizzle.config.ts",
     "db:cleanup": "wrangler dev --test-scheduled",

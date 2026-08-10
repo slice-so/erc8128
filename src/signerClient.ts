@@ -1,8 +1,9 @@
+import { Erc8128Error } from "./lib/Erc8128Error"
 import { matchRoutePolicy } from "./lib/matchRoutePolicy"
 import { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
 import { resolvePosture } from "./lib/resolvePosture"
 import { sanitizeUrl } from "./lib/utilities"
-import { signedFetch, signRequest } from "./sign"
+import { signedFetchWithOptionsResolver, signRequest } from "./sign"
 import type {
   EthHttpSigner,
   FetchOptions,
@@ -68,6 +69,32 @@ function extractRequestInfo(
   return { origin: url.origin, method, pathname: url.pathname }
 }
 
+function normalizeServerConfigOrigin(value: string): string {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Erc8128Error(
+      "INVALID_OPTIONS",
+      `Server config key must be an absolute HTTP(S) origin: ${value}`
+    )
+  }
+  if (
+    (url.protocol !== "https:" && url.protocol !== "http:") ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.pathname !== "/" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new Erc8128Error(
+      "INVALID_OPTIONS",
+      `Server config key must contain only an HTTP(S) origin: ${value}`
+    )
+  }
+  return url.origin
+}
+
 export function createSignerClient(
   signer: EthHttpSigner,
   defaults?: SignerClientOptions
@@ -81,7 +108,12 @@ export function createSignerClient(
   } = defaults ?? {}
 
   const serverConfigs = new Map<string, ServerConfig>(
-    initialServerConfigs ? Object.entries(initialServerConfigs) : []
+    initialServerConfigs
+      ? Object.entries(initialServerConfigs).map(([origin, config]) => [
+          normalizeServerConfigOrigin(origin),
+          config
+        ])
+      : []
   )
 
   /**
@@ -108,6 +140,7 @@ export function createSignerClient(
 
     const { origin, method, pathname } = extractRequestInfo(input, init)
     const serverConfig = serverConfigs.get(origin)
+    const now = Math.floor(Date.now() / 1_000)
     if (authorizationPolicy === undefined) {
       const posture = resolvePosture(
         method,
@@ -115,6 +148,25 @@ export function createSignerClient(
         serverConfig,
         mergedOptions,
         requestedReplay
+      )
+      const created = mergedOptions.created ?? now
+      const remainingAuthorizationSeconds =
+        authorizationExpiresAt === undefined
+          ? Number.POSITIVE_INFINITY
+          : authorizationExpiresAt - created
+      if (remainingAuthorizationSeconds <= 0) {
+        throw new Erc8128Error(
+          "INVALID_OPTIONS",
+          "The signing authorization has expired."
+        )
+      }
+      const ttlSeconds = Math.min(
+        posture.ttlSeconds,
+        remainingAuthorizationSeconds
+      )
+      const expires = Math.min(
+        mergedOptions.expires ?? created + ttlSeconds,
+        created + ttlSeconds
       )
       return {
         ...mergedOptions,
@@ -125,11 +177,14 @@ export function createSignerClient(
             : mergedOptions.nonce === null
               ? undefined
               : mergedOptions.nonce,
-        components: posture.components
+        components: posture.components,
+        contentDigest: posture.contentDigest,
+        created,
+        expires,
+        ttlSeconds
       }
     }
 
-    const now = Math.floor(Date.now() / 1_000)
     const posture = resolveAuthorizedPosture({
       authorizationPolicy,
       invalidationAvailable: serverConfig?.invalidation_endpoint !== undefined,
@@ -186,8 +241,9 @@ export function createSignerClient(
     opts?: FetchOptions
   ) => {
     const { init, opts: callOpts } = splitInitAndOpts(initOrOpts, opts)
-    const merged = resolveOpts(callOpts, input, init)
-    return signedFetch(input, init, signer, merged)
+    return signedFetchWithOptionsResolver(input, init, signer, (request) =>
+      resolveOpts(callOpts, request)
+    )
   }
 
   const fetchBound: SignerClient["fetch"] = async (
@@ -199,8 +255,9 @@ export function createSignerClient(
       initOrOpts,
       opts
     )
-    const merged = resolveOpts(callOpts, input, init)
-    return signedFetch(input, init, signer, merged)
+    return signedFetchWithOptionsResolver(input, init, signer, (request) =>
+      resolveOpts(callOpts, request)
+    )
   }
 
   return {
@@ -208,10 +265,11 @@ export function createSignerClient(
     signedFetch: signedFetchBound,
     fetch: fetchBound,
     setServerConfig(origin: string, config: ServerConfig | null) {
+      const normalizedOrigin = normalizeServerConfigOrigin(origin)
       if (config === null) {
-        serverConfigs.delete(origin)
+        serverConfigs.delete(normalizedOrigin)
       } else {
-        serverConfigs.set(origin, config)
+        serverConfigs.set(normalizedOrigin, config)
       }
     }
   }

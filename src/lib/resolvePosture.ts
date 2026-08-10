@@ -27,11 +27,17 @@ export function resolvePosture(
   mergedOptions: SignOptions,
   requestedReplay: ReplayMode
 ): ResolvedPosture {
+  const ttlSeconds = Math.min(
+    positiveInteger(mergedOptions.ttlSeconds) ?? 60,
+    positiveInteger(serverConfig?.max_validity_sec) ?? Number.POSITIVE_INFINITY
+  )
   if (!serverConfig) {
     return {
       binding: mergedOptions.binding,
       replay: requestedReplay,
-      components: mergedOptions.components
+      components: mergedOptions.components,
+      contentDigest: mergedOptions.contentDigest,
+      ttlSeconds
     }
   }
 
@@ -50,19 +56,28 @@ export function resolvePosture(
   const useClassBound =
     mergedOptions.binding === "class-bound" &&
     routePolicy != null &&
-    routePolicy.classBoundPolicies !== undefined
+    routePolicy.classBoundPolicies !== undefined &&
+    routePolicy.classBoundPolicies.length > 0
 
   // Class-bound is independent of replayability — it means only selected components are signed
   if (useClassBound) {
-    const merged = mergeComponents(
-      mergedOptions.components ?? [],
-      routePolicy?.classBoundPolicies
+    const merged = mergeComponentGroups(
+      mergeComponents(
+        mergedOptions.components ?? [],
+        routePolicy?.classBoundPolicies
+      ),
+      routePolicy?.additionalRequestBoundComponents ?? []
     )
 
     return {
       binding: "class-bound",
       replay: replayable ? "replayable" : "non-replayable",
-      components: merged
+      components: merged,
+      contentDigest: resolveContentDigest(
+        mergedOptions.contentDigest,
+        routePolicy?.contentDigest
+      ),
+      ttlSeconds
     }
   }
 
@@ -75,8 +90,28 @@ export function resolvePosture(
   return {
     binding: "request-bound",
     replay: replayable ? "replayable" : "non-replayable",
-    components: components?.length ? components : undefined
+    components: components?.length ? components : undefined,
+    contentDigest: resolveContentDigest(
+      mergedOptions.contentDigest,
+      routePolicy?.contentDigest
+    ),
+    ttlSeconds
   }
+}
+
+function positiveInteger(value: number | undefined): number | undefined {
+  return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value : undefined
+}
+
+function resolveContentDigest(
+  requested: SignOptions["contentDigest"],
+  required: SignOptions["contentDigest"]
+): SignOptions["contentDigest"] {
+  if (required === undefined || required === "off") {
+    return requested ?? required
+  }
+  if (requested === undefined || requested === "off") return required
+  return requested
 }
 
 /**
@@ -87,7 +122,7 @@ export function resolvePosture(
  * - `string[][]`: multiple policies — pick the one requiring the fewest
  *   extra components beyond what the client already provides, then merge
  * - `["@authority"]`: explicit minimal class-bound policy
- * - `[]`: supported shorthand for `["@authority"]`
+ * - `[]`: class-bound signing is disabled
  * - `undefined`: route does not allow class-bound
  */
 function mergeComponents(

@@ -75,7 +75,8 @@ export function buildAcceptSignatureHeader(args: {
 
 export function parseAcceptSignatureHeader(
   headerValue: string,
-  requestShape?: AcceptSignatureRequestShape
+  requestShape?: AcceptSignatureRequestShape,
+  minimumOptions?: Partial<AcceptSignatureSignOptions>
 ): ParsedAcceptSignatureMember[] {
   const out: ParsedAcceptSignatureMember[] = []
   const resolvedRequestShape = requestShape
@@ -120,12 +121,12 @@ export function parseAcceptSignatureHeader(
       acceptSignatureValue,
       ...(resolvedRequestShape
         ? {
-            signOptions: acceptSignatureMemberToSignOptions(
-              {
-                components,
-                requiredParams
-              },
-              resolvedRequestShape
+            ...withSafeSignOptions(
+              deriveAcceptSignatureSignOptions(
+                { components, requiredParams },
+                resolvedRequestShape
+              ),
+              minimumOptions
             )
           }
         : {})
@@ -136,6 +137,21 @@ export function parseAcceptSignatureHeader(
 }
 
 export function acceptSignatureMemberToSignOptions(
+  member: Pick<ParsedAcceptSignatureMember, "components" | "requiredParams">,
+  requestShape: AcceptSignatureRequestShape,
+  minimumOptions?: Partial<AcceptSignatureSignOptions>
+): AcceptSignatureSignOptions {
+  const candidate = deriveAcceptSignatureSignOptions(member, requestShape)
+  if (!meetsMinimumPosture(candidate, minimumOptions)) {
+    throw new Erc8128Error(
+      "INVALID_OPTIONS",
+      "Accept-Signature would weaken the client's minimum signing posture."
+    )
+  }
+  return candidate
+}
+
+function deriveAcceptSignatureSignOptions(
   member: Pick<ParsedAcceptSignatureMember, "components" | "requiredParams">,
   requestShape: AcceptSignatureRequestShape
 ): AcceptSignatureSignOptions {
@@ -200,7 +216,7 @@ export function normalizeAcceptSignatureSignOptions(
 export function selectAcceptSignatureRetryOptions(
   args: SelectAcceptSignatureRetryOptionsArgs
 ): AcceptSignatureSignOptions | null {
-  const { members, requestShape, attemptedOptions = [] } = args
+  const { members, requestShape, attemptedOptions = [], minimumOptions } = args
   const attempted = new Set(
     attemptedOptions.map((options) =>
       serializeNormalizedSignOptions(
@@ -210,12 +226,42 @@ export function selectAcceptSignatureRetryOptions(
   )
 
   for (const member of members) {
-    const candidate = acceptSignatureMemberToSignOptions(member, requestShape)
+    const candidate = deriveAcceptSignatureSignOptions(member, requestShape)
+    if (!meetsMinimumPosture(candidate, minimumOptions)) continue
     const key = serializeNormalizedSignOptions(candidate)
     if (!attempted.has(key)) return candidate
   }
 
   return null
+}
+
+function withSafeSignOptions(
+  candidate: AcceptSignatureSignOptions,
+  minimumOptions: Partial<AcceptSignatureSignOptions> | undefined
+): { signOptions?: AcceptSignatureSignOptions } {
+  return meetsMinimumPosture(candidate, minimumOptions)
+    ? { signOptions: candidate }
+    : {}
+}
+
+function meetsMinimumPosture(
+  candidate: AcceptSignatureSignOptions,
+  minimumOptions: Partial<AcceptSignatureSignOptions> | undefined
+): boolean {
+  const minimum = normalizeAcceptSignatureSignOptions(minimumOptions)
+  if (
+    minimum.binding === "request-bound" &&
+    candidate.binding !== "request-bound"
+  ) {
+    return false
+  }
+  if (
+    minimum.replay === "non-replayable" &&
+    candidate.replay !== "non-replayable"
+  ) {
+    return false
+  }
+  return includesAllComponents(minimum.components, candidate.components)
 }
 
 function toRequestShape(requestShape: AcceptSignatureRequestShape): {

@@ -7,6 +7,12 @@ import type {
 import { isContentDigestMode, isCoveredComponent } from "./policyValues"
 import { DEFAULT_MAX_VALIDITY_SEC } from "./verifyUtils"
 
+const MAX_DISCOVERY_DOCUMENT_BYTES = 65_536
+const MAX_ROUTE_POLICIES = 128
+const MAX_POLICIES_PER_ROUTE = 16
+const MAX_COMPONENTS_PER_POLICY = 32
+const MAX_METHODS_PER_POLICY = 16
+
 type JsonValue =
   | boolean
   | null
@@ -25,8 +31,13 @@ const hasOnlyKeys = (
   keys: readonly string[]
 ) => Object.keys(record).every((key) => keys.includes(key))
 
-const isStringArray = (value: JsonValue | undefined): value is string[] =>
-  Array.isArray(value) && value.every((entry) => typeof entry === "string")
+const isStringArray = (
+  value: JsonValue | undefined,
+  maximum = MAX_COMPONENTS_PER_POLICY
+): value is string[] =>
+  Array.isArray(value) &&
+  value.length <= maximum &&
+  value.every((entry) => typeof entry === "string" && entry.length <= 2_048)
 
 const isComponentArray = (value: JsonValue | undefined): value is string[] =>
   isStringArray(value) && value.every(isCoveredComponent)
@@ -35,7 +46,9 @@ const isClassBoundPolicies = (
   value: JsonValue | undefined
 ): value is string[] | string[][] =>
   isComponentArray(value) ||
-  (Array.isArray(value) && value.every(isComponentArray))
+  (Array.isArray(value) &&
+    value.length <= MAX_POLICIES_PER_ROUTE &&
+    value.every(isComponentArray))
 
 const isRoutePolicy = (value: JsonValue): value is RoutePolicy => {
   if (
@@ -45,16 +58,20 @@ const isRoutePolicy = (value: JsonValue): value is RoutePolicy => {
       "classBoundPolicies",
       "contentDigest",
       "methods",
-      "replayable"
+      "replayable",
+      "requiredCoveredComponentsWhenPresent"
     ])
   ) {
     return false
   }
   return (
-    (value.methods === undefined || isStringArray(value.methods)) &&
+    (value.methods === undefined ||
+      isStringArray(value.methods, MAX_METHODS_PER_POLICY)) &&
     (value.replayable === undefined || typeof value.replayable === "boolean") &&
     (value.additionalRequestBoundComponents === undefined ||
       isComponentArray(value.additionalRequestBoundComponents)) &&
+    (value.requiredCoveredComponentsWhenPresent === undefined ||
+      isComponentArray(value.requiredCoveredComponentsWhenPresent)) &&
     (value.classBoundPolicies === undefined ||
       isClassBoundPolicies(value.classBoundPolicies)) &&
     (value.contentDigest === undefined ||
@@ -67,13 +84,21 @@ const isRoutePolicyCandidate = (
   value: JsonValue
 ): value is RoutePolicy | RoutePolicy[] =>
   isRoutePolicy(value) ||
-  (Array.isArray(value) && value.length > 0 && value.every(isRoutePolicy))
+  (Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= MAX_POLICIES_PER_ROUTE &&
+    value.every(isRoutePolicy))
 
 const isRoutePolicyConfig = (value: JsonValue): value is RoutePolicyConfig =>
-  isRecord(value) && Object.values(value).every(isRoutePolicyCandidate)
+  isRecord(value) &&
+  Object.keys(value).length <= MAX_ROUTE_POLICIES &&
+  Object.entries(value).every(
+    ([route, candidate]) =>
+      route.length <= 2_048 && isRoutePolicyCandidate(candidate)
+  )
 
 const isSecureEndpoint = (value: string | undefined) => {
-  if (value === undefined) return false
+  if (value === undefined || value.length > 2_048) return false
   try {
     const url = new URL(value)
     const local =
@@ -145,6 +170,9 @@ function hasReplayableRoutePolicy(
 export const parseDiscoveryDocument = (
   value: string
 ): DiscoveryDocument | null => {
+  if (new TextEncoder().encode(value).length > MAX_DISCOVERY_DOCUMENT_BYTES) {
+    return null
+  }
   let parsed: JsonValue
   try {
     parsed = JSON.parse(value) as JsonValue

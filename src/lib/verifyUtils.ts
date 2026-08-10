@@ -46,6 +46,9 @@ export function buildAttempts<Key>(
     if (!includesAllComponents(requiredWhenPresent, candidate.components)) {
       continue
     }
+    if (!includesAllComponents(requestBoundExtras, candidate.components)) {
+      continue
+    }
     const isRequestBound = isRequestBoundForThisRequest(
       candidate.components,
       { hasQuery, hasBody, hasContentDigest, hasContentType },

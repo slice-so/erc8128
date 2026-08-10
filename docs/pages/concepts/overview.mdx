@@ -104,10 +104,11 @@ Examples:
 ### Request-Bound (Required)
 
 To be ERC-8128 compliant, implementations **must** support request-bound signatures. This mode signs everything relevant to the request:
+- `@scheme` — URL scheme (prevents HTTP/HTTPS substitution)
 - `@authority` — Domain (prevents use on different server)
 - `@method` — HTTP method (prevents GET→POST)
 - `@path` — Path (prevents use on different endpoint)
-- `@query` — Query string (if present)
+- `@query` — Query string, with `?` representing an empty query
 - `content-digest` — Body hash (if body present)
 
 Request-bound provides full request integrity. The request sender can always choose this strictest option for maximum security.

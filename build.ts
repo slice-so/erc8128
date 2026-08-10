@@ -1,13 +1,25 @@
+import { cpSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { buildPackage } from "../../build"
 import { dependencies, peerDependencies } from "./package.json"
 
 const DtsPaths = [new URL("./dist/esm/index.d.ts", import.meta.url)]
+const buildRoot = mkdtempSync(join(tmpdir(), "erc8128-build-"))
+const buildSource = join(buildRoot, "src")
+cpSync(new URL("./src", import.meta.url), buildSource, { recursive: true })
 
-await buildPackage({
-  entrypoints: ["./src/index.ts"],
-  external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
-  sourcemap: "none"
-})
+try {
+  await buildPackage({
+    bundleTypes: true,
+    entrypoints: [join(buildSource, "index.ts")],
+    external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
+    root: buildSource,
+    sourcemap: "none"
+  })
+} finally {
+  rmSync(buildRoot, { force: true, recursive: true })
+}
 
 for (const dtsPath of DtsPaths) {
   const dtsFile = Bun.file(dtsPath)

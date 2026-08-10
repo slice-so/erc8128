@@ -42,4 +42,17 @@ describe("resolveAuthorizedPosture structural component policies", () => {
       structuredComponent
     ])
   })
+
+  test("includes unconditional route components in class-bound posture", () => {
+    const result = resolve({
+      classBoundPolicies: [structuredComponent],
+      additionalRequestBoundComponents: ["x-tenant"]
+    })
+
+    expect(result.components).toEqual([
+      { name: "@authority" },
+      structuredComponent,
+      { name: "x-tenant" }
+    ])
+  })
 })

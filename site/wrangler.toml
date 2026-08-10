@@ -3,6 +3,10 @@ main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+ERC8128_ENVIRONMENT = "production"
+ERC8128_STORAGE_MODE = "postgres"
+
 [assets]
 directory = "./dist"
 

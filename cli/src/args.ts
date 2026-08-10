@@ -35,6 +35,16 @@ export function parseArgs(
   options: { exitOverride?: boolean } = {}
 ): CliOptions {
   const config = loadConfig(argv)
+  if (
+    argv.some(
+      (argument) =>
+        argument === "--password" || argument.startsWith("--password=")
+    )
+  ) {
+    console.error(
+      "Warning: --password can be exposed through shell history and process listings; prefer --interactive or ETH_KEYSTORE_PASSWORD."
+    )
+  }
   const program = new Command()
   let parsed: CliOptions | undefined
 
@@ -59,7 +69,7 @@ export function parseArgs(
       "Request body (use @file or @- for stdin)",
       config.data
     )
-    .option("-o, --output <file>", "Write response to file", config.output)
+    .option("-o, --output <file>", "Write response to file")
     .option(
       "-i, --include",
       "Include response headers in output",
@@ -274,7 +284,6 @@ type CliConfig = {
   method?: string
   headers?: string[]
   data?: string
-  output?: string
   include?: boolean
   verbose?: boolean
   json?: boolean
@@ -334,9 +343,6 @@ function resolveConfigPath(argv: string[]): string | undefined {
     if (!value) throw new Error("Missing value for --config.")
     return path.resolve(process.cwd(), value)
   }
-
-  const cwdPath = path.resolve(process.cwd(), ".erc8128rc.json")
-  if (existsSync(cwdPath)) return cwdPath
 
   const homePath = path.join(homedir(), ".erc8128rc.json")
   if (existsSync(homePath)) return homePath

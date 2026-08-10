@@ -115,8 +115,6 @@ type SentRequestSnapshot = {
   body?: string
 }
 
-const APP_WALLET_PRIVATE_KEY_STORAGE_KEY = "erc8128_playground_app_wallet_key"
-const APP_WALLET_EXPIRY_STORAGE_KEY = "erc8128_playground_app_wallet_expiry"
 const PLAYGROUND_ORIGIN =
   import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
 
@@ -132,29 +130,6 @@ function getRequestOrigin() {
   }
 
   return PLAYGROUND_ORIGIN
-}
-
-// TODO: fix this condition, it doesn't catch smart wallet
-function readStoredAppWalletPrivateKey(): `0x${string}` | null {
-  if (typeof window === "undefined") return null
-
-  const privateKey = localStorage.getItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY) as
-    | `0x${string}`
-    | null
-  const expiryRaw = localStorage.getItem(APP_WALLET_EXPIRY_STORAGE_KEY)
-  const expiry = Number(expiryRaw)
-
-  if (!privateKey || !Number.isFinite(expiry)) {
-    return null
-  }
-
-  if (expiry <= Math.floor(Date.now() / 1000)) {
-    localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-    localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
-    return null
-  }
-
-  return privateKey
 }
 
 async function parseResponsePayload(
@@ -189,7 +164,6 @@ export function PlaygroundInner() {
   const { setOpen: openConnectModal } = useModal()
   const [appWallet, setAppWallet] = useState<AppWalletState | null>(null)
   const [autoSigningPending, setAutoSigningPending] = useState(false)
-  console.log(connector)
 
   // Form state
   const [method, setMethod] = useState("POST")
@@ -226,6 +200,7 @@ export function PlaygroundInner() {
   const [copiedCurl, setCopiedCurl] = useState(false)
   const [contentDigestPreview, setContentDigestPreview] = useState<string>("")
   const providerRef = useRef<EIP1193Provider | null>(null)
+  const appWalletPrivateKeyRef = useRef<`0x${string}` | null>(null)
   const signingRef = useRef(false)
 
   const hasBody = method !== "GET" && body.length > 0
@@ -263,8 +238,7 @@ export function PlaygroundInner() {
       wasConnectedRef.current = false
       setAppWallet(null)
       providerRef.current = null
-      localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-      localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+      appWalletPrivateKeyRef.current = null
     }
   }, [isConnected])
 
@@ -280,32 +254,6 @@ export function PlaygroundInner() {
   useEffect(() => {
     providerRef.current = null
   }, [connector?.id, address, chainId])
-
-  useEffect(() => {
-    if (!isConnected) return
-
-    const privateKey = localStorage.getItem(
-      APP_WALLET_PRIVATE_KEY_STORAGE_KEY
-    ) as `0x${string}` | null
-    const expiryRaw = localStorage.getItem(APP_WALLET_EXPIRY_STORAGE_KEY)
-    const expiry = Number(expiryRaw)
-
-    if (!privateKey || !Number.isFinite(expiry)) return
-
-    if (expiry <= Math.floor(Date.now() / 1000)) {
-      localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-      localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
-      setAppWallet(null)
-      return
-    }
-
-    const keyAccount = privateKeyToAccount(privateKey)
-    setAppWallet({
-      id: `session-${expiry}`,
-      publicKey: keyAccount.address,
-      expiry
-    })
-  }, [isConnected])
 
   const getProvider = useCallback(async () => {
     if (!connector) return null
@@ -398,9 +346,7 @@ export function PlaygroundInner() {
         expiry
       }
 
-      localStorage.setItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY, privateKey)
-      localStorage.setItem(APP_WALLET_EXPIRY_STORAGE_KEY, `${granted.expiry}`)
-
+      appWalletPrivateKeyRef.current = privateKey
       setAppWallet(granted)
       setVerificationResultText(
         `Auto-signing enabled. App wallet ${granted.publicKey} signs as a separate identity until ${new Date(
@@ -409,8 +355,7 @@ export function PlaygroundInner() {
       )
     } catch (error) {
       setAppWallet(null)
-      localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-      localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+      appWalletPrivateKeyRef.current = null
       setVerificationResultText(
         `Enable auto-signing failed: ${(error as Error)?.message || "Unknown error"}`
       )
@@ -421,8 +366,7 @@ export function PlaygroundInner() {
 
   const disconnectAppWallet = useCallback(() => {
     setAppWallet(null)
-    localStorage.removeItem(APP_WALLET_PRIVATE_KEY_STORAGE_KEY)
-    localStorage.removeItem(APP_WALLET_EXPIRY_STORAGE_KEY)
+    appWalletPrivateKeyRef.current = null
     setVerificationResultText("App wallet disconnected.")
   }, [])
 
@@ -432,37 +376,49 @@ export function PlaygroundInner() {
     const lines: string[] = []
     const authority = new URL(getPlaygroundOrigin()).host
     const signingPath = getSigningPath(path)
-    lines.push(`<span style="color:#86efac">"@authority": ${authority}</span>`)
+    lines.push(
+      `<span style="color:#86efac">"@authority": ${escapeHtml(authority)}</span>`
+    )
     if (selectedComponents.has("@method"))
-      lines.push(`<span style="color:#86efac">"@method": ${method}</span>`)
+      lines.push(
+        `<span style="color:#86efac">"@method": ${escapeHtml(method)}</span>`
+      )
     if (selectedComponents.has("@path"))
-      lines.push(`<span style="color:#86efac">"@path": ${signingPath}</span>`)
+      lines.push(
+        `<span style="color:#86efac">"@path": ${escapeHtml(signingPath)}</span>`
+      )
     if (includeContentDigest) {
       lines.push(
         `<span style="color:#c4b5fd">"content-digest": ${escapeHtml(contentDigestPreview || "sha-256=:[calculating...]:")}</span>`
       )
     }
+    lines.push(
+      `<span style="color:#c4b5fd">"x-erc8128-storage": ${escapeHtml(storageMode)}</span>`
+    )
     if (selectedComponents.has("nonce")) {
-      lines.push(`<span style="color:#67e8f9">"nonce": ${nonce}</span>`)
+      lines.push(
+        `<span style="color:#67e8f9">"nonce": ${escapeHtml(nonce)}</span>`
+      )
     }
 
     const allComponents = ["@authority"]
     if (selectedComponents.has("@method")) allComponents.push("@method")
     if (selectedComponents.has("@path")) allComponents.push("@path")
     if (includeContentDigest) allComponents.push("content-digest")
+    allComponents.push("x-erc8128-storage")
 
     const now = Math.floor(Date.now() / 1000)
     const expires = now + ttl
     let paramsStr = `;created=${now};expires=${expires}`
     if (selectedComponents.has("nonce")) paramsStr += `;nonce="${nonce}"`
-    const storedSessionKey = readStoredAppWalletPrivateKey()
+    const storedSessionKey = appWalletPrivateKeyRef.current
     const previewSigner = storedSessionKey
       ? privateKeyToAccount(storedSessionKey as `0x${string}`).address
       : (address ?? "0x...")
     paramsStr += `;keyid="eip155:${chainId || 1}:${previewSigner.toLowerCase()}";tag="erc8128"`
 
     lines.push(
-      `<span style="color:rgba(255,255,255,0.35)">"@signature-params": (${allComponents.map((x) => `"${x}"`).join(" ")})${paramsStr}</span>`
+      `<span style="color:rgba(255,255,255,0.35)">"@signature-params": ${escapeHtml(`(${allComponents.map((x) => `"${x}"`).join(" ")})${paramsStr}`)}</span>`
     )
 
     return lines.join("\n")
@@ -475,7 +431,8 @@ export function PlaygroundInner() {
     chainId,
     address,
     includeContentDigest,
-    contentDigestPreview
+    contentDigestPreview,
+    storageMode
   ])
 
   // ── Sign & Verify ──────────────────────────────────
@@ -495,10 +452,19 @@ export function PlaygroundInner() {
     const components = [
       ...Array.from(selectedComponents)
         .filter((c) => c !== "nonce")
-        .filter((c) => !(c === "content-digest" && !hasBody))
+        .filter((c) => !(c === "content-digest" && !hasBody)),
+      "x-erc8128-storage"
     ]
     const includeNonce = selectedComponents.has("nonce")
-    const storedPrivateKey = readStoredAppWalletPrivateKey()
+    const appWalletExpired =
+      appWallet !== null && appWallet.expiry <= Math.floor(Date.now() / 1000)
+    if (appWalletExpired) {
+      appWalletPrivateKeyRef.current = null
+      setAppWallet(null)
+    }
+    const storedPrivateKey = appWalletExpired
+      ? null
+      : appWalletPrivateKeyRef.current
     const sessionAccount = storedPrivateKey
       ? privateKeyToAccount(storedPrivateKey)
       : null
@@ -540,7 +506,9 @@ export function PlaygroundInner() {
     }
 
     try {
-      const requestHeaders: Record<string, string> = {}
+      const requestHeaders: Record<string, string> = {
+        "x-erc8128-storage": storageMode
+      }
       if (hasBody) {
         requestHeaders["content-type"] = "application/json"
       }
@@ -581,13 +549,10 @@ export function PlaygroundInner() {
       })
       setSignedHeadersHtml(headerLines.join("\n"))
 
-      // Send to server — inject hidden storage header (NOT signed)
-      const fetchHeaders = new Headers(signed.headers)
-      fetchHeaders.set("x-erc8128-storage", storageMode)
       const requestSnapshot = {
         url: fetchUrl,
         method: signed.method,
-        headers: Array.from(fetchHeaders.entries()),
+        headers: Array.from(signed.headers.entries()),
         ...(hasBody ? { body } : {})
       } satisfies SentRequestSnapshot
       setLastSentRequest(requestSnapshot)

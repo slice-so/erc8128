@@ -213,6 +213,12 @@ function componentValueMinimal(args: {
           "BAD_HEADER_VALUE",
           `Required header "${component.name}" is missing.`
         )
+      if (component.params?.bs && component.params?.sf) {
+        throw new Erc8128Error(
+          "BAD_DERIVED_VALUE",
+          "The bs and sf component parameters cannot be combined."
+        )
+      }
       let canonical = canonicalizeFieldValue(v)
       if (component.params?.sf) {
         canonical = component.params.key
@@ -225,10 +231,18 @@ function componentValueMinimal(args: {
         )
       }
       if (component.params?.bs) {
-        const bytes = new TextEncoder().encode(canonical)
-        canonical = serializeSfMember({
-          value: { type: "binary", value: bytes }
-        })
+        canonical = splitCombinedFieldValues(v)
+          .map((fieldValue) =>
+            serializeSfMember({
+              value: {
+                type: "binary",
+                value: new TextEncoder().encode(
+                  canonicalizeFieldValue(fieldValue)
+                )
+              }
+            })
+          )
+          .join(", ")
       }
       ensureNoCrlf(canonical, component.name)
       return canonical
@@ -249,6 +263,29 @@ function serializeSelectedDictionaryMember(value: string, key: string): string {
 
 function canonicalizeFieldValue(v: string): string {
   return v.trim()
+}
+
+function splitCombinedFieldValues(value: string): string[] {
+  const values: string[] = []
+  let start = 0
+  let quoted = false
+  let escaped = false
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (quoted) {
+      if (escaped) escaped = false
+      else if (character === "\\") escaped = true
+      else if (character === '"') quoted = false
+      continue
+    }
+    if (character === '"') quoted = true
+    else if (character === ",") {
+      values.push(value.slice(start, index))
+      start = index + 1
+    }
+  }
+  values.push(value.slice(start))
+  return values
 }
 
 function ensureNoCrlf(value: string, name: string) {

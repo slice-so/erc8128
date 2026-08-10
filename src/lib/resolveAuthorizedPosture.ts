@@ -38,7 +38,7 @@ const selectClassBoundPolicy = (
   policies: CoveredComponent[] | CoveredComponent[][] | undefined
 ) => {
   if (policies === undefined) return undefined
-  if (policies.length === 0) return []
+  if (policies.length === 0) return undefined
   const candidates = Array.isArray(policies[0])
     ? (policies as CoveredComponent[][])
     : [policies as CoveredComponent[]]
@@ -120,7 +120,8 @@ export const resolveAuthorizedPosture = ({
           ["@authority"],
           classBoundPolicy,
           authorizationPolicy.components,
-          requestOptions.components
+          requestOptions.components,
+          routePolicy?.additionalRequestBoundComponents
         )
       : unionComponents(
           authorizationPolicy.components,

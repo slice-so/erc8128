@@ -266,6 +266,56 @@ describe("EIP-712 Delegation grants", () => {
 })
 
 describe("Delegated Request Signatures", () => {
+  test("merges signing defaults with the complete route policy", async () => {
+    const client = createDelegatedSignerClient(
+      signer(delegateA),
+      { links: [g0] },
+      {
+        components: ["x-default"],
+        created: 1_700_000_000,
+        expires: 1_700_000_045,
+        nonce: "delegated-default-nonce",
+        serverConfigs: {
+          "https://api.example": {
+            max_validity_sec: 50,
+            route_policies: {
+              "/resource": {
+                additionalRequestBoundComponents: ["x-route"],
+                contentDigest: "recompute",
+                replayable: false
+              }
+            }
+          }
+        }
+      }
+    )
+    const request = await client.signRequest("https://api.example/resource", {
+      method: "POST",
+      headers: {
+        "content-digest":
+          "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:",
+        "x-default": "default",
+        "x-route": "route"
+      },
+      body: "payload"
+    })
+    const [signature] = parseSignatureInputHeader(
+      request.headers.get("signature-input") ?? ""
+    )
+
+    expect(signature?.params).toMatchObject({
+      created: 1_700_000_000,
+      expires: 1_700_000_045,
+      nonce: "delegated-default-nonce"
+    })
+    expect(signature?.components.map(({ name }) => name)).toEqual(
+      expect.arrayContaining(["x-default", "x-route", "content-digest"])
+    )
+    expect(request.headers.get("content-digest")).not.toBe(
+      "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:"
+    )
+  })
+
   test("matches and verifies the one-link fixed request vector", async () => {
     const request = await signedVectorRequest(
       delegateA,

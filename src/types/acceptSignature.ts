@@ -26,4 +26,6 @@ export type SelectAcceptSignatureRetryOptionsArgs = {
   members: Pick<ParsedAcceptSignatureMember, "components" | "requiredParams">[]
   requestShape: AcceptSignatureRequestShape
   attemptedOptions?: Array<Partial<AcceptSignatureSignOptions> | undefined>
+  /** Client posture that a server-provided retry must not weaken. */
+  minimumOptions?: Partial<AcceptSignatureSignOptions>
 }

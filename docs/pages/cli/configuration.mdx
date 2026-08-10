@@ -7,8 +7,10 @@ Set defaults in a `.erc8128rc.json` file to avoid repeating options on every com
 The CLI looks for configuration in this order:
 
 1. `--config <path>` — explicit path, if provided
-2. `./.erc8128rc.json` — current working directory
-3. `~/.erc8128rc.json` — home directory
+2. `~/.erc8128rc.json` — home directory
+
+A config in the current working directory is never loaded implicitly. Pass it
+explicitly with `--config ./.erc8128rc.json` after reviewing it.
 
 ## Config File Format
 

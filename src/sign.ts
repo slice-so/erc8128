@@ -40,6 +40,10 @@ const SIGNATURE_TAG = Symbol("ERC-8128 signature tag")
 type InternalSignOptions = SignOptions & {
   [SIGNATURE_TAG]?: typeof TAG_REQUEST | typeof TAG_DELEGATED
 }
+type FetchSignOptions = SignOptions & { fetch?: typeof fetch }
+type SignOptionsResolver = (
+  request: Request
+) => FetchSignOptions | Promise<FetchSignOptions | undefined> | undefined
 
 /**
  *   Minimal ERC-8128 signing
@@ -90,13 +94,28 @@ export async function signRequest(
   }
 
   const resolvedOpts = (signOpts ?? {}) as InternalSignOptions
-  const request = toRequest(input, init)
+  return signPreparedRequest(toRequest(input, init), signer, resolvedOpts)
+}
+
+async function signPreparedRequest(
+  request: Request,
+  signer: EthHttpSigner,
+  resolvedOpts: InternalSignOptions,
+  preparedBodyBytes?: Uint8Array
+): Promise<Request> {
+  const bodyBytes =
+    preparedBodyBytes ??
+    (request.body === null ? new Uint8Array() : await readBodyBytes(request))
+  const bufferedRequest =
+    request.body === null
+      ? request
+      : new Request(request, { body: toArrayBuffer(bodyBytes) })
 
   const label = allocateSignatureLabel(
     resolvedOpts.label ?? "request",
     collectSignatureLabels(
-      request.headers.get("signature-input"),
-      request.headers.get("signature")
+      bufferedRequest.headers.get("signature-input"),
+      bufferedRequest.headers.get("signature")
     )
   )
   const binding = resolvedOpts.binding ?? "request-bound"
@@ -112,10 +131,8 @@ export async function signRequest(
 
   const keyid = formatKeyId(signer.chainId, signer.address)
 
-  const url = sanitizeUrl(request.url)
+  const url = sanitizeUrl(bufferedRequest.url)
   const hasQuery = url.search.length > 0
-  const bodyBytes =
-    request.body === null ? new Uint8Array() : await readBodyBytes(request)
   const hasBody = bodyBytes.length > 0
 
   let components = resolveComponents({
@@ -126,19 +143,19 @@ export async function signRequest(
   })
 
   if (
-    request.headers.has("content-type") &&
+    bufferedRequest.headers.has("content-type") &&
     !includesComponent(components, "content-type")
   ) {
     components.push({ name: "content-type" })
   }
   if (
-    request.headers.has("content-digest") &&
+    bufferedRequest.headers.has("content-digest") &&
     !includesComponent(components, "content-digest")
   ) {
     components.push({ name: "content-digest" })
   }
 
-  let signedRequest = request
+  let signedRequest = bufferedRequest
 
   // Set content-digest header if required by components
   if (includesComponent(components, "content-digest")) {
@@ -233,54 +250,71 @@ export function signDelegatedRequest(
 export async function signedFetch(
   input: RequestInfo,
   signer: EthHttpSigner,
-  opts?: SignOptions & { fetch?: typeof fetch }
+  opts?: FetchSignOptions
 ): Promise<Response>
 export async function signedFetch(
   input: RequestInfo,
   init: RequestInit | undefined,
   signer: EthHttpSigner,
-  opts?: SignOptions & { fetch?: typeof fetch }
+  opts?: FetchSignOptions
 ): Promise<Response>
 export async function signedFetch(
   input: RequestInfo,
   initOrSigner: RequestInit | EthHttpSigner | undefined,
-  signerOrOpts?: EthHttpSigner | (SignOptions & { fetch?: typeof fetch }),
-  opts?: SignOptions & { fetch?: typeof fetch }
+  signerOrOpts?: EthHttpSigner | FetchSignOptions,
+  opts?: FetchSignOptions
 ): Promise<Response> {
   let init: RequestInit | undefined
   let signer: EthHttpSigner
-  let resolvedOpts: (SignOptions & { fetch?: typeof fetch }) | undefined
+  let resolvedOpts: FetchSignOptions | undefined
 
   if (isEthHttpSigner(initOrSigner)) {
     signer = initOrSigner
-    resolvedOpts = signerOrOpts as
-      | (SignOptions & { fetch?: typeof fetch })
-      | undefined
+    resolvedOpts = signerOrOpts as FetchSignOptions | undefined
   } else {
     init = initOrSigner
     signer = signerOrOpts as EthHttpSigner
     resolvedOpts = opts
   }
 
-  let nextInput = input
-  let nextInit = init
-  let signingOptions = resolvedOpts
+  return signedFetchWithOptionsResolver(input, init, signer, () => resolvedOpts)
+}
+
+/** Internal route-aware entrypoint used by createSignerClient. */
+export async function signedFetchWithOptionsResolver(
+  input: RequestInfo,
+  init: RequestInit | undefined,
+  signer: EthHttpSigner,
+  resolveOptions: SignOptionsResolver
+): Promise<Response> {
+  let nextRequest = toRequest(input, init)
+  let bodyBytes =
+    nextRequest.body === null
+      ? new Uint8Array()
+      : await readBodyBytes(nextRequest)
+  const redirectMode = nextRequest.redirect
+
   for (let redirects = 0; redirects <= 10; redirects += 1) {
-    const signed = await signRequest(
-      nextInput,
-      nextInit,
+    const resolvedOptions = (await resolveOptions(nextRequest)) ?? {}
+    const signingOptions = withoutConsumedNonce(resolvedOptions, redirects)
+    const signed = await signPreparedRequest(
+      nextRequest,
       signer,
-      signingOptions
+      signingOptions,
+      bodyBytes
     )
-    const redirectedBody =
-      signed.method === "GET" || signed.method === "HEAD"
-        ? undefined
-        : await signed.clone().arrayBuffer()
     const response = await invokeFetch(
       signingOptions?.fetch,
       new Request(signed, { redirect: "manual" })
     )
     if (!redirectStatuses.has(response.status)) return response
+    if (redirectMode === "manual") return response
+    if (redirectMode === "error") {
+      throw new Erc8128Error(
+        "UNSUPPORTED_REQUEST",
+        "A redirect was encountered while redirect mode was set to error."
+      )
+    }
     const location = response.headers.get("location")
     if (!location) return response
     if (redirects === 10) {
@@ -288,16 +322,39 @@ export async function signedFetch(
     }
     const target = new URL(location, signed.url)
     const method = redirectMethod(response.status, signed.method)
-    nextInput = target.href
-    if (typeof signingOptions?.nonce === "string") {
-      const { nonce: _usedNonce, ...redirectOptions } = signingOptions
-      signingOptions = redirectOptions
-    }
-    nextInit = {
+    const keepsBody = method !== "GET" && method !== "HEAD"
+    if (!keepsBody) bodyBytes = new Uint8Array()
+    nextRequest = new Request(target, {
       method,
-      headers: unsignedRedirectHeaders(signed.headers),
-      ...(method === "GET" || method === "HEAD" ? {} : { body: redirectedBody })
-    }
+      headers: unsignedRedirectHeaders(
+        signed.headers,
+        new URL(signed.url).origin,
+        target.origin
+      ),
+      ...(keepsBody ? { body: toArrayBuffer(bodyBytes) } : {}),
+      cache: nextRequest.cache,
+      credentials: nextRequest.credentials,
+      integrity: nextRequest.integrity,
+      keepalive: nextRequest.keepalive,
+      mode: nextRequest.mode,
+      redirect: redirectMode,
+      referrer: nextRequest.referrer,
+      referrerPolicy: nextRequest.referrerPolicy,
+      signal: nextRequest.signal
+    })
   }
   throw new Erc8128Error("UNSUPPORTED_REQUEST", "Redirect processing failed.")
+}
+
+function withoutConsumedNonce(
+  options: FetchSignOptions,
+  redirects: number
+): FetchSignOptions {
+  if (redirects === 0 || typeof options.nonce !== "string") return options
+  const { nonce: _consumedNonce, ...redirectOptions } = options
+  return redirectOptions
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return new Uint8Array(bytes).buffer
 }

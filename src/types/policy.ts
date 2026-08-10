@@ -19,12 +19,15 @@ export type RoutePolicy = {
   /** Content-digest behavior required by this route. */
   contentDigest?: ContentDigestMode
 
+  /** Require these request fields to be covered whenever they are present. */
+  requiredCoveredComponentsWhenPresent?: CoveredComponent[]
+
   /**
    * Class-bound component policies.
    * - `undefined`: route is request-bound only
    * - `["@authority"]`: allow minimal class-bound
    * - entries: require @authority plus those components
-   * - `[]`: supported shorthand for `["@authority"]`
+   * - `[]`: do not allow class-bound signatures
    */
   classBoundPolicies?: CoveredComponent[] | CoveredComponent[][]
 }
@@ -38,12 +41,6 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   principal?: "direct" | "delegated" | "either"
   /** Explicit base-profile account verification policy. */
   accountVerification?: "universal" | "eoa-only"
-  /**
-   * If one of these request fields is present, every eligible signature must
-   * cover it. Absence is allowed.
-   */
-  requiredCoveredComponentsWhenPresent?: CoveredComponent[]
-
   delegation?: import("./delegation").DelegationPolicy
 
   /**
@@ -69,7 +66,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
 
   /**
    * Maximum Universal Account classification/proof calls shared by all
-   * candidates (default 2 + the configured delegation-chain depth).
+   * candidates (default candidate cap + configured delegation-chain depth).
    */
   maxAccountVerificationCalls?: number
 

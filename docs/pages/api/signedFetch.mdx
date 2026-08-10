@@ -41,6 +41,13 @@ const data = await response.json()
 
 The fetch Response.
 
+`signedFetch` re-signs every followed redirect. It preserves
+`Authorization`, `Cookie`, and `Proxy-Authorization` only for same-origin hops;
+cross-origin hops remove them. Application-specific credentials such as
+`X-API-Key` cannot be identified generically, so use `redirect: 'manual'` when
+those headers must never reach another origin. The caller's `redirect` mode is
+honored: `manual` returns the 3xx response and `error` rejects it.
+
 ## Parameters
 
 ### Overload 1: Simple

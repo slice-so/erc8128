@@ -28,7 +28,7 @@ export function normalizeClassBoundPolicies(
   policies?: CoveredComponent[] | CoveredComponent[][]
 ): ClassBoundPolicy[] {
   if (policies === undefined) return []
-  if (policies.length === 0) return [[]]
+  if (policies.length === 0) return []
   if (Array.isArray(policies[0])) {
     return (policies as CoveredComponent[][]).map((policy) =>
       normalizeComponentsList(policy)

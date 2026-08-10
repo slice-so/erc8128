@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test"
-import { existsSync, unlinkSync } from "node:fs"
-import { readFile } from "node:fs/promises"
+import { chmodSync, existsSync, unlinkSync } from "node:fs"
+import { readFile, stat } from "node:fs/promises"
 import { handleResponse, logVerbose } from "./output"
 
 describe("output handling", () => {
@@ -214,6 +214,7 @@ describe("output handling", () => {
 
         const fileContent = await readFile(testOutputFile, "utf-8")
         expect(fileContent).toBe("File content")
+        expect((await stat(testOutputFile)).mode & 0o777).toBe(0o600)
 
         // Should not output to console
         expect(consoleSpy).not.toHaveBeenCalled()
@@ -281,6 +282,7 @@ describe("output handling", () => {
       test("overwrites existing file", async () => {
         // Write initial content
         await Bun.write(testOutputFile, "Initial content")
+        chmodSync(testOutputFile, 0o644)
 
         const response = new Response("New content")
 
@@ -292,6 +294,7 @@ describe("output handling", () => {
 
         const fileContent = await readFile(testOutputFile, "utf-8")
         expect(fileContent).toBe("New content")
+        expect((await stat(testOutputFile)).mode & 0o777).toBe(0o600)
       })
     })
 

@@ -117,12 +117,12 @@ describe("parseSignatureInputDictionary", () => {
     expect(parsed?.params.expires).toBeNaN()
   })
 
-  test("canonicalizes signatureParamsValue", () => {
+  test("preserves the received signatureParamsValue serialization", () => {
     const input =
       'eth=(  "@authority"   "@method"  );created=100;expires=200;keyid="k"'
     const result = parseSignatureInputDictionary(input)
     expect(result[0].signatureParamsValue).toBe(
-      '("@authority" "@method");created=100;expires=200;keyid="k"'
+      '(  "@authority"   "@method"  );created=100;expires=200;keyid="k"'
     )
   })
 

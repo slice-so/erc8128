@@ -104,6 +104,21 @@ describe("createSignatureBaseMinimal", () => {
     expect(text).toContain('"content-type": application/json')
   })
 
+  test("encodes each combined field value separately for bs", () => {
+    const headers = new Headers()
+    headers.append("x-values", "a")
+    headers.append("x-values", "b")
+    const base = new TextDecoder().decode(
+      createSignatureBaseMinimal({
+        request: new Request("https://example.com", { headers }),
+        components: [{ name: "x-values", params: { bs: true } }],
+        signatureParamsValue: '("x-values";bs)'
+      })
+    )
+
+    expect(base).toContain('"x-values";bs: :YQ==:, :Yg==:')
+  })
+
   test("throws on missing required header", () => {
     const req = makeRequest("https://example.com")
     expect(() =>

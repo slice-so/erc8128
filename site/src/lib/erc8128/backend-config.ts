@@ -1,5 +1,6 @@
 import {
   createRedisNonceStore as createAtomicRedisNonceStore,
+  createSignatureBaseMinimal,
   createUniqueInsertNonceStore,
   type DiscoveryDocument,
   formatDiscoveryDocument,
@@ -44,11 +45,13 @@ export const VERIFY_ROUTE_POLICIES: RoutePolicyConfig = {
     {
       methods: ["GET", "POST", "PUT"],
       replayable: true,
-      classBoundPolicies: ["@authority"]
+      classBoundPolicies: ["@authority"],
+      requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
     },
     {
       methods: ["DELETE"],
-      replayable: false
+      replayable: false,
+      requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
     }
   ] satisfies RoutePolicy[]
 }
@@ -81,13 +84,13 @@ function isReplayableSignature(signature: { params: { nonce?: string } }) {
   return !signature.params.nonce || signature.params.nonce.length === 0
 }
 
-function shouldCheckVerificationCache<CfHostMetadata, Cf>(
+async function getVerificationCacheKeys<CfHostMetadata, Cf>(
   request: Request<CfHostMetadata, Cf>
-) {
+): Promise<Array<{ key: string; label: string }>> {
   const signatureInputHeader = request.headers.get("signature-input")
   const signatureHeader = request.headers.get("signature")
   if (!signatureInputHeader || !signatureHeader) {
-    return false
+    return []
   }
 
   const selected = selectSignatureFromHeaders({
@@ -95,10 +98,55 @@ function shouldCheckVerificationCache<CfHostMetadata, Cf>(
     signatureHeader
   })
   if (!selected.ok) {
-    return false
+    return []
   }
 
-  return selected.selected.some(isReplayableSignature)
+  const bodyBytes =
+    request.body === null
+      ? new Uint8Array()
+      : new Uint8Array(await request.clone().arrayBuffer())
+  const encoder = new TextEncoder()
+  const signatureBytes = encoder.encode(signatureHeader)
+  const keys: Array<{ key: string; label: string }> = []
+
+  for (const candidate of selected.selected.filter(isReplayableSignature)) {
+    try {
+      const signatureBase = createSignatureBaseMinimal({
+        request: request as Request,
+        components: candidate.components,
+        signatureParamsValue: candidate.signatureParamsValue
+      })
+      const labelBytes = encoder.encode(candidate.label)
+      const material = new Uint8Array(
+        signatureBytes.length +
+          labelBytes.length +
+          signatureBase.length +
+          bodyBytes.length +
+          3
+      )
+      let offset = 0
+      material.set(signatureBytes, offset)
+      offset += signatureBytes.length + 1
+      material.set(labelBytes, offset)
+      offset += labelBytes.length + 1
+      material.set(signatureBase, offset)
+      offset += signatureBase.length + 1
+      material.set(bodyBytes, offset)
+      const digest = new Uint8Array(
+        await crypto.subtle.digest("SHA-256", material)
+      )
+      keys.push({
+        key: Array.from(digest, (byte) =>
+          byte.toString(16).padStart(2, "0")
+        ).join(""),
+        label: candidate.label
+      })
+    } catch {
+      // Invalid candidates are left to the verifier and are never cacheable.
+    }
+  }
+
+  return keys
 }
 
 function resolvePostgresConnectionString(
@@ -380,16 +428,15 @@ export function createVerificationRuntime(
       }
 
       const signatureHeader = request.headers.get("signature")
+      const verificationCacheKeys =
+        routePolicy.replayable && signatureHeader
+          ? await getVerificationCacheKeys(request)
+          : []
 
-      if (
-        routePolicy.replayable &&
-        signatureHeader &&
-        shouldCheckVerificationCache(request)
-      ) {
-        const cached =
-          await runtimeConfig.verificationCache.get(signatureHeader)
+      for (const cacheKey of verificationCacheKeys) {
+        const cached = await runtimeConfig.verificationCache.get(cacheKey.key)
 
-        if (cached) {
+        if (cached?.label === cacheKey.label) {
           const notBefore = await runtimeConfig.invalidationStore.getNotBefore(
             cached.params.keyid
           )
@@ -405,7 +452,7 @@ export function createVerificationRuntime(
             }
           }
 
-          await runtimeConfig.verificationCache.delete(signatureHeader)
+          await runtimeConfig.verificationCache.delete(cacheKey.key)
         }
       }
 
@@ -431,20 +478,24 @@ export function createVerificationRuntime(
       ) {
         const ttlSec = result.params.expires - Math.floor(Date.now() / 1000)
         if (ttlSec > 0) {
-          await runtimeConfig.verificationCache.set(
-            signatureHeader,
-            {
-              principal: result.principal,
-              signer: result.signer,
-              delegated: result.delegated,
-              label: result.label,
-              components: result.components,
-              params: result.params,
-              replay: "replayable",
-              binding: result.binding
-            },
-            ttlSec
+          const cacheKey = verificationCacheKeys.find(
+            (candidate) => candidate.label === result.label
           )
+          if (cacheKey)
+            await runtimeConfig.verificationCache.set(
+              cacheKey.key,
+              {
+                principal: result.principal,
+                signer: result.signer,
+                delegated: result.delegated,
+                label: result.label,
+                components: result.components,
+                params: result.params,
+                replay: "replayable",
+                binding: result.binding
+              },
+              ttlSec
+            )
         }
       }
 

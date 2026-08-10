@@ -1,5 +1,7 @@
-import type { VerifyResult } from "@slicekit/erc8128"
-import type { ContentfulStatusCode } from "hono/utils/http-status"
+import {
+  formatErc8128ProblemDetails,
+  type VerifyResult
+} from "@slicekit/erc8128"
 import type {
   CacheStrategy,
   StorageMode,
@@ -18,18 +20,6 @@ function withCachedVerification(metadata: VerificationMetadata) {
     ...metadata,
     "cached-verification": metadata.cachedVerification
   }
-}
-
-function reasonToStatus(reason: string): ContentfulStatusCode {
-  if (
-    reason === "signature_verification_unavailable" ||
-    reason === "grant_verification_unavailable" ||
-    reason === "revocation_unavailable"
-  ) {
-    return 503
-  }
-
-  return 401
 }
 
 function copyHeaders(source: Headers) {
@@ -71,13 +61,13 @@ export function buildVerifyResultResponse(args: {
   }
 
   const acceptSignature = responseHeaders.get("accept-signature")
+  const problem = formatErc8128ProblemDetails(verifyResult)
 
   return {
-    status: reasonToStatus(verifyResult.reason),
+    status: problem.status,
     payload: {
+      ...problem,
       ok: false,
-      reason: verifyResult.reason,
-      ...(verifyResult.detail ? { detail: verifyResult.detail } : {}),
       ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
       ...withCachedVerification(metadata)
     },

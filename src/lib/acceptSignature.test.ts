@@ -87,13 +87,30 @@ describe("Accept-Signature", () => {
         components: identifiers(["@authority", "x-tenant"]),
         requiredParams: ["keyid", "created", "expires", "tag"]
       },
-      { hasQuery: false, hasBody: false }
+      { hasQuery: false, hasBody: false },
+      {
+        binding: "class-bound",
+        replay: "replayable",
+        components: []
+      }
     )
     expect(classBound).toEqual({
       binding: "class-bound",
       replay: "replayable",
       components: [{ name: "x-tenant" }]
     })
+  })
+
+  test("rejects a server retry that weakens the default client floor", () => {
+    expect(() =>
+      acceptSignatureMemberToSignOptions(
+        {
+          components: identifiers(["@authority"]),
+          requiredParams: ["keyid", "created", "expires", "tag"]
+        },
+        { hasQuery: false, hasBody: false }
+      )
+    ).toThrow(Erc8128Error)
   })
 
   test("deduplicates normalized options and skips attempted postures", () => {

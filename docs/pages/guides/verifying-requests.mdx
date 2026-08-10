@@ -280,9 +280,11 @@ const erc8128Auth = async (req: Request, res: Response, next: NextFunction) => {
 
 ## Handling Failures
 
-When verification fails, inspect `result.reason` to return appropriate HTTP status codes and error messages.
+Use `formatErc8128ProblemDetails` so malformed requests, insufficient permissions, authentication failures, and temporary verifier outages receive their specified status codes.
 
 ```typescript
+import { formatErc8128ProblemDetails } from '@slicekit/erc8128'
+
 const result = await verifyRequest({
   request,
   verifyMessage: verifyMessageFn,
@@ -291,42 +293,8 @@ const result = await verifyRequest({
 })
 
 if (!result.ok) {
-  switch (result.reason) {
-    case 'missing_headers':
-      // No signature present
-      return { status: 401, error: 'Authentication required' }
-      
-    case 'expired':
-    case 'not_yet_valid':
-    case 'validity_too_long':
-      // Time-based rejection
-      return { status: 401, error: 'Signature expired or not yet valid' }
-      
-    case 'replay':
-    case 'replayable_not_allowed':
-    case 'nonce_window_too_long':
-      // Replay protection rejection
-      return { status: 401, error: 'Request replay detected or not allowed' }
-      
-    case 'bad_signature':
-    case 'bad_signature_bytes':
-    case 'bad_signature_check':
-      // Cryptographic verification failed
-      return { status: 401, error: 'Invalid signature' }
-      
-    case 'digest_mismatch':
-    case 'digest_required':
-      // Body integrity issue
-      return { status: 400, error: 'Body integrity check failed' }
-      
-    case 'not_request_bound':
-    case 'class_bound_not_allowed':
-      // Policy rejection
-      return { status: 401, error: 'Signature does not meet security requirements' }
-      
-    default:
-      return { status: 401, error: `Authentication failed: ${result.reason}` }
-  }
+  const problem = formatErc8128ProblemDetails(result)
+  return { status: problem.status, body: problem }
 }
 ```
 

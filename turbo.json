@@ -10,7 +10,13 @@
     },
     "build": {
       "dependsOn": [],
-      "inputs": ["src/**/*.ts", "build.ts"],
+      "inputs": [
+        "src/**/*.ts",
+        "build.ts",
+        "package.json",
+        "tsconfig.json",
+        "tsconfig.build.json"
+      ],
       "outputs": ["dist/**"],
       "env": [
         "PUBLIC_ERC8128_ALCHEMY_ID",

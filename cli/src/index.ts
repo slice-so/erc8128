@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises"
+import { chmod, readFile, writeFile } from "node:fs/promises"
 import { signedFetch, signRequest } from "@slicekit/erc8128"
 import { parseArgs } from "./args"
 import { handleResponse, logVerbose } from "./output"
@@ -160,7 +160,8 @@ async function outputDryRun(
 
 async function writeOutput(output: string, opts: CliOptions): Promise<void> {
   if (opts.output) {
-    await writeFile(opts.output, output, "utf-8")
+    await writeFile(opts.output, output, { encoding: "utf-8", mode: 0o600 })
+    await chmod(opts.output, 0o600)
     return
   }
 

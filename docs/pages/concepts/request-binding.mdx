@@ -8,14 +8,13 @@ For request-bound signatures, the library automatically selects components based
 
 | Condition | Components Signed |
 |-----------|-------------------|
-| All requests | `@authority`, `@method`, `@path` |
-| Has query string | `+ @query` |
+| All requests | `@scheme`, `@authority`, `@method`, `@path`, `@query` |
 | Has body | `+ content-digest` |
 
 Example for `POST /orders?market=ETH` with body:
 
 ```
-Signature-Input: request=("@authority" "@method" "@path" "@query" "content-digest");...
+Signature-Input: request=("@scheme" "@authority" "@method" "@path" "@query" "content-digest");...
 ```
 
 ## Why These Components?
@@ -114,7 +113,7 @@ const result = await verifyRequest({
 // If content-digest is in components:
 // 1. Header must exist
 // 2. Hash must match body bytes
-// Otherwise: result.reason === "digest_mismatch" or "digest_required"
+// Otherwise: result.reason === "bad_content_digest" or "content_digest_required"
 ```
 
 ## Class-Bound Signatures
@@ -188,7 +187,7 @@ const signedRequest = await signRequest(
   { components: ['x-idempotency-key', 'x-request-id'] }
 )
 
-// Signature covers: @authority + @method + @path + @query + content-digest + x-idempotency-key + x-request-id
+// Signature covers: @scheme + @authority + @method + @path + @query + content-digest + x-idempotency-key + x-request-id
 ```
 
 ## Server Enforcement with `additionalRequestBoundComponents` and `classBoundPolicies`
@@ -202,11 +201,10 @@ Verification behavior is controlled by two policy inputs:
 
 When neither field is set, the verifier enforces the full **request-bound** check. This means the signature must cover the complete set of components that the ERC-8128 spec requires for the specific request:
 
-- `@authority`, `@method`, `@path` — always required
-- `@query` — required if the request has a query string
+- `@scheme`, `@authority`, `@method`, `@path`, `@query` — always required
 - `content-digest` — required if the request has a body
 
-If the signature omits any of these (given the request shape), verification fails with `not_request_bound`. This is the strictest mode and the default — it **rejects all class-bound signatures**.
+If the signature omits any of these (given the request shape), verification fails with `insufficient_coverage`. This is the strictest mode and the default — it **rejects all class-bound signatures**.
 
 ```typescript
 // Default: enforces full request-bound check
@@ -233,7 +231,7 @@ const result = await verifyRequest({
 })
 ```
 
-The signature must now cover the request-bound set **plus** `x-api-version` and `x-idempotency-key`. Order does not matter; the verifier checks set inclusion.
+The signature must now cover `x-api-version` and `x-idempotency-key` regardless of whether it otherwise matches a request-bound or explicitly allowed class-bound policy. Order does not matter; the verifier checks set inclusion.
 
 ### Accepting Class-Bound Signatures
 

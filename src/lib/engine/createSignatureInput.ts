@@ -38,6 +38,15 @@ export function parseSignatureInputDictionary(
   headerValue: string
 ): ParsedSignatureInputMember[] {
   const dictionary = parseSfDictionary(headerValue)
+  const receivedMemberValues = new Map<string, string>()
+  for (const rawMember of splitTopLevelCommas(headerValue)) {
+    const separator = rawMember.indexOf("=")
+    if (separator <= 0) continue
+    receivedMemberValues.set(
+      rawMember.slice(0, separator).trim(),
+      rawMember.slice(separator + 1).trim()
+    )
+  }
   const candidates: ParsedSignatureInputMember[] = []
   for (const [label, member] of Object.entries(dictionary)) {
     try {
@@ -84,7 +93,8 @@ export function parseSignatureInputDictionary(
         label,
         components,
         params,
-        signatureParamsValue: serializeSfMember(member)
+        signatureParamsValue:
+          receivedMemberValues.get(label) ?? serializeSfMember(member)
       })
     } catch (error) {
       if (error instanceof Erc8128Error && error.code === "LIMIT_EXCEEDED") {

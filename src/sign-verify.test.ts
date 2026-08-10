@@ -211,6 +211,25 @@ describe("ERC-8128 direct signing and verification", () => {
     expect(signed.headers.get("content-digest")).toBeNull()
   })
 
+  test("rebuilds stream bodies from buffered bytes", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("stream payload"))
+        controller.close()
+      }
+    })
+    const signed = await signRequest(
+      new Request("https://api.example/stream", {
+        body,
+        method: "POST"
+      }),
+      signer,
+      { created: now, expires: now + 60, nonce: "stream-body-test" }
+    )
+
+    expect(await signed.text()).toBe("stream payload")
+  })
+
   test("rejects unsigned received fields under explicit class-bound policy", async () => {
     const classBoundOptions = {
       binding: "class-bound" as const,
@@ -252,6 +271,42 @@ describe("ERC-8128 direct signing and verification", () => {
       })
       expect(result.ok).toBe(false)
     }
+  })
+
+  test("enforces request-bound extras even when class-bound policies exist", async () => {
+    const signed = await signRequest("https://api.example/read", signer, {
+      binding: "class-bound",
+      components: ["@authority"],
+      created: now,
+      expires: now + 60,
+      nonce: "class-bound-extra"
+    })
+
+    const missingExtra = await verifyRequest({
+      request: signed.clone(),
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: {
+        additionalRequestBoundComponents: ["x-tenant"],
+        classBoundPolicies: ["@authority"],
+        now: () => now
+      },
+      verifyMessage: universalVerify
+    })
+    const emptyClassPolicy = await verifyRequest({
+      request: signed,
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: { classBoundPolicies: [], now: () => now },
+      verifyMessage: universalVerify
+    })
+
+    expect(missingExtra).toEqual({
+      ok: false,
+      reason: "insufficient_coverage"
+    })
+    expect(emptyClassPolicy).toEqual({
+      ok: false,
+      reason: "insufficient_coverage"
+    })
   })
 
   test("supports explicit EOA-only verification without RPC", async () => {
@@ -572,6 +627,96 @@ describe("ERC-8128 direct signing and verification", () => {
     expect(nonceStore.consumes).toBe(0)
   })
 
+  test("falls back safely for malformed clock inputs", async () => {
+    const expired = await signRequest("https://api.example/timing", signer, {
+      created: now - 100_000,
+      expires: now - 99_900,
+      nonce: "malformed-clock-1"
+    })
+    const malformedValues = [Number.NaN, "30", new Date()] as const
+
+    for (const value of malformedValues) {
+      const badSkew = await verifyRequest({
+        request: expired.clone(),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: {
+          now: () => now,
+          clockSkewSec: value as number
+        },
+        verifyMessage: universalVerify
+      })
+      const badNow = await verifyRequest({
+        request: expired.clone(),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: (() => value) as () => number },
+        verifyMessage: universalVerify
+      })
+      expect(badSkew).toEqual({ ok: false, reason: "request_expired" })
+      expect(badNow).toEqual({ ok: false, reason: "request_expired" })
+    }
+  })
+
+  test("fails closed for malformed replayable invalidation cutoffs", async () => {
+    const replayable = await signRequest(
+      "https://api.example/replayable",
+      signer,
+      { created: now, expires: now + 60, nonce: null }
+    )
+    for (const value of [Number.NaN, "1", new Date()] as const) {
+      const result = await verifyRequest({
+        request: replayable.clone(),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: {
+          now: () => now,
+          replayable: true,
+          replayableNotBefore: (async () => value) as () => Promise<number>
+        },
+        verifyMessage: universalVerify
+      })
+      expect(result).toEqual({
+        ok: false,
+        reason: "replayable_not_allowed"
+      })
+    }
+  })
+
+  test("budgets account verification for every admitted candidate", async () => {
+    const requests = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        signRequest("https://api.example/candidates", signer, {
+          created: now,
+          expires: now + 60,
+          label: `candidate${index}`,
+          nonce: `budget-candidate-${index}`
+        })
+      )
+    )
+    const headers = new Headers(requests[0]?.headers)
+    headers.set(
+      "signature-input",
+      requests
+        .map((request) => request.headers.get("signature-input"))
+        .join(", ")
+    )
+    headers.set(
+      "signature",
+      requests.map((request) => request.headers.get("signature")).join(", ")
+    )
+    let calls = 0
+    const result = await verifyRequest({
+      request: new Request(requests[0], { headers }),
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: { now: () => now },
+      verifyMessage: async () => {
+        calls += 1
+        return calls === 8
+      }
+    })
+
+    expect(result.ok).toBe(true)
+    expect(calls).toBe(8)
+  })
+
   test("prefers the first unavailable outcome when no candidate succeeds", async () => {
     const first = await signRequest("https://api.example/unavailable", signer, {
       created: now,
@@ -662,6 +807,80 @@ describe("ERC-8128 direct signing and verification", () => {
         ?.params.nonce
     expect(nonce(observed[0] as Request)).toBe("direct-redirect-1")
     expect(nonce(observed[1] as Request)).not.toBe("direct-redirect-1")
+  })
+
+  test("strips credentials only when a redirect crosses origins", async () => {
+    const observed: Request[] = []
+    const fetchImpl: typeof fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        observed.push(request.clone())
+        if (observed.length === 1) {
+          return new Response(null, {
+            status: 307,
+            headers: { location: "/same-origin" }
+          })
+        }
+        if (observed.length === 2) {
+          return new Response(null, {
+            status: 307,
+            headers: { location: "https://other.example/cross-origin" }
+          })
+        }
+        return new Response(null, { status: 204 })
+      },
+      { preconnect: () => {} }
+    )
+
+    await signedFetch(
+      "https://api.example/start",
+      {
+        headers: {
+          authorization: "Bearer secret",
+          cookie: "session=secret",
+          "proxy-authorization": "Basic secret"
+        }
+      },
+      signer,
+      { fetch: fetchImpl }
+    )
+
+    expect(observed[1]?.headers.get("authorization")).toBe("Bearer secret")
+    expect(observed[1]?.headers.get("cookie")).toBe("session=secret")
+    expect(observed[2]?.headers.has("authorization")).toBe(false)
+    expect(observed[2]?.headers.has("cookie")).toBe(false)
+    expect(observed[2]?.headers.has("proxy-authorization")).toBe(false)
+  })
+
+  test("honors manual and error redirect modes", async () => {
+    let calls = 0
+    const fetchImpl: typeof fetch = Object.assign(
+      async () => {
+        calls += 1
+        return new Response(null, {
+          status: 302,
+          headers: { location: "https://other.example/next" }
+        })
+      },
+      { preconnect: () => {} }
+    )
+
+    const manual = await signedFetch(
+      "https://api.example/start",
+      { redirect: "manual" },
+      signer,
+      { fetch: fetchImpl }
+    )
+    expect(manual.status).toBe(302)
+    expect(calls).toBe(1)
+
+    await expect(
+      signedFetch("https://api.example/start", { redirect: "error" }, signer, {
+        fetch: fetchImpl
+      })
+    ).rejects.toThrow("redirect mode was set to error")
+    expect(calls).toBe(2)
   })
 
   test("skips a failing candidate and consumes only the valid candidate nonce", async () => {

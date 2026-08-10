@@ -99,7 +99,7 @@ if (result.ok) {
 | `components` | `string[]` | — | Additional components to sign |
 | `contentDigest` | `"auto"` \| `"recompute"` \| `"require"` \| `"off"` | `"auto"` | Content-Digest handling |
 
-**request-bound**: Signs `@authority`, `@method`, `@path`, `@query` (if present), and `content-digest` (if body present). Each request is unique.
+**request-bound**: Signs `@scheme`, `@authority`, `@method`, `@path`, and `@query` unconditionally, plus `content-digest` when a body is present. Each request is unique.
 
 **class-bound**: Signs only the components you explicitly specify. Reusable across similar requests. Requires `components` array.
 
@@ -224,14 +224,14 @@ const client = createSignerClient(signer)
 
 | Reason | Meaning |
 |--------|---------|
-| `missing_headers` | Required `Signature` / `Signature-Input` headers not found |
-| `expired` | Signature TTL has elapsed |
-| `replay` | Nonce already consumed (replay attempt) |
-| `bad_keyid` | `keyid` doesn't match `eip155:<chainId>:<address>` format |
-| `bad_signature_check` | Signature doesn't match the claimed address |
-| `digest_mismatch` | Body was modified after signing |
+| `signature_missing` | Required `Signature` / `Signature-Input` headers not found |
+| `request_expired` | Signature TTL has elapsed |
+| `nonce_reused` | Nonce already consumed (replay attempt) |
+| `invalid_keyid` | `keyid` doesn't match `eip155:<chainId>:<address>` format |
+| `bad_signature` | Signature doesn't match the claimed address |
+| `bad_content_digest` | Body was modified after signing |
 
-📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for the full list of 23 failure reasons.
+📖 See [VerifyFailReason](https://erc8128.slice.so/api/types#verifyfailreason) for the full list of 44 failure reasons.
 
 ## Key Management
 

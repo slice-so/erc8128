@@ -32,7 +32,9 @@ describe("resolvePosture structural component policies", () => {
     expect(result).toEqual({
       binding: "class-bound",
       components: [structuredComponent],
-      replay: "non-replayable"
+      replay: "non-replayable",
+      contentDigest: undefined,
+      ttlSeconds: 60
     })
   })
 
@@ -52,5 +54,28 @@ describe("resolvePosture structural component policies", () => {
     )
 
     expect(result.components).toEqual([structuredComponent])
+  })
+
+  test("includes unconditional route components in class-bound posture", () => {
+    const result = resolvePosture(
+      "GET",
+      "/resource",
+      {
+        max_validity_sec: 60,
+        route_policies: {
+          "/resource": {
+            classBoundPolicies: ["@authority"],
+            additionalRequestBoundComponents: ["x-tenant"]
+          }
+        }
+      },
+      { binding: "class-bound" },
+      "non-replayable"
+    )
+
+    expect(result.components).toEqual([
+      { name: "@authority" },
+      { name: "x-tenant" }
+    ])
   })
 })

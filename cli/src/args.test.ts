@@ -429,6 +429,19 @@ describe("CLI argument parsing", () => {
       expect(opts.chainId).toBe(137)
       expect(opts.headers).toEqual(["X-From-Config: true", "X-From-CLI: true"])
     })
+
+    test("does not allow config files to select an output path", () => {
+      const configPath = "/tmp/erc8128-config-output.json"
+      Bun.write(configPath, JSON.stringify({ output: "/tmp/untrusted" }))
+
+      const opts = parseTestArgs([
+        "--config",
+        configPath,
+        "https://example.com"
+      ])
+
+      expect(opts.output).toBeUndefined()
+    })
   })
 
   describe("combined options", () => {

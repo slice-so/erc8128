@@ -228,6 +228,75 @@ describe("playground erc8128 runtime", () => {
     expect(verifyCalls).toBe(1)
   })
 
+  test("does not reuse a cached signature for a modified request", async () => {
+    let verifyCalls = 0
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
+      "https://erc8128.org",
+      async () => {
+        verifyCalls += 1
+        return true
+      }
+    )
+    const signed = await signRequest(
+      "https://erc8128.org/verify",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ amount: 1 })
+      },
+      TEST_SIGNER,
+      {
+        binding: "class-bound",
+        nonce: null,
+        components: ["@authority"]
+      }
+    )
+
+    const first = await runtime.verifyRequest(signed.clone())
+    const modified = await runtime.verifyRequest(
+      new Request(signed.url, {
+        method: "PUT",
+        headers: signed.headers,
+        body: JSON.stringify({ amount: 2 })
+      })
+    )
+
+    expect(first.result.ok).toBe(true)
+    expect(modified.cachedVerification).toBe(false)
+    expect(modified.result).toEqual({
+      ok: false,
+      reason: "bad_content_digest"
+    })
+    expect(verifyCalls).toBe(1)
+  })
+
+  test("rejects a storage-mode header changed after signing", async () => {
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
+      "https://erc8128.org",
+      verifyMessage
+    )
+    const signed = await signRequest(
+      "https://erc8128.org/verify",
+      {
+        method: "DELETE",
+        headers: { "x-erc8128-storage": "postgres" }
+      },
+      REAL_SIGNER,
+      {
+        components: ["x-erc8128-storage"],
+        nonce: `storage-${Date.now()}`
+      }
+    )
+    const headers = new Headers(signed.headers)
+    headers.set("x-erc8128-storage", "redis")
+    const result = await runtime.verifyRequest(new Request(signed, { headers }))
+
+    expect(result.result.ok).toBe(false)
+    expect(result.result).toMatchObject({ reason: "bad_signature" })
+  })
+
   test("skips verification cache for nonce-bearing POST /verify", async () => {
     let cacheGetCalls = 0
     const runtime = createVerificationRuntime(

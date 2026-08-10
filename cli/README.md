@@ -134,8 +134,10 @@ erc8128 curl --private-key 0x... https://api.example.com/data
 You can set defaults in `.erc8128rc.json`. The CLI looks for:
 
 1. `--config <path>` if provided
-2. `./.erc8128rc.json` in the current working directory
-3. `~/.erc8128rc.json`
+2. `~/.erc8128rc.json`
+
+Working-directory configs require explicit opt-in with
+`--config ./.erc8128rc.json`.
 
 Example:
 

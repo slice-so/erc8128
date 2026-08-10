@@ -90,8 +90,11 @@ export async function verifyRequest(
     return { ok: false, reason: "signature_too_large" }
   }
 
-  const now = policy.now?.() ?? unixNow()
-  const skew = policy.clockSkewSec ?? 30
+  const policyNow = policy.now?.()
+  const now = finiteNonNegativeNumber(policyNow) ? policyNow : unixNow()
+  const skew = finiteNonNegativeNumber(policy.clockSkewSec)
+    ? policy.clockSkewSec
+    : 30
   sanitizeUrl(request.url)
   const bodyBytes =
     request.body === null ? new Uint8Array() : await readBodyBytes(request)
@@ -118,7 +121,7 @@ export async function verifyRequest(
   const accountVerificationBudget: AccountVerificationBudget = {
     remaining: positiveInteger(
       policy.maxAccountVerificationCalls,
-      2 + maximumChainDepth
+      maximumCandidates + maximumChainDepth
     )
   }
 
@@ -719,15 +722,28 @@ async function validateReplayableInvalidation(
   if (!policy.replayableNotBefore && !policy.replayableInvalidated) {
     return { ok: false, reason: "replayable_not_allowed" }
   }
-  const [notBefore, invalidated] = await Promise.all([
-    policy.replayableNotBefore?.(candidate.params.keyid),
-    policy.replayableInvalidated?.({
-      keyid: candidate.params.keyid,
-      signature: bytesToHex(
-        base64Decode(candidate.sigB64 ?? "") ?? new Uint8Array()
-      )
-    })
-  ])
+  let notBefore: number | null | undefined
+  let invalidated: boolean | undefined
+  try {
+    ;[notBefore, invalidated] = await Promise.all([
+      policy.replayableNotBefore?.(candidate.params.keyid),
+      policy.replayableInvalidated?.({
+        keyid: candidate.params.keyid,
+        signature: bytesToHex(
+          base64Decode(candidate.sigB64 ?? "") ?? new Uint8Array()
+        )
+      })
+    ])
+  } catch {
+    return { ok: false, reason: "revocation_unavailable" }
+  }
+  if (
+    notBefore !== null &&
+    notBefore !== undefined &&
+    !finiteNonNegativeNumber(notBefore)
+  ) {
+    return { ok: false, reason: "replayable_not_allowed" }
+  }
   if (typeof notBefore === "number" && candidate.params.created < notBefore) {
     return { ok: false, reason: "replayable_not_allowed" }
   }
@@ -752,6 +768,10 @@ function positiveInteger(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.floor(value)
     : fallback
+}
+
+function finiteNonNegativeNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
 }
 
 function isUnavailableFailure(failure: Failure): boolean {

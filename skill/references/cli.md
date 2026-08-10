@@ -138,7 +138,8 @@ erc8128 curl https://api.example.com/data
 
 ## Config File
 
-Store defaults in `.erc8128rc.json` (cwd, home, or `--config`):
+Store trusted defaults in `~/.erc8128rc.json`, or opt into another file with
+`--config` (working-directory configs are not loaded automatically):
 
 ```json
 {

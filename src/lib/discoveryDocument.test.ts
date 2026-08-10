@@ -213,4 +213,21 @@ describe("parseDiscoveryDocument", () => {
       )
     ).toBeNull()
   })
+
+  test("rejects oversized documents and route maps", () => {
+    expect(parseDiscoveryDocument(" ".repeat(65_537))).toBeNull()
+    expect(
+      parseDiscoveryDocument(
+        JSON.stringify({
+          max_validity_sec: 120,
+          route_policies: Object.fromEntries(
+            Array.from({ length: 129 }, (_, index) => [
+              `/route-${index}`,
+              { replayable: false }
+            ])
+          )
+        })
+      )
+    ).toBeNull()
+  })
 })

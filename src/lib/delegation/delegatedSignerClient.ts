@@ -81,7 +81,8 @@ export function createDelegatedSignerClient(
   async function signRequestForDelegation(
     input: RequestInfo,
     init: RequestInit | undefined,
-    options: SignOptions | undefined
+    options: SignOptions | undefined,
+    useDefaultNonce = true
   ): Promise<Request> {
     const request = new Request(input, init)
     assertAudience(request.url, resolved.effectiveAudiences, audiencePolicy)
@@ -93,14 +94,17 @@ export function createDelegatedSignerClient(
       serverConfig?.route_policies
     )
     const now = unixNow()
-    const created = Math.max(options?.created ?? now, leafGrant.validAfter)
+    const created = Math.max(
+      options?.created ?? defaults?.created ?? now,
+      leafGrant.validAfter
+    )
     const requestedTtl = Math.min(
       options?.ttlSeconds ?? defaults?.ttlSeconds ?? 60,
       serverConfig?.max_validity_sec ?? Number.POSITIVE_INFINITY,
       resolved.effectiveMaxRequestValiditySeconds
     )
     const expires = Math.min(
-      options?.expires ?? created + requestedTtl,
+      options?.expires ?? defaults?.expires ?? created + requestedTtl,
       created + requestedTtl,
       leafGrant.validUntil
     )
@@ -110,7 +114,8 @@ export function createDelegatedSignerClient(
     const requestedReplayable =
       options?.nonce === null ||
       (options?.nonce === undefined &&
-        (defaults?.nonce === null || defaults?.preferReplayable === true))
+        ((useDefaultNonce && defaults?.nonce === null) ||
+          defaults?.preferReplayable === true))
     const replayable = requestedReplayable && routePolicy?.replayable !== false
     if (replayable && resolved.effectiveRequireNonReplayable) {
       throw new Erc8128Error(
@@ -132,7 +137,11 @@ export function createDelegatedSignerClient(
       suffix += 1
     }
     const components = [...resolved.effectiveRequiredComponents]
-    for (const component of options?.components ?? []) {
+    for (const component of [
+      ...(defaults?.components ?? []),
+      ...(options?.components ?? []),
+      ...(routePolicy?.additionalRequestBoundComponents ?? [])
+    ]) {
       if (
         !components.some((existing) =>
           componentIdentifierEquals(existing, component)
@@ -150,11 +159,16 @@ export function createDelegatedSignerClient(
       label,
       nonce: replayable
         ? null
-        : options?.nonce === null || defaults?.nonce === null
+        : options?.nonce === null ||
+            (useDefaultNonce && defaults?.nonce === null)
           ? undefined
-          : (options?.nonce ?? defaults?.nonce),
+          : (options?.nonce ?? (useDefaultNonce ? defaults?.nonce : undefined)),
       created,
       expires,
+      contentDigest: resolveContentDigest(
+        options?.contentDigest ?? defaults?.contentDigest,
+        routePolicy?.contentDigest
+      ),
       components
     })
   }
@@ -175,14 +189,17 @@ export function createDelegatedSignerClient(
   ) => {
     const split = splitInitAndOptions<FetchOptions>(initOrOptions, options)
     const fetchImpl = split.options?.fetch ?? defaults?.fetch
-    let nextInput: RequestInfo = input
-    let nextInit = split.init
+    const initialRequest = new Request(input, split.init)
+    const redirectMode = initialRequest.redirect
+    let nextInput: RequestInfo = initialRequest
+    let nextInit: RequestInit | undefined
     let signingOptions = split.options
     for (let redirects = 0; redirects <= 10; redirects += 1) {
       const signed = await signRequestForDelegation(
         nextInput,
         nextInit,
-        signingOptions
+        signingOptions,
+        redirects === 0
       )
       const redirectedBody =
         signed.method === "GET" || signed.method === "HEAD"
@@ -193,6 +210,13 @@ export function createDelegatedSignerClient(
         new Request(signed, { redirect: "manual" })
       )
       if (!redirectStatuses.has(response.status)) return response
+      if (redirectMode === "manual") return response
+      if (redirectMode === "error") {
+        throw new Erc8128Error(
+          "UNSUPPORTED_REQUEST",
+          "A redirect was encountered while redirect mode was set to error."
+        )
+      }
       const location = response.headers.get("location")
       if (!location) return response
       if (redirects === 10) {
@@ -208,7 +232,13 @@ export function createDelegatedSignerClient(
       }
       nextInit = {
         method,
-        headers: unsignedRedirectHeaders(signed.headers, true),
+        headers: unsignedRedirectHeaders(
+          signed.headers,
+          new URL(signed.url).origin,
+          target.origin,
+          true
+        ),
+        redirect: redirectMode,
         ...(method === "GET" || method === "HEAD"
           ? {}
           : { body: redirectedBody })
@@ -227,6 +257,17 @@ export function createDelegatedSignerClient(
       else serverConfigs.set(normalized, config)
     }
   }
+}
+
+function resolveContentDigest(
+  requested: SignOptions["contentDigest"],
+  required: SignOptions["contentDigest"]
+): SignOptions["contentDigest"] {
+  if (required === undefined || required === "off") {
+    return requested ?? required
+  }
+  if (requested === undefined || requested === "off") return required
+  return requested
 }
 
 function splitInitAndOptions<T extends SignOptions>(

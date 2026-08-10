@@ -10,6 +10,8 @@ export function redirectMethod(status: number, method: string): string {
 
 export function unsignedRedirectHeaders(
   input: Headers,
+  currentOrigin: string,
+  targetOrigin: string,
   delegated = false
 ): Headers {
   const headers = new Headers(input)
@@ -17,6 +19,11 @@ export function unsignedRedirectHeaders(
   headers.delete("signature-input")
   headers.delete("content-digest")
   headers.delete("content-length")
+  if (currentOrigin !== targetOrigin) {
+    headers.delete("authorization")
+    headers.delete("cookie")
+    headers.delete("proxy-authorization")
+  }
   if (delegated) headers.delete(DELEGATION_FIELD_NAME)
   return headers
 }

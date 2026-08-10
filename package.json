@@ -3,7 +3,7 @@
   "version": "0.4.0",
   "description": "Minimal ERC-8128 implementation for signing and verifying HTTP requests with Ethereum accounts",
   "scripts": {
-    "type-check": "tsc -p tsconfig.json --noEmit",
+    "type-check": "tsc -p tsconfig.json --noEmit && bun run --cwd cli type-check && bun run --cwd site type-check",
     "format": "biome format --write",
     "lint": "biome lint --write",
     "check": "biome check --write",
@@ -16,6 +16,7 @@
   "author": "slice-so",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/esm/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
@@ -23,8 +24,12 @@
     ".": {
       "development": {
         "types": "./src/index.ts",
-        "import": "./src/index.ts",
-        "default": "./src/index.ts"
+        "bun": "./src/index.ts",
+        "browser": "./src/index.ts",
+        "worker": "./src/index.ts",
+        "workerd": "./src/index.ts",
+        "import": "./dist/esm/index.js",
+        "default": "./dist/esm/index.js"
       },
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
@@ -32,7 +37,8 @@
     }
   },
   "files": [
-    "./dist"
+    "./dist",
+    "./src"
   ],
   "dependencies": {
     "@noble/hashes": "^2.2.0",

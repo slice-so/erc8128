@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises"
+import { chmod, writeFile } from "node:fs/promises"
 
 interface OutputOptions {
   include: boolean
@@ -52,7 +52,8 @@ export function logVerbose(message: string, verbose: boolean): void {
 
 async function writeOutput(output: string, opts: OutputOptions): Promise<void> {
   if (opts.output) {
-    await writeFile(opts.output, output, "utf-8")
+    await writeFile(opts.output, output, { encoding: "utf-8", mode: 0o600 })
+    await chmod(opts.output, 0o600)
     if (opts.verbose) {
       console.error(`✓ Response written to ${opts.output}`)
     }

@@ -41,7 +41,10 @@ export {
   Erc8128Error,
   VerificationUnavailableError
 } from "./lib/Erc8128Error"
-export { parseSignatureBase } from "./lib/engine/createSignatureBase"
+export {
+  createSignatureBaseMinimal,
+  parseSignatureBase
+} from "./lib/engine/createSignatureBase"
 export {
   parseSignatureHeader,
   parseSignatureInputHeader
