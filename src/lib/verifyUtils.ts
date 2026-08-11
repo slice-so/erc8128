@@ -1,5 +1,6 @@
 import type {
   Attempt,
+  ComponentIdentifier,
   NoncePlan,
   NonceStore,
   VerifyCandidate,
@@ -22,10 +23,10 @@ export function buildAttempts<Key>(
     hasBody: boolean
     hasContentDigest?: boolean
     hasContentType?: boolean
-    requestBoundExtras: import("../types").ComponentIdentifier[]
-    requestBoundRequired: import("../types").ComponentIdentifier[]
-    requiredWhenPresent: import("../types").ComponentIdentifier[]
-    classBoundPolicies: import("../types").ComponentIdentifier[][]
+    requestBoundExtras: ComponentIdentifier[]
+    requestBoundRequired: ComponentIdentifier[]
+    requiredWhenPresent: ComponentIdentifier[]
+    classBoundPolicies: ComponentIdentifier[][]
   }
 ): { attempts: Attempt<Key>[]; sawClassBound: boolean } {
   const {

@@ -1,6 +1,8 @@
 import type {
   AcceptSignatureRequestShape,
   AcceptSignatureSignOptions,
+  ComponentIdentifier,
+  CoveredComponent,
   ParsedAcceptSignatureMember,
   ReplayMode,
   SelectAcceptSignatureRetryOptionsArgs
@@ -20,7 +22,7 @@ import { requiredRequestBoundComponents } from "./policies/isRequestBound"
 import { sanitizeUrl } from "./utilities"
 
 function serializeAcceptSignatureValue(
-  components: import("../types").CoveredComponent[],
+  components: CoveredComponent[],
   requireNonce: boolean
 ) {
   const items = components
@@ -37,8 +39,8 @@ function serializeAcceptSignatureValue(
 }
 
 export function buildAcceptSignatureHeader(args: {
-  requestBoundRequired: import("../types").CoveredComponent[]
-  classBoundPolicies: import("../types").CoveredComponent[][]
+  requestBoundRequired: CoveredComponent[]
+  classBoundPolicies: CoveredComponent[][]
   allowReplayable: boolean
 }): string {
   const { requestBoundRequired, classBoundPolicies, allowReplayable } = args
@@ -46,10 +48,7 @@ export function buildAcceptSignatureHeader(args: {
   const seen = new Set<string>()
   let index = 1
 
-  const addEntry = (
-    components: import("../types").CoveredComponent[],
-    requireNonce: boolean
-  ) => {
+  const addEntry = (components: CoveredComponent[], requireNonce: boolean) => {
     const key = `${components
       .map((component) =>
         serializeComponentIdentifier(
@@ -188,7 +187,7 @@ export function normalizeAcceptSignatureSignOptions(
   const binding = options?.binding ?? "request-bound"
   const replay = options?.replay ?? "non-replayable"
   const seen = new Set<string>()
-  const normalizedComponents: import("../types").ComponentIdentifier[] = []
+  const normalizedComponents: ComponentIdentifier[] = []
 
   for (const raw of options?.components ?? []) {
     const component = normalizeComponentIdentifiers([raw])[0]
@@ -280,8 +279,8 @@ function toRequestShape(requestShape: AcceptSignatureRequestShape): {
 }
 
 function includesAllComponents(
-  required: import("../types").CoveredComponent[],
-  components: import("../types").CoveredComponent[]
+  required: CoveredComponent[],
+  components: CoveredComponent[]
 ): boolean {
   for (const component of required) {
     if (

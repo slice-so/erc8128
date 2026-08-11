@@ -85,8 +85,9 @@ const REDIS_KEY_PREFIX = "erc8128-site:erc8128:"
 const NONCE_KEY_PREFIX = "erc8128:nonce:"
 const CACHE_KEY_PREFIX = "erc8128:cache:"
 const KEY_INVALIDATION_PREFIX = "erc8128:inv:keyid:"
+const loadRedisStorageModule = () => import("./secondary-storage-redis")
 let redisStorageModulePromise:
-  | Promise<typeof import("./secondary-storage-redis")>
+  | ReturnType<typeof loadRedisStorageModule>
   | undefined
 
 function normalizeBaseURL(baseURL: string) {
@@ -222,7 +223,7 @@ function resolveRedisUrl(bindings: VerificationBindings): string {
 async function createRedisStorage(
   bindings: VerificationBindings
 ): Promise<RequestScopedSecondaryStorage> {
-  redisStorageModulePromise ??= import("./secondary-storage-redis")
+  redisStorageModulePromise ??= loadRedisStorageModule()
   const { createRedisSecondaryStorage } = await redisStorageModulePromise
 
   return createRedisSecondaryStorage({

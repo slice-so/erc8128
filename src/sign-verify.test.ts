@@ -8,6 +8,7 @@ import { bytesToHex } from "./lib/utilities"
 import { runNonceChecks } from "./lib/verifyUtils"
 import { signedFetch, signRequest } from "./sign"
 import { BoundedMemoryNonceStore } from "./stores"
+import type { VerifyMessageFn } from "./types"
 import { verifyRequest } from "./verify"
 
 const account = privateKeyToAccount(`0x${"11".repeat(32)}`)
@@ -30,7 +31,7 @@ const universalVerify = async ({
   address,
   message,
   signature
-}: Parameters<import("./types").VerifyMessageFn>[0]) =>
+}: Parameters<VerifyMessageFn>[0]) =>
   (await recoverMessageAddress({ message, signature })).toLowerCase() ===
   address.toLowerCase()
 

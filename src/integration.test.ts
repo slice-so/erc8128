@@ -11,6 +11,7 @@ import {
   type EthHttpSigner,
   type NonceStore,
   signRequest,
+  type VerifyMessageFn,
   verifyRequest
 } from "."
 
@@ -30,7 +31,7 @@ const verifyMessage = async ({
   address,
   message,
   signature
-}: Parameters<import(".").VerifyMessageFn>[0]) =>
+}: Parameters<VerifyMessageFn>[0]) =>
   (await recoverMessageAddress({ message, signature })).toLowerCase() ===
   address.toLowerCase()
 

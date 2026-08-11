@@ -1,4 +1,5 @@
 import type { CoveredComponent, Hex } from "./core"
+import type { DelegationPolicy } from "./delegation"
 import type {
   BindingMode,
   ContentDigestMode,
@@ -41,7 +42,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   principal?: "direct" | "delegated" | "either"
   /** Explicit base-profile account verification policy. */
   accountVerification?: "universal" | "eoa-only"
-  delegation?: import("./delegation").DelegationPolicy
+  delegation?: DelegationPolicy
 
   /**
    * Optional replayable invalidation policy.

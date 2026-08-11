@@ -1,7 +1,13 @@
-import type { Address, ComponentIdentifier, Hex } from "./core"
+import type {
+  Address,
+  ComponentIdentifier,
+  CoveredComponent,
+  Hex
+} from "./core"
 import type { VerifyPolicy } from "./policy"
 import type {
   BindingMode,
+  ContentDigestMode,
   ReplayMode,
   SelectedSignature,
   SignatureParams
@@ -164,8 +170,8 @@ export type VerifierClient = {
 export type ResolvedPosture = {
   binding: BindingMode | undefined
   replay: ReplayMode
-  components: import("./core").CoveredComponent[] | undefined
-  contentDigest: import("./signing").ContentDigestMode | undefined
+  components: CoveredComponent[] | undefined
+  contentDigest: ContentDigestMode | undefined
   defaultTtlSeconds: number
   maximumTtlSeconds: number
 }

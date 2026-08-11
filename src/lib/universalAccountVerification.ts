@@ -1,5 +1,6 @@
 import type {
   GetAccountCodeFn,
+  Hex,
   VerifyDigestFn,
   VerifyMessageArgs,
   VerifyMessageFn,
@@ -130,7 +131,7 @@ async function callSmartAccountVerifier(
 async function callSmartAccountDigestVerifier(
   verifyMessage: VerifySmartAccountFn,
   input: VerifyMessageArgs,
-  digest: import("../types").Hex,
+  digest: Hex,
   accountType: "counterfactual" | "deployed"
 ): Promise<boolean | "unavailable"> {
   try {

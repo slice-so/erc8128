@@ -5,7 +5,7 @@ import type {
   Hex,
   SfBareItem
 } from "./core"
-import type { ServerConfig } from "./policy"
+import type { AuthorizationPolicy, ServerConfig } from "./policy"
 
 export type BindingMode = "request-bound" | "class-bound"
 export type ReplayMode = "non-replayable" | "replayable"
@@ -88,7 +88,7 @@ export type SignerClientOptions = SignOptions & {
    * Immutable authorization constraints. Per-call options and discovered
    * route policies can tighten, but never weaken, this policy.
    */
-  authorizationPolicy?: import("./policy").AuthorizationPolicy
+  authorizationPolicy?: AuthorizationPolicy
   /** Unix timestamp after which the authorization itself is invalid. */
   authorizationExpiresAt?: number
   fetch?: typeof fetch
