@@ -426,9 +426,6 @@ export function PlaygroundInner() {
         `<span style="color:#c4b5fd">"content-digest": ${escapeHtml(contentDigestPreview || "sha-256=:[calculating...]:")}</span>`
       )
     }
-    lines.push(
-      `<span style="color:#c4b5fd">"x-erc8128-storage": ${escapeHtml(storageMode)}</span>`
-    )
     if (selectedComponents.has("nonce")) {
       lines.push(
         `<span style="color:#67e8f9">"nonce": ${escapeHtml(nonce)}</span>`
@@ -439,8 +436,6 @@ export function PlaygroundInner() {
     if (selectedComponents.has("@method")) allComponents.push("@method")
     if (selectedComponents.has("@path")) allComponents.push("@path")
     if (includeContentDigest) allComponents.push("content-digest")
-    allComponents.push("x-erc8128-storage")
-
     const now = Math.floor(Date.now() / 1000)
     const expires = now + ttl
     let paramsStr = `;created=${now};expires=${expires}`
@@ -465,8 +460,7 @@ export function PlaygroundInner() {
     chainId,
     address,
     includeContentDigest,
-    contentDigestPreview,
-    storageMode
+    contentDigestPreview
   ])
 
   // ── Sign & Verify ──────────────────────────────────
@@ -483,12 +477,9 @@ export function PlaygroundInner() {
     const requestOrigin = getRequestOrigin()
     const signUrl = new URL(signingPath, signingOrigin).toString()
     const fetchUrl = new URL(normalizedPath, requestOrigin).toString()
-    const components = [
-      ...Array.from(selectedComponents)
-        .filter((c) => c !== "nonce")
-        .filter((c) => !(c === "content-digest" && !hasBody)),
-      "x-erc8128-storage"
-    ]
+    const components = Array.from(selectedComponents)
+      .filter((c) => c !== "nonce")
+      .filter((c) => !(c === "content-digest" && !hasBody))
     const includeNonce = selectedComponents.has("nonce")
     const appWalletExpired =
       appWallet !== null && appWallet.expiry <= Math.floor(Date.now() / 1000)
@@ -540,9 +531,7 @@ export function PlaygroundInner() {
     }
 
     try {
-      const requestHeaders: Record<string, string> = {
-        "x-erc8128-storage": storageMode
-      }
+      const requestHeaders: Record<string, string> = {}
       if (hasBody) {
         requestHeaders["content-type"] = "application/json"
       }
@@ -583,10 +572,15 @@ export function PlaygroundInner() {
       })
       setSignedHeadersHtml(headerLines.join("\n"))
 
+      const sentHeaders = new Headers(signed.headers)
+      if (storageOverrideEnabled) {
+        // Debug-only deployment override; intentionally outside the signature.
+        sentHeaders.set("x-erc8128-storage", storageMode)
+      }
       const requestSnapshot = {
         url: fetchUrl,
         method: signed.method,
-        headers: Array.from(signed.headers.entries()),
+        headers: Array.from(sentHeaders.entries()),
         ...(hasBody ? { body } : {})
       } satisfies SentRequestSnapshot
       setLastSentRequest(requestSnapshot)
@@ -621,6 +615,7 @@ export function PlaygroundInner() {
     getWalletClient,
     appWallet,
     storageMode,
+    storageOverrideEnabled,
     sendRequestSnapshot
   ])
 
@@ -880,7 +875,7 @@ export function PlaygroundInner() {
                     : storageConfigError
                       ? "Deployment storage policy unavailable; backend switching is disabled."
                       : storageOverrideEnabled
-                        ? "This preview deployment accepts the signed backend override."
+                        ? "This preview deployment accepts an unsigned debug backend override."
                         : `This deployment is fixed to ${STORAGE_LABELS[storageMode]}; backend switching is disabled.`}
                 </p>
               </div>

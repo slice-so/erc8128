@@ -206,7 +206,11 @@ type VerifyPolicy = {
   /** Maximum nonce validity window (optional) */
   maxNonceWindowSec?: number
   
-  /** Custom key generator for nonce storage */
+  /**
+   * Custom key generator for nonce storage. The key must derive only from
+   * covered signature material, and all verifier backends must share one
+   * logical nonce namespace.
+   */
   nonceKey?: (keyid: string, nonce: string) => string
 
   /** Required to accept delegated signatures. */

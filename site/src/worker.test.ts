@@ -68,17 +68,15 @@ describe("playground worker request policy", () => {
   })
 
   test.each([
-    ["production", undefined, "postgres", false],
-    ["production", "true", "postgres", false],
-    ["development", undefined, "postgres", false],
-    ["development", "true", "redis", true]
+    ["unset", undefined, "postgres", false],
+    ["disabled", "false", "postgres", false],
+    ["enabled", "true", "redis", true]
   ] as const)(
-    "resolves %s storage overrides with flag %s",
-    (environment, flag, expectedMode, expectedOverride) => {
+    "resolves storage overrides when the development flag is %s",
+    (_state, flag, expectedMode, expectedOverride) => {
       const result = resolveStorageSelection(
         {
-          ERC8128_ENABLE_STORAGE_HEADER: flag,
-          ERC8128_ENVIRONMENT: environment,
+          ERC8128_DEV_STORAGE_OVERRIDE: flag,
           ERC8128_STORAGE_MODE: "postgres"
         },
         new Headers({ "x-erc8128-storage": "redis" })
@@ -120,8 +118,6 @@ describe("playground worker request policy", () => {
     const response = await worker.fetch(
       new Request("https://erc8128.org/playground-config"),
       Object.assign({} as CloudflareBindings, {
-        ERC8128_ENABLE_STORAGE_HEADER: "true" as const,
-        ERC8128_ENVIRONMENT: "production" as const,
         ERC8128_STORAGE_MODE: "redis" as const
       }),
       executionContext

@@ -76,7 +76,11 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   maxValiditySec?: number // library default 300; route cap for expires - created
   maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
 
-  /** Replay protection */
+  /**
+   * Customize the replay-store key derived from the signed `keyid` and `nonce`.
+   * The result must depend only on covered signature material, and every
+   * verifier backend must share one logical nonce namespace.
+   */
   nonceKey?: (keyid: string, nonce: string) => string
 }
 

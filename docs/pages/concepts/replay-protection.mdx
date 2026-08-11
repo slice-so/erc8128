@@ -173,6 +173,8 @@ const result = await verifyRequest({
 })
 ```
 
+Custom replay keys must derive only from covered signature material such as the provided `keyid` and `nonce`. Do not close over unsigned request state, and ensure every verifier backend participates in a single logical nonce namespace; otherwise switching backends can make an already-consumed nonce appear unused.
+
 ## Replayable Signatures
 
 A **replayable** signature omits the `nonce` parameter, which means it can be reused within its validity window. This is a deliberate security tradeoff — the signer chooses a lower security posture, and the verifier decides whether to accept it.

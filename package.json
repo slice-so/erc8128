@@ -24,10 +24,8 @@
     ".": {
       "development": {
         "types": "./src/index.ts",
-        "bun": "./src/index.ts",
-        "workerd": "./src/index.ts",
-        "import": "./dist/esm/index.js",
-        "default": "./dist/esm/index.js"
+        "import": "./src/index.ts",
+        "default": "./src/index.ts"
       },
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
@@ -35,8 +33,7 @@
     }
   },
   "files": [
-    "./dist",
-    "./src"
+    "./dist"
   ],
   "dependencies": {
     "@noble/hashes": "^2.2.0",

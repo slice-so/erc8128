@@ -46,13 +46,11 @@ const VERIFY_ROUTE_POLICY = [
   {
     methods: ["GET", "POST", "PUT"],
     replayable: true,
-    classBoundPolicies: ["@authority"],
-    requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
+    classBoundPolicies: ["@authority"]
   },
   {
     methods: ["DELETE"],
-    replayable: false,
-    requiredCoveredComponentsWhenPresent: ["x-erc8128-storage"]
+    replayable: false
   }
 ] satisfies RoutePolicy[]
 

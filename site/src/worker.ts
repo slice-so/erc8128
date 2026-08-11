@@ -36,8 +36,7 @@ type Env = {
 }
 
 export type StorageRuntimeBindings = {
-  ERC8128_ENABLE_STORAGE_HEADER?: string
-  ERC8128_ENVIRONMENT?: "development" | "production" | "test"
+  ERC8128_DEV_STORAGE_OVERRIDE?: string
   ERC8128_STORAGE_MODE?: string
 }
 
@@ -60,9 +59,7 @@ export function resolveStorageSelection(
   const configuredStorageMode = parseConfiguredStorageMode(
     bindings.ERC8128_STORAGE_MODE
   )
-  const allowHeaderOverride =
-    bindings.ERC8128_ENVIRONMENT !== "production" &&
-    bindings.ERC8128_ENABLE_STORAGE_HEADER === "true"
+  const allowHeaderOverride = bindings.ERC8128_DEV_STORAGE_OVERRIDE === "true"
   return {
     allowHeaderOverride,
     storageMode: parseStorageMode(
