@@ -54,10 +54,10 @@ describe("parseSignatureBase", () => {
     })
   })
 
-  it("preserves legal signature-parameter order and unsupported alg for policy checks", () => {
+  it("preserves legal parameter order, extension metadata, and alg for policy checks", () => {
     const reordered = base.replace(
       `;nonce="nonce";keyid="${params.keyid}"`,
-      `;keyid="${params.keyid}";nonce="nonce";alg="eip191"`
+      `;keyid="${params.keyid}";nonce="nonce";vendor="edge";alg="eip191"`
     )
     expect(parseSignatureBase(reordered)?.params).toEqual({
       created: params.created,
@@ -76,10 +76,9 @@ describe("parseSignatureBase", () => {
     expect(parseSignatureBase(duplicate)).toBeNull()
   })
 
-  it("rejects unsupported params, escaping, duplicates, and trailing data", () => {
+  it("rejects invalid components, escaping, duplicates, and trailing data", () => {
     const cases = [
       base.replace('"@authority":', '"@method":'),
-      base.replace(";keyid=", ";extra=1;keyid="),
       base.replace(";created=", "; created="),
       base.replace('"@method"', '"\\@method"'),
       `${base}\n`,

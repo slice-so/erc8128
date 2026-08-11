@@ -3,9 +3,11 @@ import { recoverMessageAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { parseAcceptSignatureHeader } from "./lib/acceptSignature"
 import { VerificationUnavailableError } from "./lib/Erc8128Error"
+import { createSignatureBaseMinimal } from "./lib/engine/createSignatureBase"
 import { parseSignatureInputHeader } from "./lib/engine/createSignatureInput"
+import { serializeSignatureHeader } from "./lib/engine/serializations"
 import { formatErc8128ProblemDetails } from "./lib/problemDetails"
-import { bytesToHex } from "./lib/utilities"
+import { base64Encode, bytesToHex, hexToBytes } from "./lib/utilities"
 import { runNonceChecks } from "./lib/verifyUtils"
 import { signedFetch, signRequest } from "./sign"
 import { BoundedMemoryNonceStore } from "./stores"
@@ -479,6 +481,43 @@ describe("ERC-8128 direct signing and verification", () => {
     expect(cryptoChecks).toBe(0)
   })
 
+  test("accepts covered extension signature metadata", async () => {
+    const signed = await signRequest("https://api.example/extensions", signer, {
+      created: now,
+      expires: now + 60,
+      nonce: "extension-metadata-1"
+    })
+    const signatureInput = `${signed.headers.get("signature-input")};vendor="edge"`
+    const [candidate] = parseSignatureInputHeader(signatureInput)
+    if (candidate === undefined)
+      throw new Error("Signature candidate is missing.")
+    const signature = await signer.signMessage(
+      createSignatureBaseMinimal({
+        request: signed,
+        components: candidate.components,
+        signatureParamsValue: candidate.signatureParamsValue
+      })
+    )
+    const headers = new Headers(signed.headers)
+    headers.set("signature-input", signatureInput)
+    headers.set(
+      "signature",
+      serializeSignatureHeader(
+        candidate.label,
+        base64Encode(hexToBytes(signature))
+      )
+    )
+
+    expect(
+      await verifyRequest({
+        request: new Request(signed, { headers }),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy: { now: () => now },
+        verifyMessage: universalVerify
+      })
+    ).toMatchObject({ ok: true })
+  })
+
   test("rejects requests that exceed the shared candidate budget", async () => {
     const requests = await Promise.all(
       Array.from({ length: 9 }, (_, index) =>
@@ -714,7 +753,7 @@ describe("ERC-8128 direct signing and verification", () => {
     }
   })
 
-  test("fails closed for malformed per-signature invalidation results", async () => {
+  test("reports malformed per-signature invalidation results as unavailable", async () => {
     const replayable = await signRequest(
       "https://api.example/replayable-invalidated",
       signer,
@@ -736,9 +775,36 @@ describe("ERC-8128 direct signing and verification", () => {
       })
       expect(result).toEqual({
         ok: false,
-        reason: "revocation_unavailable"
+        reason: "signature_verification_unavailable"
       })
     }
+  })
+
+  test("reports replayable invalidation backend failures as unavailable", async () => {
+    const replayable = await signRequest(
+      "https://api.example/replayable-unavailable",
+      signer,
+      { created: now, expires: now + 60, nonce: null }
+    )
+    const result = await verifyRequest({
+      request: replayable,
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: {
+        now: () => now,
+        replayable: true,
+        replayableNotBefore: async () => {
+          throw new Error("Unavailable")
+        }
+      },
+      verifyMessage: universalVerify
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "signature_verification_unavailable"
+    })
+    if (result.ok) throw new Error("Expected verification to be unavailable.")
+    expect(formatErc8128ProblemDetails(result).status).toBe(503)
   })
 
   test("returns a controlled failure for invalid required-header policies", async () => {
@@ -808,7 +874,7 @@ describe("ERC-8128 direct signing and verification", () => {
     }
   })
 
-  test("budgets account verification for every admitted candidate", async () => {
+  test("defaults the account verification budget to two plus chain depth", async () => {
     const requests = await Promise.all(
       Array.from({ length: 8 }, (_, index) =>
         signRequest("https://api.example/candidates", signer, {
@@ -837,12 +903,15 @@ describe("ERC-8128 direct signing and verification", () => {
       policy: { now: () => now },
       verifyMessage: async () => {
         calls += 1
-        return calls === 8
+        return false
       }
     })
 
-    expect(result.ok).toBe(true)
-    expect(calls).toBe(8)
+    expect(result).toEqual({
+      ok: false,
+      reason: "signature_verification_unavailable"
+    })
+    expect(calls).toBe(6)
   })
 
   test("prefers the first unavailable outcome when no candidate succeeds", async () => {

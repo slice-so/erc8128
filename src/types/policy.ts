@@ -67,7 +67,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
 
   /**
    * Maximum Universal Account classification/proof calls shared by all
-   * candidates (default candidate cap + configured delegation-chain depth).
+   * candidates (default 2 + configured delegation-chain depth).
    */
   maxAccountVerificationCalls?: number
 

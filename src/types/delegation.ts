@@ -111,15 +111,18 @@ export type DelegationStatusVerifier = (
   contexts: readonly DelegationStatusContext[]
 ) => readonly DelegationStatus[] | Promise<readonly DelegationStatus[]>
 
+/** Positive grant-proof cache keyed by the grant digest and signature bytes. */
 export interface DelegationGrantCache {
+  /** Return true only while the entry's absolute expiry has not passed. */
   get(key: string): true | undefined | Promise<true | undefined>
+  /** Store a positive proof until the absolute Unix timestamp `expiresAt`. */
   set(key: string, expiresAt: number): void | Promise<void>
 }
 
 export type DelegationPolicy = {
   allowLoopbackAudiences?: boolean
   grantCache?: DelegationGrantCache
-  /** Optional finite non-negative proof-cache TTL. */
+  /** Finite non-negative proof-cache TTL (default 60 seconds; 0 disables it). */
   grantCacheTtlSec?: number
   maxChainDepth?: number
   /** Optional finite non-negative cap on each grant validity window. */

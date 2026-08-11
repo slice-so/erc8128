@@ -1,9 +1,9 @@
 import type {
   ComponentIdentifier,
   ParsedSignatureInputMember,
+  ParsedSignatureParams,
   SfInnerList,
-  SfItem,
-  SignatureParams
+  SfItem
 } from "../../types"
 import { TAG_DELEGATED, TAG_REQUEST } from "../delegation/delegationField"
 import { Erc8128Error } from "../Erc8128Error"
@@ -25,15 +25,6 @@ const COMPONENT_PARAMETER_NAMES = new Set([
   "key",
   "name"
 ])
-const SIGNATURE_PARAMETER_NAMES = new Set([
-  "alg",
-  "created",
-  "expires",
-  "keyid",
-  "nonce",
-  "tag"
-])
-
 export function parseSignatureInputDictionary(
   headerValue: string
 ): ParsedSignatureInputMember[] {
@@ -246,16 +237,8 @@ function parseComponentIdentifier(item: SfItem): ComponentIdentifier {
   return component
 }
 
-function parseSignatureParams(member: SfInnerList): SignatureParams {
+function parseSignatureParams(member: SfInnerList): ParsedSignatureParams {
   const values = member.params ?? {}
-  for (const key of Object.keys(values)) {
-    if (!SIGNATURE_PARAMETER_NAMES.has(key)) {
-      throw new Erc8128Error(
-        "PARSE_ERROR",
-        `Unsupported signature parameter: ${key}.`
-      )
-    }
-  }
   const created = values.created
   const alg = values.alg
   const expires = values.expires

@@ -224,6 +224,7 @@ type VerifyPolicy = {
 ```typescript
 type DelegationPolicy = {
   grantCache?: DelegationGrantCache
+  /** Default 60 seconds; 0 bypasses proof-cache reads and writes. */
   grantCacheTtlSec?: number
   maxChainDepth?: number
   maxGrantValiditySec?: number
@@ -236,6 +237,8 @@ type DelegationPolicy = {
     | Promise<readonly DelegationStatus[]>
 }
 ```
+
+Positive grant-proof caches are keyed by the grant digest and signature bytes. `DelegationGrantCache.set` receives an absolute Unix expiry, and `get` must not return the entry once that expiry has passed. Deployments must document how the configured TTL bounds stale acceptance after an SCA state change.
 
 `verifyStatuses` receives every ordered link in the resolved chain at once and
 returns one status in the same order. This lets registry-backed verifiers use a

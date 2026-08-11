@@ -66,6 +66,9 @@ one multicall per configured RPC/quorum client.
 
 Positive proof caches are keyed by the EIP-712 digest and exact signature bytes.
 Audience, time, attenuation, permissions, and revocation remain per-request
-checks. Use `{ nonce: null }` only when every link sets
+checks. `grantCacheTtlSec` defaults to 60 seconds and bounds how long an SCA
+state change can remain hidden by a cached positive proof; deployments must
+document that policy. Set it to `0` to bypass proof-cache reads and writes. Use
+`{ nonce: null }` only when every link sets
 `requireNonReplayable=false` and the destination verifier accepts
 Replayable requests.

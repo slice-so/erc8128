@@ -109,6 +109,7 @@ const replaceHeader = (
 type VerifyOptions = {
   accountBudget?: number
   cache?: DelegationGrantCache
+  cacheTtl?: number
   delegation?: boolean
   digest?: "unavailable" | "valid" | "invalid"
   maxGrantValiditySec?: number
@@ -138,6 +139,7 @@ const evaluate = async (request: Request, options: VerifyOptions = {}) => {
         : {
             delegation: {
               grantCache: options.cache,
+              grantCacheTtlSec: options.cacheTtl,
               maxGrantValiditySec: options.maxGrantValiditySec,
               requiredPermissions: ["resource:read"],
               permissionsSupported: options.permissionsSupported,
@@ -489,6 +491,27 @@ describe("delegated negative and classification vectors", () => {
       { accountBudget: 1, digest: "invalid" }
     )
     expect(budgeted.digestCalls).toBe(1)
+  })
+
+  test("bypasses proof-cache reads and writes when its TTL is zero", async () => {
+    let reads = 0
+    let writes = 0
+    const cache: DelegationGrantCache = {
+      get: () => {
+        reads += 1
+        return true
+      },
+      set: () => {
+        writes += 1
+      }
+    }
+    const request = await makeRequest({ nonce: "zero-cache-ttl-01" })
+    const evaluated = await evaluate(request, { cache, cacheTtl: 0 })
+
+    expect(evaluated.result.ok).toBe(true)
+    expect(evaluated.digestCalls).toBe(1)
+    expect(reads).toBe(0)
+    expect(writes).toBe(0)
   })
 
   test("shares the eight-candidate limit across direct and delegated tags", async () => {

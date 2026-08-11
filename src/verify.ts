@@ -155,7 +155,7 @@ export async function verifyRequest(
   const accountVerificationBudget: AccountVerificationBudget = {
     remaining: positiveInteger(
       policy.maxAccountVerificationCalls,
-      maximumCandidates + maximumChainDepth
+      2 + maximumChainDepth
     )
   }
 
@@ -649,10 +649,12 @@ async function verifyGrantProof(args: {
 }): Promise<boolean | "unavailable"> {
   const digest = hashDelegation(args.link.grant)
   const cacheKey = `${digest}\u0000${args.link.signature}`
-  try {
-    if ((await args.cache?.get(cacheKey)) === true) return true
-  } catch {
-    // A proof cache is only an optimization.
+  if (args.cacheTtl !== 0) {
+    try {
+      if ((await args.cache?.get(cacheKey)) === true) return true
+    } catch {
+      // A proof cache is only an optimization.
+    }
   }
   if (args.verifyDigest === undefined) return "unavailable"
   const issuer = parseKeyId(args.link.grant.issuer)
@@ -668,12 +670,13 @@ async function verifyGrantProof(args: {
     args.accountVerificationBudget
   )
   if (proof !== true) return proof
+  if (args.cache === undefined || args.cacheTtl === 0) return true
   const ttl = Math.min(
     args.cacheTtl ?? DEFAULT_GRANT_CACHE_TTL_SEC,
     Math.max(1, args.link.grant.validUntil - args.now)
   )
   try {
-    await args.cache?.set(cacheKey, args.now + ttl)
+    await args.cache.set(cacheKey, args.now + ttl)
   } catch {
     // A failed cache write does not affect the verified proof.
   }
@@ -760,7 +763,7 @@ async function validateReplayableInvalidation(
       })
     ])
   } catch {
-    return { ok: false, reason: "revocation_unavailable" }
+    return { ok: false, reason: "signature_verification_unavailable" }
   }
   if (
     notBefore !== null &&
@@ -776,7 +779,7 @@ async function validateReplayableInvalidation(
     policy.replayableInvalidated !== undefined &&
     typeof invalidated !== "boolean"
   ) {
-    return { ok: false, reason: "revocation_unavailable" }
+    return { ok: false, reason: "signature_verification_unavailable" }
   }
   return invalidated ? { ok: false, reason: "replayable_not_allowed" } : null
 }
