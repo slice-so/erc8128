@@ -1,13 +1,13 @@
 # @slicekit/erc8128
 
-Sign and verify HTTP requests with Ethereum accounts using [ERC-8128](https://erc8128.org). The package implements the ERC-8128 base profile and recursive delegated authentication on top of RFC 9421, RFC 9530, and RFC 9651.
+Sign and verify HTTP requests with Ethereum accounts using [ERC-8128](https://github.com/slice-so/ERCs/blob/1ef11c99d1740393a1ad705c46c0fd2b2b37c3b8/ERCS/erc-8128.md). The package implements the base profile and supports the companion [delegated-authentication draft](https://github.com/slice-so/ERCs/blob/erc8128-delegated/ERCS/erc-xxxx.md) on top of RFC 9421, RFC 9530, and RFC 9651.
 
 ## Features
 
 - **Fetch-native** — Works with standard `Request`, `Response`, and `fetch` APIs in browsers, workers, Node.js, Bun, and Deno.
 - **Secure defaults** — Request-bound, non-replayable signatures with a generated nonce and a 60-second validity window.
 - **Universal accounts** — Supports EOAs, deployed ERC-1271 accounts, and counterfactual ERC-6492 accounts.
-- **Delegated principals** — Carries recursive, attenuated EIP-712 delegation chains with audience, validity, permission, and revocation constraints.
+- **Delegated principals** — Supports the draft recursive, attenuated EIP-712 delegation chain with audience, validity, permission, and revocation constraints.
 - **Standards-compliant HTTP** — Uses HTTP Message Signatures, Content-Digest, and Structured Fields.
 
 ## Installation
@@ -185,6 +185,10 @@ const request = await delegated.signRequest(
 )
 ```
 
+Delegated support tracks the companion draft, whose canonical registry address and runtime code hash are still unassigned. This package pins the Slice reference-deployment candidate and must not be presented as conforming to the delegated extension until the draft assigns those values.
+
+The delegated draft currently says clients must reconstruct and re-sign redirects. This package intentionally does not automatically sign a redirect target because a server-controlled redirect must not authorize a new wallet signature over a different origin, method, path, or body. The signer signs only the caller-supplied request; callers may explicitly inspect a redirect and construct a separate signed request.
+
 Verifiers opt in through `policy.delegation`, supply a batch `verifyStatuses` callback, and may require permissions. HTTP loopback audiences are rejected by default; local development must opt in at grant creation and at the parsing, signing, or verification boundary that consumes the grant. Deterministic EIP-712 hashing and CBOR serialization are independent of that runtime transport policy.
 
 ## Options
@@ -201,7 +205,7 @@ Verifiers opt in through `policy.delegation`, supply a batch `verifyStatuses` ca
 | `contentDigest` | `"auto" \| "recompute" \| "require" \| "off"` | `"auto"` | Content-Digest handling. |
 | `components` | `CoveredComponent[]` | profile floor | Additional or explicit covered components. |
 
-The request-bound floor covers `@scheme`, `@authority`, `@method`, `@path`, and `@query` when present. Received content additionally requires a verified Content-Digest and Content-Type coverage.
+The request-bound floor always covers `@scheme`, `@authority`, `@method`, `@path`, and `@query`; `@query` has the value `?` when the request has no query. Non-empty content requires `Content-Digest`; whenever `Content-Digest` or `Content-Type` is present, it must be covered, and a received `Content-Digest` must be verified.
 
 ### Verification policy
 

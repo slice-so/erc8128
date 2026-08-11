@@ -251,4 +251,4 @@ For agents and automated systems:
 - **Quick Start:** [erc8128.slice.so/getting-started/quick-start](https://erc8128.slice.so/getting-started/quick-start)
 - **Concepts:** [erc8128.slice.so/concepts/overview](https://erc8128.slice.so/concepts/overview)
 - **API Reference:** [erc8128.slice.so/api/signRequest](https://erc8128.slice.so/api/signRequest)
-- **ERC-8128 Spec:** [GitHub](https://github.com/slice-so/ERCs/blob/d9c6f41183008285a0e9f1af1d2aeac72e7a8fdc/ERCS/erc-8128.md)
+- **ERC-8128 Spec:** [GitHub](https://github.com/slice-so/ERCs/blob/1ef11c99d1740393a1ad705c46c0fd2b2b37c3b8/ERCS/erc-8128.md)
