@@ -4,7 +4,11 @@ import type {
   RoutePolicy,
   RoutePolicyConfig
 } from "../types"
-import { isContentDigestMode, isCoveredComponent } from "./policyValues"
+import {
+  isContentDigestMode,
+  isCoveredComponent,
+  isHttpFieldName
+} from "./policyValues"
 import { DEFAULT_MAX_VALIDITY_SEC } from "./verifyUtils"
 
 const MAX_DISCOVERY_DOCUMENT_BYTES = 65_536
@@ -42,6 +46,9 @@ const isStringArray = (
 const isComponentArray = (value: JsonValue | undefined): value is string[] =>
   isStringArray(value) && value.every(isCoveredComponent)
 
+const isHeaderArray = (value: JsonValue | undefined): value is string[] =>
+  isStringArray(value) && value.every(isHttpFieldName)
+
 const isClassBoundPolicies = (
   value: JsonValue | undefined
 ): value is string[] | string[][] =>
@@ -71,7 +78,7 @@ const isRoutePolicy = (value: JsonValue): value is RoutePolicy => {
     (value.additionalRequestBoundComponents === undefined ||
       isComponentArray(value.additionalRequestBoundComponents)) &&
     (value.requiredCoveredHeadersWhenPresent === undefined ||
-      isComponentArray(value.requiredCoveredHeadersWhenPresent)) &&
+      isHeaderArray(value.requiredCoveredHeadersWhenPresent)) &&
     (value.classBoundPolicies === undefined ||
       isClassBoundPolicies(value.classBoundPolicies)) &&
     (value.contentDigest === undefined ||

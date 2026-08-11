@@ -85,6 +85,7 @@ export {
   createUniversalAccountVerifier,
   ERC1271_ABI
 } from "./lib/universalAccountVerification"
+export { DEFAULT_MAX_SIGNATURE_VERIFICATIONS } from "./lib/verifyUtils"
 export { signedFetch, signRequest } from "./sign"
 export { createSignerClient } from "./signerClient"
 export {

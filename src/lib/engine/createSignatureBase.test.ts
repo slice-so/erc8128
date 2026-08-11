@@ -104,7 +104,7 @@ describe("createSignatureBaseMinimal", () => {
     expect(text).toContain('"content-type": application/json')
   })
 
-  test("encodes each combined field value separately for bs", () => {
+  test("encodes the Fetch-combined field value once for bs", () => {
     const headers = new Headers()
     headers.append("x-values", "a")
     headers.append("x-values", "b")
@@ -116,21 +116,40 @@ describe("createSignatureBaseMinimal", () => {
       })
     )
 
-    expect(base).toContain('"x-values";bs: :YQ==:, :Yg==:')
+    expect(base).toContain('"x-values";bs: :YSwgYg==:')
   })
 
-  test("treats a comma in one joined field value as separate bs values", () => {
+  test("preserves commas and their surrounding whitespace for bs", () => {
+    const values = ["a, b", "a ,b", "a,b", "a  ,   b"]
+    const lines = values.map((value) => {
+      const base = new TextDecoder().decode(
+        createSignatureBaseMinimal({
+          request: new Request("https://example.com", {
+            headers: { "x-values": value }
+          }),
+          components: [{ name: "x-values", params: { bs: true } }],
+          signatureParamsValue: '("x-values";bs)'
+        })
+      )
+      return base.split("\n")[0]
+    })
+
+    expect(new Set(lines).size).toBe(values.length)
+  })
+
+  test("keeps a comma-bearing Date value in one bs byte sequence", () => {
+    const value = "Tue, 20 Apr 2021 02:07:56 GMT"
     const base = new TextDecoder().decode(
       createSignatureBaseMinimal({
         request: new Request("https://example.com", {
-          headers: { "x-values": "a, b" }
+          headers: { date: value }
         }),
-        components: [{ name: "x-values", params: { bs: true } }],
-        signatureParamsValue: '("x-values";bs)'
+        components: [{ name: "date", params: { bs: true } }],
+        signatureParamsValue: '("date";bs)'
       })
     )
 
-    expect(base).toContain('"x-values";bs: :YQ==:, :Yg==:')
+    expect(base).toContain(`"date";bs: :${btoa(value)}:`)
   })
 
   test("throws on missing required header", () => {

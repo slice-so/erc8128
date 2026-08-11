@@ -260,6 +260,94 @@ describe("playground erc8128 runtime", () => {
     expect(verifyCalls).toBe(1)
   })
 
+  test("does not reuse a cached signature after an unsigned content type is added", async () => {
+    let verifyCalls = 0
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig(),
+      "https://erc8128.org",
+      async () => {
+        verifyCalls += 1
+        return true
+      }
+    )
+    const signed = await signRequest(
+      "https://erc8128.org/verify",
+      { method: "POST" },
+      TEST_SIGNER,
+      {
+        binding: "class-bound",
+        nonce: null,
+        components: ["@authority"]
+      }
+    )
+
+    const first = await runtime.verifyRequest(signed.clone())
+    const headers = new Headers(signed.headers)
+    headers.set("content-type", "application/json")
+    const modified = await runtime.verifyRequest(
+      new Request(signed, { headers })
+    )
+
+    expect(first.result.ok).toBe(true)
+    expect(modified.cachedVerification).toBe(false)
+    expect(modified.result).toEqual({
+      ok: false,
+      reason: "insufficient_coverage"
+    })
+    expect(verifyCalls).toBe(1)
+  })
+
+  test("does not query the cache above the verifier candidate limit", async () => {
+    let cacheGetCalls = 0
+    const runtime = createVerificationRuntime(
+      createRuntimeConfig({
+        onCacheGet: () => {
+          cacheGetCalls += 1
+        }
+      }),
+      "https://erc8128.org",
+      async () => true
+    )
+    const candidates = await Promise.all(
+      Array.from({ length: 9 }, (_, index) =>
+        signRequest(
+          "https://erc8128.org/verify",
+          { method: "POST" },
+          TEST_SIGNER,
+          {
+            binding: "class-bound",
+            components: ["@authority"],
+            label: `candidate${index}`,
+            nonce: null
+          }
+        )
+      )
+    )
+    const headers = new Headers(candidates[0]?.headers)
+    headers.set(
+      "signature-input",
+      candidates
+        .map((candidate) => candidate.headers.get("signature-input"))
+        .join(", ")
+    )
+    headers.set(
+      "signature",
+      candidates
+        .map((candidate) => candidate.headers.get("signature"))
+        .join(", ")
+    )
+
+    const result = await runtime.verifyRequest(
+      new Request("https://erc8128.org/verify", { headers, method: "POST" })
+    )
+
+    expect(result.result).toEqual({
+      ok: false,
+      reason: "signature_too_large"
+    })
+    expect(cacheGetCalls).toBe(0)
+  })
+
   test("does not reuse a cached signature for a modified request", async () => {
     let verifyCalls = 0
     const runtime = createVerificationRuntime(

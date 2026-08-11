@@ -44,12 +44,14 @@ ERC-8128 lets Ethereum accounts sign HTTP requests directly:
 The "message" being signed is an RFC 9421 **signature base** — a canonical representation of the HTTP request:
 
 ```
+"@scheme": https
 "@authority": api.example.com
 "@method": POST
 "@path": /orders
 "@query": ?market=ETH-USD
 "content-digest": sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
-"@signature-params": ("@scheme" "@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";tag="erc8128";keyid="eip155:1:0x1234...abcd"
+"content-type": application/json
+"@signature-params": ("@scheme" "@authority" "@method" "@path" "@query" "content-digest" "content-type");created=1618884473;expires=1618884533;nonce="abc123";tag="erc8128";keyid="eip155:1:0x1234...abcd"
 ```
 
 This is signed as an Ethereum message (EIP-191).
@@ -70,7 +72,7 @@ Example:
 POST /orders HTTP/1.1
 Host: api.example.com
 Content-Type: application/json
-Signature-Input: request=("@scheme" "@authority" "@method" "@path" "@query" "content-digest");created=1618884473;expires=1618884533;nonce="abc123";tag="erc8128";keyid="eip155:1:0x1234...abcd"
+Signature-Input: request=("@scheme" "@authority" "@method" "@path" "@query" "content-digest" "content-type");created=1618884473;expires=1618884533;nonce="abc123";tag="erc8128";keyid="eip155:1:0x1234...abcd"
 Signature: request=:MEUCIQDXtPCJ5...base64...:
 Content-Digest: sha-256=:X48E9qOokqqrvdts8nOJRJN3OWDUoyWxBf7kbu9DBPE=:
 
@@ -110,6 +112,7 @@ To be ERC-8128 compliant, implementations **must** support request-bound signatu
 - `@path` — Path (prevents use on different endpoint)
 - `@query` — Query string, with `?` representing an empty query
 - `content-digest` — Body hash (if body present)
+- `content-type` — Media type (if the request carries `Content-Type`)
 
 Request-bound provides full request integrity. The request sender can always choose this strictest option for maximum security.
 

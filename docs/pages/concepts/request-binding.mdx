@@ -10,11 +10,12 @@ For request-bound signatures, the library automatically selects components based
 |-----------|-------------------|
 | All requests | `@scheme`, `@authority`, `@method`, `@path`, `@query` |
 | Has body | `+ content-digest` |
+| Has `Content-Type` | `+ content-type` |
 
 Example for `POST /orders?market=ETH` with body:
 
 ```
-Signature-Input: request=("@scheme" "@authority" "@method" "@path" "@query" "content-digest");...
+Signature-Input: request=("@scheme" "@authority" "@method" "@path" "@query" "content-digest" "content-type");...
 ```
 
 ## Why These Components?
@@ -118,12 +119,7 @@ const result = await verifyRequest({
 
 ### `;bs` field-value limitation
 
-The Fetch `Headers` API joins repeated field lines before the signer sees them.
-For a covered component using RFC 9421's `;bs` parameter, this implementation
-splits that joined value at top-level commas and encodes each part separately.
-It is therefore interoperable only when each original field line is itself
-comma-free. A comma within one field line is indistinguishable from the join
-between repeated lines and is encoded as multiple byte sequences.
+The Fetch `Headers` API joins repeated field lines before the signer sees them. For a covered component using RFC 9421's `;bs` parameter, this implementation encodes that one observable combined value as a single byte sequence. This preserves commas and whitespace in the observable value, but it cannot reproduce RFC 9421's separate byte sequence for each original field line. Applications requiring field-line fidelity need an HTTP integration that exposes raw ordered field values.
 
 ## Class-Bound Signatures
 
@@ -196,7 +192,7 @@ const signedRequest = await signRequest(
   { components: ['x-idempotency-key', 'x-request-id'] }
 )
 
-// Signature covers: @scheme + @authority + @method + @path + @query + content-digest + x-idempotency-key + x-request-id
+// Signature covers the request floor, content-digest for the body, content-type when present, and both custom headers.
 ```
 
 ## Server Enforcement with `additionalRequestBoundComponents` and `classBoundPolicies`
@@ -212,6 +208,7 @@ When neither field is set, the verifier enforces the full **request-bound** chec
 
 - `@scheme`, `@authority`, `@method`, `@path`, `@query` — always required
 - `content-digest` — required if the request has a body
+- `content-type` — required if the request carries `Content-Type`
 
 If the signature omits any of these (given the request shape), verification fails with `insufficient_coverage`. This is the strictest mode and the default — it **rejects all class-bound signatures**.
 

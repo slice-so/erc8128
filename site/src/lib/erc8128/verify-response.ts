@@ -30,6 +30,12 @@ function copyHeaders(source: Headers) {
   return target
 }
 
+function copyProblemHeaders(source: Headers) {
+  const target = copyHeaders(source)
+  target.set("content-type", "application/problem+json")
+  return target
+}
+
 export function buildVerifyResultResponse(args: {
   verifyResult: VerifyResult
   responseHeaders: Headers
@@ -71,7 +77,7 @@ export function buildVerifyResultResponse(args: {
       ...(acceptSignature ? { "accept-signature": acceptSignature } : {}),
       ...withCachedVerification(metadata)
     },
-    headers: copyHeaders(responseHeaders)
+    headers: copyProblemHeaders(responseHeaders)
   }
 }
 

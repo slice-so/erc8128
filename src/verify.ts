@@ -25,6 +25,7 @@ import {
   normalizeClassBoundPolicies,
   normalizeComponentsList
 } from "./lib/policies/normalizePolicies"
+import { requiredCoveredHeadersForRequest } from "./lib/policies/requiredCoveredHeaders"
 import {
   base64Decode,
   bytesToHex,
@@ -32,7 +33,12 @@ import {
   sanitizeUrl,
   unixNow
 } from "./lib/utilities"
-import { buildAttempts, runNonceChecks, runTimeChecks } from "./lib/verifyUtils"
+import {
+  buildAttempts,
+  DEFAULT_MAX_SIGNATURE_VERIFICATIONS,
+  runNonceChecks,
+  runTimeChecks
+} from "./lib/verifyUtils"
 import type {
   Attempt,
   ComponentIdentifier,
@@ -48,7 +54,6 @@ import type {
   VerifyResult
 } from "./types"
 
-const DEFAULT_MAX_CANDIDATES = 8
 const DEFAULT_GRANT_CACHE_TTL_SEC = 60
 
 type ParsedKeyId = NonNullable<ReturnType<typeof parseKeyId>>
@@ -84,10 +89,17 @@ export async function verifyRequest(
   }
   const maximumCandidates = positiveInteger(
     policy.maxSignatureVerifications,
-    DEFAULT_MAX_CANDIDATES
+    DEFAULT_MAX_SIGNATURE_VERIFICATIONS
   )
   if (candidates.length > maximumCandidates) {
     return { ok: false, reason: "signature_too_large" }
+  }
+  if (!hasValidOptionalPolicyLimits(policy)) {
+    return {
+      ok: false,
+      reason: "signature_verification_unavailable",
+      detail: "Verification policy contains invalid numeric limits."
+    }
   }
 
   const policyNow = policy.now?.()
@@ -107,10 +119,32 @@ export async function verifyRequest(
   const requestBoundExtras = normalizeComponentsList(
     policy.additionalRequestBoundComponents
   )
-  const requestBoundRequired = requiredRequestBoundComponents(
-    shape,
-    requestBoundExtras
-  )
+  let requiredWhenPresent: ComponentIdentifier[]
+  try {
+    requiredWhenPresent = normalizeComponentsList([
+      ...(shape.hasBody || shape.hasContentDigest
+        ? (["content-digest"] as const)
+        : []),
+      ...(shape.hasContentType ? (["content-type"] as const) : []),
+      ...requiredCoveredHeadersForRequest(
+        request,
+        policy.requiredCoveredHeadersWhenPresent
+      ),
+      ...(policy.contentDigest === "require"
+        ? (["content-digest"] as const)
+        : [])
+    ])
+  } catch {
+    return {
+      ok: false,
+      reason: "signature_verification_unavailable",
+      detail: "Verification policy contains invalid required headers."
+    }
+  }
+  const requestBoundRequired = normalizeComponentsList([
+    ...requiredRequestBoundComponents(shape, requestBoundExtras),
+    ...requiredWhenPresent
+  ])
   const classBoundPolicies = normalizeClassBoundPolicies(
     policy.classBoundPolicies
   ).map(ensureAuthority)
@@ -131,7 +165,13 @@ export async function verifyRequest(
         "Accept-Signature",
         buildAcceptSignatureHeader({
           requestBoundRequired,
-          classBoundPolicies,
+          classBoundPolicies: classBoundPolicies.map((classBoundPolicy) =>
+            normalizeComponentsList([
+              ...classBoundPolicy,
+              ...requestBoundExtras,
+              ...requiredWhenPresent
+            ])
+          ),
           allowReplayable: policy.replayable ?? false
         })
       )
@@ -146,6 +186,7 @@ export async function verifyRequest(
     shape,
     requestBoundExtras,
     requestBoundRequired,
+    requiredWhenPresent,
     classBoundPolicies,
     verifyMessage,
     verifyDigest,
@@ -208,12 +249,11 @@ async function verifyBaseCandidate(
   if (principal === "delegated") {
     return { ok: false, reason: "principal_not_allowed" }
   }
-  const requiredWhenPresent = getRequiredWhenPresent(args)
   const built = buildAttempts([args.candidate], {
     ...args.shape,
     requestBoundExtras: args.requestBoundExtras,
     requestBoundRequired: args.requestBoundRequired,
-    requiredWhenPresent,
+    requiredWhenPresent: args.requiredWhenPresent,
     classBoundPolicies: args.classBoundPolicies
   })
   const attempt = built.attempts[0]
@@ -390,12 +430,11 @@ async function verifyDelegatedCandidate(
   ) {
     return { ok: false, reason: "unsupported_permissions" }
   }
-  const requiredWhenPresent = getRequiredWhenPresent(args)
   const built = buildAttempts([args.candidate], {
     ...args.shape,
     requestBoundExtras: args.requestBoundExtras,
     requestBoundRequired: args.requestBoundRequired,
-    requiredWhenPresent,
+    requiredWhenPresent: args.requiredWhenPresent,
     classBoundPolicies: args.classBoundPolicies
   })
   const attempt = built.attempts[0]
@@ -515,21 +554,7 @@ type CommonCandidateArgs = {
   now: number
   skew: number
   accountVerificationBudget: AccountVerificationBudget
-}
-
-function getRequiredWhenPresent(args: CommonCandidateArgs) {
-  return normalizeComponentsList([
-    ...(args.shape.hasBody || args.shape.hasContentDigest
-      ? (["content-digest"] as const)
-      : []),
-    ...(args.shape.hasContentType ? (["content-type"] as const) : []),
-    ...(args.policy.requiredCoveredHeadersWhenPresent ?? []).filter(
-      (component) =>
-        args.request.headers.has(
-          typeof component === "string" ? component : component.name
-        )
-    )
-  ])
+  requiredWhenPresent: ComponentIdentifier[]
 }
 
 async function validateRequestCandidate(
@@ -747,6 +772,12 @@ async function validateReplayableInvalidation(
   if (typeof notBefore === "number" && candidate.params.created < notBefore) {
     return { ok: false, reason: "replayable_not_allowed" }
   }
+  if (
+    policy.replayableInvalidated !== undefined &&
+    typeof invalidated !== "boolean"
+  ) {
+    return { ok: false, reason: "revocation_unavailable" }
+  }
   return invalidated ? { ok: false, reason: "replayable_not_allowed" } : null
 }
 
@@ -772,6 +803,19 @@ function positiveInteger(value: number | undefined, fallback: number): number {
 
 function finiteNonNegativeNumber(value: number | undefined): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
+}
+
+function hasValidOptionalPolicyLimits(
+  policy: NonNullable<VerifyRequestArgs["policy"]>
+): boolean {
+  return (
+    (policy.maxNonceWindowSec === undefined ||
+      finiteNonNegativeNumber(policy.maxNonceWindowSec)) &&
+    (policy.delegation?.maxGrantValiditySec === undefined ||
+      finiteNonNegativeNumber(policy.delegation.maxGrantValiditySec)) &&
+    (policy.delegation?.grantCacheTtlSec === undefined ||
+      finiteNonNegativeNumber(policy.delegation.grantCacheTtlSec))
+  )
 }
 
 function isUnavailableFailure(failure: Failure): boolean {

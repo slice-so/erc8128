@@ -13,6 +13,7 @@ import { componentIdentifierEquals } from "../engine/componentIdentifier"
 import { collectSignatureLabels } from "../engine/signatureLabels"
 import { invokeFetch } from "../invokeFetch"
 import { matchRoutePolicy } from "../matchRoutePolicy"
+import { routeRequiredComponentsForRequest } from "../policies/routeRequiredComponents"
 import {
   redirectMethod,
   redirectStatuses,
@@ -127,6 +128,7 @@ export function createDelegatedSignerClient(
 
     const headers = new Headers(request.headers)
     headers.set(DELEGATION_FIELD_NAME, fieldValue)
+    const preparedRequest = new Request(request, { headers })
     const labels = collectSignatureLabels(
       headers.get("signature-input"),
       headers.get("signature")
@@ -141,7 +143,8 @@ export function createDelegatedSignerClient(
     for (const component of [
       ...(defaults?.components ?? []),
       ...(options?.components ?? []),
-      ...(routePolicy?.additionalRequestBoundComponents ?? [])
+      ...(routePolicy?.additionalRequestBoundComponents ?? []),
+      ...routeRequiredComponentsForRequest(preparedRequest, routePolicy)
     ]) {
       if (
         !components.some((existing) =>
@@ -154,7 +157,7 @@ export function createDelegatedSignerClient(
       }
     }
     components.push(DELEGATION_COMPONENT)
-    return signDelegatedRequest(new Request(request, { headers }), session, {
+    return signDelegatedRequest(preparedRequest, session, {
       ...defaults,
       ...options,
       label,

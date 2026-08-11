@@ -214,6 +214,21 @@ describe("parseDiscoveryDocument", () => {
     ).toBeNull()
   })
 
+  test("rejects derived components in required covered headers", () => {
+    expect(
+      parseDiscoveryDocument(
+        JSON.stringify({
+          max_validity_sec: 120,
+          route_policies: {
+            "/orders": {
+              requiredCoveredHeadersWhenPresent: ["@query"]
+            }
+          }
+        })
+      )
+    ).toBeNull()
+  })
+
   test("rejects oversized documents and route maps", () => {
     expect(parseDiscoveryDocument(" ".repeat(65_537))).toBeNull()
     expect(

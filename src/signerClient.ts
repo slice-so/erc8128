@@ -1,5 +1,7 @@
 import { Erc8128Error } from "./lib/Erc8128Error"
 import { matchRoutePolicy } from "./lib/matchRoutePolicy"
+import { normalizeComponentsList } from "./lib/policies/normalizePolicies"
+import { routeRequiredComponentsForRequest } from "./lib/policies/routeRequiredComponents"
 import { resolveAuthorizedPosture } from "./lib/resolveAuthorizedPosture"
 import { resolvePosture } from "./lib/resolvePosture"
 import { sanitizeUrl } from "./lib/utilities"
@@ -50,23 +52,17 @@ function splitInitAndOpts<TOpts extends SignOptions>(
  * Extract origin, method, and pathname from a RequestInfo, factoring in an
  * optional RequestInit that may override the method.
  */
-function extractRequestInfo(
-  input: RequestInfo,
-  init?: RequestInit
-): { origin: string; method: string; pathname: string } {
-  const url =
-    typeof input === "string"
-      ? new URL(input)
-      : input instanceof URL
-        ? input
-        : sanitizeUrl(input.url)
-
-  const method = (
-    init?.method ??
-    (typeof input === "string" || input instanceof URL ? "GET" : input.method)
-  ).toUpperCase()
-
-  return { origin: url.origin, method, pathname: url.pathname }
+function extractRequestInfo(request: Request): {
+  origin: string
+  method: string
+  pathname: string
+} {
+  const url = sanitizeUrl(request.url)
+  return {
+    origin: url.origin,
+    method: request.method.toUpperCase(),
+    pathname: url.pathname
+  }
 }
 
 function normalizeServerConfigOrigin(value: string): string {
@@ -125,8 +121,7 @@ export function createSignerClient(
    */
   function resolveOpts(
     callOpts: SignOptions | undefined, // Per-call options
-    input: RequestInfo,
-    init?: RequestInit
+    request: Request
   ): SignOptions & { fetch?: typeof fetch } {
     const mergedOptions: SignOptions = {
       ...baseSignOpts,
@@ -138,8 +133,26 @@ export function createSignerClient(
         ? ("replayable" as const)
         : ("non-replayable" as const)
 
-    const { origin, method, pathname } = extractRequestInfo(input, init)
+    const { origin, method, pathname } = extractRequestInfo(request)
     const serverConfig = serverConfigs.get(origin)
+    const routePolicy = matchRoutePolicy(
+      method,
+      pathname,
+      serverConfig?.route_policies
+    )
+    const applyRouteRequirements = (
+      options: SignOptions & { fetch?: typeof fetch }
+    ) => {
+      const required = routeRequiredComponentsForRequest(request, routePolicy)
+      if (required.length === 0) return options
+      return {
+        ...options,
+        components: normalizeComponentsList([
+          ...(options.components ?? []),
+          ...required
+        ])
+      }
+    }
     const now = Math.floor(Date.now() / 1_000)
     if (authorizationPolicy === undefined) {
       const posture = resolvePosture(
@@ -168,7 +181,7 @@ export function createSignerClient(
         mergedOptions.expires ?? created + posture.defaultTtlSeconds,
         created + maximumTtlSeconds
       )
-      return {
+      return applyRouteRequirements({
         ...mergedOptions,
         binding: posture.binding,
         nonce:
@@ -182,7 +195,7 @@ export function createSignerClient(
         created,
         expires,
         ttlSeconds: posture.defaultTtlSeconds
-      }
+      })
     }
 
     const posture = resolveAuthorizedPosture({
@@ -196,11 +209,7 @@ export function createSignerClient(
           }),
       requestOptions: mergedOptions,
       routeMaxValiditySeconds: serverConfig?.max_validity_sec,
-      routePolicy: matchRoutePolicy(
-        method,
-        pathname,
-        serverConfig?.route_policies
-      )
+      routePolicy
     })
     const created = mergedOptions.created ?? now
     const expires = Math.min(
@@ -208,7 +217,7 @@ export function createSignerClient(
       created + posture.ttlSeconds,
       authorizationExpiresAt ?? Number.POSITIVE_INFINITY
     )
-    return {
+    return applyRouteRequirements({
       ...mergedOptions,
       binding: posture.binding,
       components: posture.components,
@@ -222,7 +231,7 @@ export function createSignerClient(
             ? undefined
             : mergedOptions.nonce,
       ttlSeconds: posture.ttlSeconds
-    }
+    })
   }
 
   const signRequestBound: SignerClient["signRequest"] = async (
@@ -231,8 +240,9 @@ export function createSignerClient(
     opts?: SignOptions
   ) => {
     const { init, opts: callOpts } = splitInitAndOpts(initOrOpts, opts)
-    const merged = resolveOpts(callOpts, input, init)
-    return signRequest(input, init, signer, merged)
+    const request = new Request(input, init)
+    const merged = resolveOpts(callOpts, request)
+    return signRequest(request, signer, merged)
   }
 
   const signedFetchBound: SignerClient["signedFetch"] = async (

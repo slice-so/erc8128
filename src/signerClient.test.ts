@@ -12,6 +12,10 @@ describe("createSignerClient authorization constraints", () => {
   const signatureParams = (request: Request) =>
     parseSignatureInputHeader(request.headers.get("signature-input") ?? "")[0]
       ?.params
+  const coveredComponentNames = (request: Request) =>
+    parseSignatureInputHeader(
+      request.headers.get("signature-input") ?? ""
+    )[0]?.components.map(({ name }) => name) ?? []
   test("clamps an explicit expiry to the resolved validity cap", async () => {
     const created = 1_700_000_000
     const client = createSignerClient(signer, {
@@ -135,6 +139,46 @@ describe("createSignerClient authorization constraints", () => {
     )
 
     expect(request.headers.get("content-digest")).not.toBe("sha-256=:AAAA:")
+  })
+
+  test("translates a route digest requirement into computed coverage", async () => {
+    const client = createSignerClient(signer, {
+      serverConfigs: {
+        "https://api.example": {
+          max_validity_sec: 60,
+          route_policies: {
+            "/resource": { contentDigest: "require" }
+          }
+        }
+      }
+    })
+    const request = await client.signRequest("https://api.example/resource", {
+      method: "POST",
+      body: "hello"
+    })
+
+    expect(request.headers.has("content-digest")).toBe(true)
+    expect(coveredComponentNames(request)).toContain("content-digest")
+  })
+
+  test("covers configured headers when they are present", async () => {
+    const client = createSignerClient(signer, {
+      serverConfigs: {
+        "https://api.example": {
+          max_validity_sec: 60,
+          route_policies: {
+            "/resource": {
+              requiredCoveredHeadersWhenPresent: ["x-tenant"]
+            }
+          }
+        }
+      }
+    })
+    const request = await client.signRequest("https://api.example/resource", {
+      headers: { "x-tenant": "acme" }
+    })
+
+    expect(coveredComponentNames(request)).toContain("x-tenant")
   })
 
   test("re-resolves route policy after each redirect", async () => {

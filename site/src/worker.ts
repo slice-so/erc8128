@@ -182,9 +182,11 @@ app.use("/verify", async (c, next) => {
     const problem = formatErc8128ProblemDetails({
       ok: false,
       reason: "signature_verification_unavailable",
-      detail: "ERC8128_SECRET_ALCHEMY_ID must be configured."
+      detail: "Ethereum account verification is unavailable."
     })
-    return c.json({ ok: false, ...problem }, problem.status)
+    return c.json({ ok: false, ...problem }, problem.status, {
+      "content-type": "application/problem+json"
+    })
   }
   const { storageMode } = resolveStorageSelection(
     c.env,
@@ -268,9 +270,12 @@ export default {
   fetch: app.fetch,
   scheduled(
     controller: ScheduledController,
-    env: CloudflareBindings,
+    env: RuntimeBindings,
     ctx: ExecutionContext
   ) {
+    if (parseConfiguredStorageMode(env.ERC8128_STORAGE_MODE) !== "postgres") {
+      return
+    }
     ctx.waitUntil(
       cleanupExpiredVerificationStorage(
         {
@@ -278,12 +283,16 @@ export default {
           databaseUrl: env.DATABASE_URL
         },
         new Date(controller.scheduledTime)
-      ).then((result) => {
-        console.info("[erc8128/site] cron cleanup completed", {
-          scheduledTime: new Date(controller.scheduledTime).toISOString(),
-          ...result
+      )
+        .then((result) => {
+          console.info("[erc8128/site] cron cleanup completed", {
+            scheduledTime: new Date(controller.scheduledTime).toISOString(),
+            ...result
+          })
         })
-      })
+        .catch(() => {
+          console.error("[erc8128/site] cron cleanup failed")
+        })
     )
   }
-} satisfies ExportedHandler<CloudflareBindings>
+} satisfies ExportedHandler<RuntimeBindings>

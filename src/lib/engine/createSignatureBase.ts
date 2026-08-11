@@ -237,18 +237,12 @@ function componentValueMinimal(args: {
         )
       }
       if (component.params?.bs) {
-        canonical = splitCombinedFieldValues(v)
-          .map((fieldValue) =>
-            serializeSfMember({
-              value: {
-                type: "binary",
-                value: new TextEncoder().encode(
-                  canonicalizeFieldValue(fieldValue)
-                )
-              }
-            })
-          )
-          .join(", ")
+        canonical = serializeSfMember({
+          value: {
+            type: "binary",
+            value: new TextEncoder().encode(canonicalizeFieldValue(v))
+          }
+        })
       }
       ensureNoCrlf(canonical, component.name)
       return canonical
@@ -269,29 +263,6 @@ function serializeSelectedDictionaryMember(value: string, key: string): string {
 
 function canonicalizeFieldValue(v: string): string {
   return v.trim()
-}
-
-function splitCombinedFieldValues(value: string): string[] {
-  const values: string[] = []
-  let start = 0
-  let quoted = false
-  let escaped = false
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index]
-    if (quoted) {
-      if (escaped) escaped = false
-      else if (character === "\\") escaped = true
-      else if (character === '"') quoted = false
-      continue
-    }
-    if (character === '"') quoted = true
-    else if (character === ",") {
-      values.push(value.slice(start, index))
-      start = index + 1
-    }
-  }
-  values.push(value.slice(start))
-  return values
 }
 
 function ensureNoCrlf(value: string, name: string) {

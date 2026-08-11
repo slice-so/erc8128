@@ -119,8 +119,10 @@ export interface DelegationGrantCache {
 export type DelegationPolicy = {
   allowLoopbackAudiences?: boolean
   grantCache?: DelegationGrantCache
+  /** Optional finite non-negative proof-cache TTL. */
   grantCacheTtlSec?: number
   maxChainDepth?: number
+  /** Optional finite non-negative cap on each grant validity window. */
   maxGrantValiditySec?: number
   requiredPermissions?: readonly string[]
   permissionsSupported?: boolean

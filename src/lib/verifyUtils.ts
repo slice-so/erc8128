@@ -15,6 +15,7 @@ import {
 } from "./policies/isRequestBound"
 
 export const DEFAULT_MAX_VALIDITY_SEC = 300
+export const DEFAULT_MAX_SIGNATURE_VERIFICATIONS = 8
 
 export function buildAttempts<Key>(
   candidates: VerifyCandidate<Key>[],

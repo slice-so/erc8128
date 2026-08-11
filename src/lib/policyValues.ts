@@ -35,6 +35,8 @@ export const isContentDigestMode = (
  * RFC 9421 derived components or canonical lower-case HTTP field names.
  * Parameters and structured-field selectors are intentionally outside v1.
  */
-export const isCoveredComponent = (value: string) =>
-  /^@[a-z][a-z0-9_-]*$/.test(value) ||
+export const isHttpFieldName = (value: string) =>
   /^[a-z0-9][a-z0-9!#$%&'*+.^_`|~-]*$/.test(value)
+
+export const isCoveredComponent = (value: string) =>
+  /^@[a-z][a-z0-9_-]*$/.test(value) || isHttpFieldName(value)

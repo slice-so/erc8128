@@ -14,13 +14,13 @@ export type RoutePolicy = {
   /** Allow replayable (nonce-less) signatures (default false). */
   replayable?: boolean
 
-  /** Extra components required in addition to default request-bound set. */
+  /** Extra components required on every accepted signature and added to the request-bound floor. */
   additionalRequestBoundComponents?: CoveredComponent[]
 
   /** Content-digest behavior required by this route. */
   contentDigest?: ContentDigestMode
 
-  /** Require these request fields to be covered whenever they are present. */
+  /** Require these request-header components to be covered whenever their fields are present. */
   requiredCoveredHeadersWhenPresent?: CoveredComponent[]
 
   /**
@@ -55,7 +55,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
 
   /**
    * Optional per-signature invalidation policy for replayable signatures.
-   * Return true to mark the signature as invalidated.
+   * Return true to mark the signature as invalidated. Non-boolean results fail closed.
    */
   replayableInvalidated?: (args: {
     keyid: string
@@ -75,7 +75,7 @@ export type VerifyPolicy = Omit<RoutePolicy, "methods"> & {
   now?: () => number // unix seconds; default unixNow()
   clockSkewSec?: number // default 30; allow +/- drift when checking created/expires
   maxValiditySec?: number // library default 300; route cap for expires - created
-  maxNonceWindowSec?: number // optional; cap (expires - created) for non-replayable (nonce) requests
+  maxNonceWindowSec?: number // optional finite non-negative cap for non-replayable request validity
 
   /**
    * Customize the replay-store key derived from the signed `keyid` and `nonce`.

@@ -99,7 +99,7 @@ if (result.ok) {
 | `components` | `string[]` | — | Additional components to sign |
 | `contentDigest` | `"auto"` \| `"recompute"` \| `"require"` \| `"off"` | `"auto"` | Content-Digest handling |
 
-**request-bound**: Signs `@scheme`, `@authority`, `@method`, `@path`, and `@query` unconditionally, plus `content-digest` when a body is present. Each request is unique.
+**request-bound**: Signs `@scheme`, `@authority`, `@method`, `@path`, and `@query` unconditionally, plus `content-digest` when a body is present and `content-type` when the request carries `Content-Type`. Each request is unique.
 
 **class-bound**: Signs only the components you explicitly specify. Reusable across similar requests. Requires `components` array.
 

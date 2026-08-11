@@ -158,6 +158,9 @@ type VerifyPolicy = {
    * Use this for custom headers like 'x-idempotency-key'.
    */
   additionalRequestBoundComponents?: string[]
+
+  /** Require these request headers to be covered whenever they are present. */
+  requiredCoveredHeadersWhenPresent?: string[]
   
   /**
    * Class-bound policies (one list or a list of lists).

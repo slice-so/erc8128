@@ -212,7 +212,8 @@ The request-bound floor covers `@scheme`, `@authority`, `@method`, `@path`, and 
 | `maxValiditySec` | `number` | `300` | Maximum accepted signature validity window. |
 | `clockSkewSec` | `number` | `30` | Allowed clock uncertainty in seconds. |
 | `replayable` | `boolean` | `false` | Whether nonce-less signatures are accepted. |
-| `additionalRequestBoundComponents` | `CoveredComponent[]` | none | Extra request-bound coverage requirements. |
+| `additionalRequestBoundComponents` | `CoveredComponent[]` | none | Unconditional coverage requirements added to request-bound and class-bound policies. |
+| `requiredCoveredHeadersWhenPresent` | `CoveredComponent[]` | none | Request headers that must be covered whenever they are present. |
 | `classBoundPolicies` | `CoveredComponent[] \| CoveredComponent[][]` | disabled | Accepted class-bound component policies. |
 | `delegation` | `DelegationPolicy` | disabled | Delegation, permissions, proof-cache, and revocation policy. |
 

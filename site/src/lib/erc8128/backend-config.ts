@@ -3,6 +3,7 @@ import {
   createRedisNonceStore as createAtomicRedisNonceStore,
   createSignatureBaseMinimal,
   createUniqueInsertNonceStore,
+  DEFAULT_MAX_SIGNATURE_VERIFICATIONS,
   type DiscoveryDocument,
   formatDiscoveryDocument,
   matchRoutePolicy,
@@ -12,6 +13,8 @@ import {
   type RoutePolicy,
   type RoutePolicyConfig,
   selectSignatureFromHeaders,
+  TAG_DELEGATED,
+  TAG_REQUEST,
   type VerifyMessageFn,
   verifyRequest
 } from "@slicekit/erc8128"
@@ -110,6 +113,13 @@ function isReplayableSignature(signature: { params: { nonce?: string } }) {
   return !signature.params.nonce || signature.params.nonce.length === 0
 }
 
+function isErc8128Signature(signature: { params: { tag?: string } }) {
+  return (
+    signature.params.tag === TAG_REQUEST ||
+    signature.params.tag === TAG_DELEGATED
+  )
+}
+
 async function getVerificationCacheKeys<CfHostMetadata, Cf>(
   request: Request<CfHostMetadata, Cf>,
   pathname: string,
@@ -129,28 +139,47 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
     return []
   }
 
+  const profileCandidates = selected.selected.filter(isErc8128Signature)
+  if (profileCandidates.length > DEFAULT_MAX_SIGNATURE_VERIFICATIONS) {
+    return []
+  }
+  const replayableCandidates = profileCandidates.filter(isReplayableSignature)
+  if (replayableCandidates.length === 0) return []
+
   const bodyBytes =
     request.body === null
       ? new Uint8Array()
       : new Uint8Array(await request.clone().arrayBuffer())
+  const bodyDigest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", bodyBytes)
+  )
   const encoder = new TextEncoder()
   const signatureBytes = encoder.encode(signatureHeader)
+  const configuredRequiredHeaders: Array<[string, string | null]> = []
+  try {
+    for (const component of routePolicy.requiredCoveredHeadersWhenPresent ??
+      []) {
+      const name = typeof component === "string" ? component : component.name
+      configuredRequiredHeaders.push([name, request.headers.get(name)])
+    }
+  } catch {
+    return []
+  }
   const routePolicyBytes = encoder.encode(
     JSON.stringify({
       method: request.method.toUpperCase(),
       pathname,
       policy: routePolicy,
-      requiredWhenPresent: (
-        routePolicy.requiredCoveredHeadersWhenPresent ?? []
-      ).map((component) => {
-        const name = typeof component === "string" ? component : component.name
-        return [name, request.headers.get(name)]
-      })
+      requiredWhenPresent: [
+        ["content-type", request.headers.get("content-type")],
+        ["content-digest", request.headers.get("content-digest")],
+        ...configuredRequiredHeaders
+      ]
     })
   )
   const keys: Array<{ key: string; label: string }> = []
 
-  for (const candidate of selected.selected.filter(isReplayableSignature)) {
+  for (const candidate of replayableCandidates) {
     try {
       const signatureBase = createSignatureBaseMinimal({
         request: request as Request,
@@ -163,7 +192,7 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
           labelBytes.length +
           signatureBase.length +
           routePolicyBytes.length +
-          bodyBytes.length +
+          bodyDigest.length +
           4
       )
       let offset = 0
@@ -175,7 +204,7 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
       offset += signatureBase.length + 1
       material.set(routePolicyBytes, offset)
       offset += routePolicyBytes.length + 1
-      material.set(bodyBytes, offset)
+      material.set(bodyDigest, offset)
       const digest = new Uint8Array(
         await crypto.subtle.digest("SHA-256", material)
       )

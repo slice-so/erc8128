@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { recoverMessageAddress } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
+import { parseAcceptSignatureHeader } from "./lib/acceptSignature"
 import { VerificationUnavailableError } from "./lib/Erc8128Error"
 import { parseSignatureInputHeader } from "./lib/engine/createSignatureInput"
 import { formatErc8128ProblemDetails } from "./lib/problemDetails"
@@ -8,7 +9,7 @@ import { bytesToHex } from "./lib/utilities"
 import { runNonceChecks } from "./lib/verifyUtils"
 import { signedFetch, signRequest } from "./sign"
 import { BoundedMemoryNonceStore } from "./stores"
-import type { VerifyMessageFn } from "./types"
+import type { VerifyMessageFn, VerifyPolicy } from "./types"
 import { verifyRequest } from "./verify"
 
 const account = privateKeyToAccount(`0x${"11".repeat(32)}`)
@@ -308,6 +309,38 @@ describe("ERC-8128 direct signing and verification", () => {
       ok: false,
       reason: "insufficient_coverage"
     })
+  })
+
+  test("advertises unconditional components in class-bound policies", async () => {
+    const signed = await signRequest("https://api.example/read", signer, {
+      binding: "class-bound",
+      components: ["@authority"],
+      created: now,
+      expires: now + 60,
+      nonce: "class-bound-advertisement"
+    })
+    let acceptSignature = ""
+
+    await verifyRequest({
+      request: signed,
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: {
+        additionalRequestBoundComponents: ["x-tenant"],
+        classBoundPolicies: ["@authority"],
+        now: () => now
+      },
+      setHeaders(name, value) {
+        if (name.toLowerCase() === "accept-signature") acceptSignature = value
+      },
+      verifyMessage: universalVerify
+    })
+
+    const advertised = parseAcceptSignatureHeader(acceptSignature)
+    expect(advertised).toHaveLength(2)
+    expect(advertised[1]?.components.map(({ name }) => name)).toEqual([
+      "@authority",
+      "x-tenant"
+    ])
   })
 
   test("supports explicit EOA-only verification without RPC", async () => {
@@ -677,6 +710,100 @@ describe("ERC-8128 direct signing and verification", () => {
       expect(result).toEqual({
         ok: false,
         reason: "replayable_not_allowed"
+      })
+    }
+  })
+
+  test("fails closed for malformed per-signature invalidation results", async () => {
+    const replayable = await signRequest(
+      "https://api.example/replayable-invalidated",
+      signer,
+      { created: now, expires: now + 60, nonce: null }
+    )
+    for (const value of [undefined, 0] as const) {
+      const policy: VerifyPolicy = {
+        now: () => now,
+        replayable: true
+      }
+      Object.defineProperty(policy, "replayableInvalidated", {
+        value: async () => value
+      })
+      const result = await verifyRequest({
+        request: replayable.clone(),
+        nonceStore: new BoundedMemoryNonceStore(),
+        policy,
+        verifyMessage: universalVerify
+      })
+      expect(result).toEqual({
+        ok: false,
+        reason: "revocation_unavailable"
+      })
+    }
+  })
+
+  test("returns a controlled failure for invalid required-header policies", async () => {
+    const signed = await signRequest(
+      "https://api.example/invalid-policy",
+      signer,
+      {
+        created: now,
+        expires: now + 60,
+        nonce: "invalid-required-header"
+      }
+    )
+    const result = await verifyRequest({
+      request: signed,
+      nonceStore: new BoundedMemoryNonceStore(),
+      policy: {
+        now: () => now,
+        requiredCoveredHeadersWhenPresent: ["@query"]
+      },
+      verifyMessage: universalVerify
+    })
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "signature_verification_unavailable"
+    })
+  })
+
+  test("rejects non-finite optional verification limits", async () => {
+    const signed = await signRequest(
+      "https://api.example/invalid-limits",
+      signer,
+      {
+        created: now,
+        expires: now + 60,
+        nonce: "invalid-policy-limit"
+      }
+    )
+    const policies: VerifyPolicy[] = [
+      { maxNonceWindowSec: Number.NaN },
+      {
+        delegation: {
+          maxGrantValiditySec: Number.POSITIVE_INFINITY,
+          verifyStatuses: () => []
+        }
+      },
+      {
+        delegation: {
+          grantCacheTtlSec: Number.NaN,
+          verifyStatuses: () => []
+        }
+      }
+    ]
+
+    for (const policy of policies) {
+      expect(
+        await verifyRequest({
+          request: signed.clone(),
+          nonceStore: new BoundedMemoryNonceStore(),
+          policy: { ...policy, now: () => now },
+          verifyMessage: universalVerify
+        })
+      ).toMatchObject({
+        ok: false,
+        reason: "signature_verification_unavailable"
       })
     }
   })

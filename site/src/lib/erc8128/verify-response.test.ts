@@ -24,6 +24,9 @@ describe("playground verification responses", () => {
       })
 
       expect(response.status).toBe(status)
+      expect(response.headers.get("content-type")).toBe(
+        "application/problem+json"
+      )
       expect(response.payload).toMatchObject({
         ok: false,
         reason,

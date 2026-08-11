@@ -282,7 +282,8 @@ describe("Delegated Request Signatures", () => {
               "/resource": {
                 additionalRequestBoundComponents: ["x-route"],
                 contentDigest: "recompute",
-                replayable: false
+                replayable: false,
+                requiredCoveredHeadersWhenPresent: ["x-present"]
               }
             }
           }
@@ -295,6 +296,7 @@ describe("Delegated Request Signatures", () => {
         "content-digest":
           "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:",
         "x-default": "default",
+        "x-present": "present",
         "x-route": "route"
       },
       body: "payload"
@@ -309,7 +311,12 @@ describe("Delegated Request Signatures", () => {
       nonce: "delegated-default-nonce"
     })
     expect(signature?.components.map(({ name }) => name)).toEqual(
-      expect.arrayContaining(["x-default", "x-route", "content-digest"])
+      expect.arrayContaining([
+        "x-default",
+        "x-present",
+        "x-route",
+        "content-digest"
+      ])
     )
     expect(request.headers.get("content-digest")).not.toBe(
       "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:"

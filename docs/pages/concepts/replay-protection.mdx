@@ -64,10 +64,10 @@ const result = await verifyRequest({
 
 ### Failure Reasons
 
-- `not_yet_valid` — `now < created` (clock skew issue)
-- `expired` — `now > expires`
-- `validity_too_long` — `expires - created > maxValiditySec`
-- `bad_time` — Invalid time values (e.g., `expires <= created`)
+- `request_not_yet_valid` — `now < created` (clock skew issue)
+- `request_expired` — `now > expires`
+- `request_validity_too_long` — `expires - created > maxValiditySec`
+- `invalid_time` — Invalid time values (e.g., `expires <= created`)
 
 ## Nonces
 

@@ -139,10 +139,40 @@ describe("playground worker request policy", () => {
       {} as CloudflareBindings,
       executionContext
     )
-    const payload = (await response.json()) as { reason: string }
+    const payload = (await response.json()) as {
+      detail: string
+      reason: string
+    }
 
     expect(response.status).toBe(503)
+    expect(response.headers.get("content-type")).toContain(
+      "application/problem+json"
+    )
     expect(payload.reason).toBe("signature_verification_unavailable")
+    expect(payload.detail).not.toContain("ERC8128_SECRET_ALCHEMY_ID")
+  })
+
+  test("skips Postgres cleanup for a Redis-only deployment", () => {
+    let waitUntilCalls = 0
+    worker.scheduled(
+      {
+        cron: "*/15 * * * *",
+        noRetry() {},
+        scheduledTime: Date.now(),
+        type: "scheduled"
+      } as ScheduledController,
+      Object.assign({} as CloudflareBindings, {
+        ERC8128_STORAGE_MODE: "redis"
+      }),
+      {
+        ...executionContext,
+        waitUntil() {
+          waitUntilCalls += 1
+        }
+      }
+    )
+
+    expect(waitUntilCalls).toBe(0)
   })
 
   test("reuses the verification client for the same RPC secret", () => {
