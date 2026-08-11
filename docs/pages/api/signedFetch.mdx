@@ -41,12 +41,15 @@ const data = await response.json()
 
 The fetch Response.
 
-`signedFetch` re-signs every followed redirect. It preserves
-`Authorization`, `Cookie`, and `Proxy-Authorization` only for same-origin hops;
-cross-origin hops remove them. Application-specific credentials such as
-`X-API-Key` cannot be identified generically, so use `redirect: 'manual'` when
-those headers must never reach another origin. The caller's `redirect` mode is
-honored: `manual` returns the 3xx response and `error` rejects it.
+`signedFetch` signs only the request supplied by the caller, then delegates
+redirect handling to the configured or native `fetch`. A followed redirect
+never causes another wallet signature. The original signature remains scoped
+to its original authority, method, and target; a redirected endpoint that
+requires authentication must be signed explicitly in a separate call.
+
+The signed request retains the caller's native `redirect` mode. As with normal
+`fetch`, use `redirect: 'manual'` or `redirect: 'error'` when redirects must not
+be followed.
 
 ## Parameters
 

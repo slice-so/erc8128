@@ -266,6 +266,50 @@ describe("EIP-712 Delegation grants", () => {
 })
 
 describe("Delegated Request Signatures", () => {
+  test("signs once before delegating redirects to fetch", async () => {
+    const observed: Request[] = []
+    let signatures = 0
+    const baseSigner = signer(delegateA)
+    const fetchImpl: typeof fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request =
+          input instanceof Request ? input : new Request(input, init)
+        observed.push(request.clone())
+        return new Response(null, {
+          status: 307,
+          headers: { location: "https://outside.example/continued" }
+        })
+      },
+      { preconnect: () => {} }
+    )
+    const client = createDelegatedSignerClient(
+      {
+        ...baseSigner,
+        signMessage: async (message: Uint8Array) => {
+          signatures += 1
+          return baseSigner.signMessage(message)
+        }
+      },
+      { links: [g0] },
+      {
+        created: 1_700_000_000,
+        expires: 1_700_000_060,
+        fetch: fetchImpl,
+        nonce: "delegated-single-signature"
+      }
+    )
+
+    const response = await client.fetch(
+      new Request("https://api.example/start", { redirect: "follow" })
+    )
+
+    expect(response.status).toBe(307)
+    expect(signatures).toBe(1)
+    expect(observed).toHaveLength(1)
+    expect(observed[0]?.url).toBe("https://api.example/start")
+    expect(observed[0]?.redirect).toBe("follow")
+  })
+
   test("merges signing defaults with the complete route policy", async () => {
     const client = createDelegatedSignerClient(
       signer(delegateA),

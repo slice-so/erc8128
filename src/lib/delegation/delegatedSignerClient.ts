@@ -14,11 +14,6 @@ import { collectSignatureLabels } from "../engine/signatureLabels"
 import { invokeFetch } from "../invokeFetch"
 import { matchRoutePolicy } from "../matchRoutePolicy"
 import { routeRequiredComponentsForRequest } from "../policies/routeRequiredComponents"
-import {
-  redirectMethod,
-  redirectStatuses,
-  unsignedRedirectHeaders
-} from "../redirects"
 import { resolveContentDigestMode } from "../resolveContentDigest"
 import { sanitizeUrl, unixNow } from "../utilities"
 import { resolveDelegationChain } from "./delegationChain"
@@ -83,8 +78,7 @@ export function createDelegatedSignerClient(
   async function signRequestForDelegation(
     input: RequestInfo,
     init: RequestInit | undefined,
-    options: SignOptions | undefined,
-    useDefaultNonce = true
+    options: SignOptions | undefined
   ): Promise<Request> {
     const request = new Request(input, init)
     assertAudience(request.url, resolved.effectiveAudiences, audiencePolicy)
@@ -116,8 +110,7 @@ export function createDelegatedSignerClient(
     const requestedReplayable =
       options?.nonce === null ||
       (options?.nonce === undefined &&
-        ((useDefaultNonce && defaults?.nonce === null) ||
-          defaults?.preferReplayable === true))
+        (defaults?.nonce === null || defaults?.preferReplayable === true))
     const replayable = requestedReplayable && routePolicy?.replayable !== false
     if (replayable && resolved.effectiveRequireNonReplayable) {
       throw new Erc8128Error(
@@ -163,10 +156,9 @@ export function createDelegatedSignerClient(
       label,
       nonce: replayable
         ? null
-        : options?.nonce === null ||
-            (useDefaultNonce && defaults?.nonce === null)
+        : options?.nonce === null || defaults?.nonce === null
           ? undefined
-          : (options?.nonce ?? (useDefaultNonce ? defaults?.nonce : undefined)),
+          : (options?.nonce ?? defaults?.nonce),
       created,
       expires,
       contentDigest: resolveContentDigestMode(
@@ -193,62 +185,12 @@ export function createDelegatedSignerClient(
   ) => {
     const split = splitInitAndOptions<FetchOptions>(initOrOptions, options)
     const fetchImpl = split.options?.fetch ?? defaults?.fetch
-    const initialRequest = new Request(input, split.init)
-    const redirectMode = initialRequest.redirect
-    let nextInput: RequestInfo = initialRequest
-    let nextInit: RequestInit | undefined
-    let signingOptions = split.options
-    for (let redirects = 0; redirects <= 10; redirects += 1) {
-      const signed = await signRequestForDelegation(
-        nextInput,
-        nextInit,
-        signingOptions,
-        redirects === 0
-      )
-      const redirectedBody =
-        signed.method === "GET" || signed.method === "HEAD"
-          ? undefined
-          : await signed.clone().arrayBuffer()
-      const response = await invokeFetch(
-        fetchImpl,
-        new Request(signed, { redirect: "manual" })
-      )
-      if (!redirectStatuses.has(response.status)) return response
-      if (redirectMode === "manual") return response
-      if (redirectMode === "error") {
-        throw new Erc8128Error(
-          "UNSUPPORTED_REQUEST",
-          "A redirect was encountered while redirect mode was set to error."
-        )
-      }
-      const location = response.headers.get("location")
-      if (!location) return response
-      if (redirects === 10) {
-        throw new Erc8128Error("UNSUPPORTED_REQUEST", "Too many redirects.")
-      }
-      const target = new URL(location, signed.url)
-      assertAudience(target.href, resolved.effectiveAudiences, audiencePolicy)
-      const method = redirectMethod(response.status, signed.method)
-      nextInput = target.href
-      if (typeof signingOptions?.nonce === "string") {
-        const { nonce: _usedNonce, ...redirectOptions } = signingOptions
-        signingOptions = redirectOptions
-      }
-      nextInit = {
-        method,
-        headers: unsignedRedirectHeaders(
-          signed.headers,
-          new URL(signed.url).origin,
-          target.origin,
-          true
-        ),
-        redirect: redirectMode,
-        ...(method === "GET" || method === "HEAD"
-          ? {}
-          : { body: redirectedBody })
-      }
-    }
-    throw new Erc8128Error("UNSUPPORTED_REQUEST", "Redirect processing failed.")
+    const signed = await signRequestForDelegation(
+      input,
+      split.init,
+      split.options
+    )
+    return invokeFetch(fetchImpl, signed)
   }
 
   return {

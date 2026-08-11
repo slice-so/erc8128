@@ -889,19 +889,25 @@ describe("ERC-8128 direct signing and verification", () => {
     })
   })
 
-  test("reconstructs and re-signs direct requests across redirects", async () => {
+  test("signs once and delegates redirects to fetch", async () => {
     const observed: Request[] = []
+    let signatures = 0
+    const countingSigner = {
+      ...signer,
+      signMessage: async (message: Uint8Array) => {
+        signatures += 1
+        return signer.signMessage(message)
+      }
+    }
     const fetchImpl: typeof fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const request =
           input instanceof Request ? input : new Request(input, init)
         observed.push(request.clone())
-        return observed.length === 1
-          ? new Response(null, {
-              headers: { location: "https://next.example/continued" },
-              status: 307
-            })
-          : new Response(null, { status: 204 })
+        return new Response(null, {
+          headers: { location: "https://next.example/continued" },
+          status: 307
+        })
       },
       { preconnect: () => {} }
     )
@@ -910,9 +916,10 @@ describe("ERC-8128 direct signing and verification", () => {
       new Request("https://api.example/start", {
         body: "redirected body",
         headers: { "content-type": "text/plain" },
-        method: "POST"
+        method: "POST",
+        redirect: "follow"
       }),
-      signer,
+      countingSigner,
       {
         created: now,
         expires: now + 60,
@@ -921,94 +928,44 @@ describe("ERC-8128 direct signing and verification", () => {
       }
     )
 
-    expect(response.status).toBe(204)
-    expect(observed.map(({ url }) => url)).toEqual([
-      "https://api.example/start",
-      "https://next.example/continued"
-    ])
-    expect(await observed[1]?.text()).toBe("redirected body")
-    expect(observed[0]?.headers.get("signature-input")).not.toBe(
-      observed[1]?.headers.get("signature-input")
-    )
-    const nonce = (request: Request) =>
-      parseSignatureInputHeader(request.headers.get("signature-input") ?? "")[0]
-        ?.params.nonce
-    expect(nonce(observed[0] as Request)).toBe("direct-redirect-1")
-    expect(nonce(observed[1] as Request)).not.toBe("direct-redirect-1")
+    expect(response.status).toBe(307)
+    expect(signatures).toBe(1)
+    expect(observed).toHaveLength(1)
+    expect(observed[0]?.url).toBe("https://api.example/start")
+    expect(observed[0]?.redirect).toBe("follow")
+    expect(await observed[0]?.text()).toBe("redirected body")
+    expect(
+      parseSignatureInputHeader(
+        observed[0]?.headers.get("signature-input") ?? ""
+      )[0]?.params.nonce
+    ).toBe("direct-redirect-1")
   })
 
-  test("strips credentials only when a redirect crosses origins", async () => {
+  test("preserves native redirect modes", async () => {
     const observed: Request[] = []
     const fetchImpl: typeof fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const request =
           input instanceof Request ? input : new Request(input, init)
         observed.push(request.clone())
-        if (observed.length === 1) {
-          return new Response(null, {
-            status: 307,
-            headers: { location: "/same-origin" }
-          })
-        }
-        if (observed.length === 2) {
-          return new Response(null, {
-            status: 307,
-            headers: { location: "https://other.example/cross-origin" }
-          })
-        }
         return new Response(null, { status: 204 })
       },
       { preconnect: () => {} }
     )
 
-    await signedFetch(
-      "https://api.example/start",
-      {
-        headers: {
-          authorization: "Bearer secret",
-          cookie: "session=secret",
-          "proxy-authorization": "Basic secret"
-        }
-      },
-      signer,
-      { fetch: fetchImpl }
-    )
+    for (const redirect of ["follow", "manual", "error"] as const) {
+      await signedFetch(
+        new Request(`https://api.example/${redirect}`, { redirect }),
+        signer,
+        { fetch: fetchImpl }
+      )
+    }
 
-    expect(observed[1]?.headers.get("authorization")).toBe("Bearer secret")
-    expect(observed[1]?.headers.get("cookie")).toBe("session=secret")
-    expect(observed[2]?.headers.has("authorization")).toBe(false)
-    expect(observed[2]?.headers.has("cookie")).toBe(false)
-    expect(observed[2]?.headers.has("proxy-authorization")).toBe(false)
-  })
-
-  test("honors manual and error redirect modes", async () => {
-    let calls = 0
-    const fetchImpl: typeof fetch = Object.assign(
-      async () => {
-        calls += 1
-        return new Response(null, {
-          status: 302,
-          headers: { location: "https://other.example/next" }
-        })
-      },
-      { preconnect: () => {} }
-    )
-
-    const manual = await signedFetch(
-      "https://api.example/start",
-      { redirect: "manual" },
-      signer,
-      { fetch: fetchImpl }
-    )
-    expect(manual.status).toBe(302)
-    expect(calls).toBe(1)
-
-    await expect(
-      signedFetch("https://api.example/start", { redirect: "error" }, signer, {
-        fetch: fetchImpl
-      })
-    ).rejects.toThrow("redirect mode was set to error")
-    expect(calls).toBe(2)
+    expect(observed.map(({ redirect }) => redirect)).toEqual([
+      "follow",
+      "manual",
+      "error"
+    ])
   })
 
   test("skips a failing candidate and consumes only the valid candidate nonce", async () => {

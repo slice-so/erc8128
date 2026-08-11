@@ -21,11 +21,6 @@ import { invokeFetch } from "./lib/invokeFetch"
 import { formatKeyId } from "./lib/keyId"
 import { resolveNonce } from "./lib/nonce"
 import {
-  redirectMethod,
-  redirectStatuses,
-  unsignedRedirectHeaders
-} from "./lib/redirects"
-import {
   base64Encode,
   hexToBytes,
   isEthHttpSigner,
@@ -287,72 +282,10 @@ export async function signedFetchWithOptionsResolver(
   signer: EthHttpSigner,
   resolveOptions: SignOptionsResolver
 ): Promise<Response> {
-  let nextRequest = toRequest(input, init)
-  let bodyBytes =
-    nextRequest.body === null
-      ? new Uint8Array()
-      : await readBodyBytes(nextRequest)
-  const redirectMode = nextRequest.redirect
-
-  for (let redirects = 0; redirects <= 10; redirects += 1) {
-    const resolvedOptions = (await resolveOptions(nextRequest)) ?? {}
-    const signingOptions = withoutConsumedNonce(resolvedOptions, redirects)
-    const signed = await signPreparedRequest(
-      nextRequest,
-      signer,
-      signingOptions,
-      bodyBytes
-    )
-    const response = await invokeFetch(
-      signingOptions?.fetch,
-      new Request(signed, { redirect: "manual" })
-    )
-    if (!redirectStatuses.has(response.status)) return response
-    if (redirectMode === "manual") return response
-    if (redirectMode === "error") {
-      throw new Erc8128Error(
-        "UNSUPPORTED_REQUEST",
-        "A redirect was encountered while redirect mode was set to error."
-      )
-    }
-    const location = response.headers.get("location")
-    if (!location) return response
-    if (redirects === 10) {
-      throw new Erc8128Error("UNSUPPORTED_REQUEST", "Too many redirects.")
-    }
-    const target = new URL(location, signed.url)
-    const method = redirectMethod(response.status, signed.method)
-    const keepsBody = method !== "GET" && method !== "HEAD"
-    if (!keepsBody) bodyBytes = new Uint8Array()
-    nextRequest = new Request(target, {
-      method,
-      headers: unsignedRedirectHeaders(
-        signed.headers,
-        new URL(signed.url).origin,
-        target.origin
-      ),
-      ...(keepsBody ? { body: toArrayBuffer(bodyBytes) } : {}),
-      cache: nextRequest.cache,
-      credentials: nextRequest.credentials,
-      integrity: nextRequest.integrity,
-      keepalive: nextRequest.keepalive,
-      mode: nextRequest.mode,
-      redirect: redirectMode,
-      referrer: nextRequest.referrer,
-      referrerPolicy: nextRequest.referrerPolicy,
-      signal: nextRequest.signal
-    })
-  }
-  throw new Erc8128Error("UNSUPPORTED_REQUEST", "Redirect processing failed.")
-}
-
-function withoutConsumedNonce(
-  options: FetchSignOptions,
-  redirects: number
-): FetchSignOptions {
-  if (redirects === 0 || typeof options.nonce !== "string") return options
-  const { nonce: _consumedNonce, ...redirectOptions } = options
-  return redirectOptions
+  const request = toRequest(input, init)
+  const resolvedOptions = (await resolveOptions(request)) ?? {}
+  const signed = await signPreparedRequest(request, signer, resolvedOptions)
+  return invokeFetch(resolvedOptions.fetch, signed)
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {

@@ -181,40 +181,53 @@ describe("createSignerClient authorization constraints", () => {
     expect(coveredComponentNames(request)).toContain("x-tenant")
   })
 
-  test("re-resolves route policy after each redirect", async () => {
+  test("signs only the original route before delegating redirects", async () => {
     const observed: Request[] = []
+    let signatures = 0
     const fetchImpl: typeof fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const request =
           input instanceof Request ? input : new Request(input, init)
         observed.push(request.clone())
-        return observed.length === 1
-          ? new Response(null, {
-              status: 303,
-              headers: { location: "/admin/transfer" }
-            })
-          : new Response(null, { status: 204 })
+        return new Response(null, {
+          status: 303,
+          headers: { location: "/admin/transfer" }
+        })
       },
       { preconnect: () => {} }
     )
-    const client = createSignerClient(signer, {
-      preferReplayable: true,
-      fetch: fetchImpl,
-      serverConfigs: {
-        "https://api.example": {
-          max_validity_sec: 60,
-          route_policies: {
-            "/login": { replayable: true },
-            "/admin/*": { replayable: false }
+    const client = createSignerClient(
+      {
+        ...signer,
+        signMessage: async () => {
+          signatures += 1
+          return signer.signMessage()
+        }
+      },
+      {
+        preferReplayable: true,
+        fetch: fetchImpl,
+        serverConfigs: {
+          "https://api.example": {
+            max_validity_sec: 60,
+            route_policies: {
+              "/login": { replayable: true },
+              "/admin/*": { replayable: false }
+            }
           }
         }
       }
+    )
+
+    const response = await client.fetch("https://api.example/login", {
+      method: "POST"
     })
 
-    await client.fetch("https://api.example/login", { method: "POST" })
-
+    expect(response.status).toBe(303)
+    expect(signatures).toBe(1)
+    expect(observed).toHaveLength(1)
     expect(signatureParams(observed[0] as Request)?.nonce).toBeUndefined()
-    expect(signatureParams(observed[1] as Request)?.nonce).toBeDefined()
-    expect(observed[1]?.method).toBe("GET")
+    expect(observed[0]?.method).toBe("POST")
+    expect(observed[0]?.redirect).toBe("follow")
   })
 })
