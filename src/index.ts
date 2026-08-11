@@ -26,6 +26,7 @@ export {
   formatDelegationField,
   getDelegationTypedData,
   hashDelegation,
+  isLoopbackAudienceOrigin,
   normalizeAudienceOrigin,
   parseDelegationField,
   serializeDelegationComponent,
@@ -41,6 +42,7 @@ export {
   Erc8128Error,
   VerificationUnavailableError
 } from "./lib/Erc8128Error"
+export { normalizeComponentIdentifier } from "./lib/engine/componentIdentifier"
 export {
   createSignatureBaseMinimal,
   parseSignatureBase

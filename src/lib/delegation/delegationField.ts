@@ -309,6 +309,15 @@ export function normalizeAudienceOrigin(
   return audience.origin
 }
 
+export function isLoopbackAudienceOrigin(input: string): boolean {
+  try {
+    const audience = parseCanonicalAudienceOrigin(input)
+    return isLoopback(new URL(audience.origin).hostname)
+  } catch {
+    return false
+  }
+}
+
 function parseCanonicalAudienceOrigin(input: string): {
   httpLoopback: boolean
   origin: string
