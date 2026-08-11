@@ -59,7 +59,7 @@ const isRoutePolicy = (value: JsonValue): value is RoutePolicy => {
       "contentDigest",
       "methods",
       "replayable",
-      "requiredCoveredComponentsWhenPresent"
+      "requiredCoveredHeadersWhenPresent"
     ])
   ) {
     return false
@@ -70,8 +70,8 @@ const isRoutePolicy = (value: JsonValue): value is RoutePolicy => {
     (value.replayable === undefined || typeof value.replayable === "boolean") &&
     (value.additionalRequestBoundComponents === undefined ||
       isComponentArray(value.additionalRequestBoundComponents)) &&
-    (value.requiredCoveredComponentsWhenPresent === undefined ||
-      isComponentArray(value.requiredCoveredComponentsWhenPresent)) &&
+    (value.requiredCoveredHeadersWhenPresent === undefined ||
+      isComponentArray(value.requiredCoveredHeadersWhenPresent)) &&
     (value.classBoundPolicies === undefined ||
       isClassBoundPolicies(value.classBoundPolicies)) &&
     (value.contentDigest === undefined ||

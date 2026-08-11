@@ -21,7 +21,7 @@ export type RoutePolicy = {
   contentDigest?: ContentDigestMode
 
   /** Require these request fields to be covered whenever they are present. */
-  requiredCoveredComponentsWhenPresent?: CoveredComponent[]
+  requiredCoveredHeadersWhenPresent?: CoveredComponent[]
 
   /**
    * Class-bound component policies.

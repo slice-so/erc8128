@@ -141,7 +141,7 @@ async function getVerificationCacheKeys<CfHostMetadata, Cf>(
       pathname,
       policy: routePolicy,
       requiredWhenPresent: (
-        routePolicy.requiredCoveredComponentsWhenPresent ?? []
+        routePolicy.requiredCoveredHeadersWhenPresent ?? []
       ).map((component) => {
         const name = typeof component === "string" ? component : component.name
         return [name, request.headers.get(name)]

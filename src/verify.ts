@@ -523,7 +523,7 @@ function getRequiredWhenPresent(args: CommonCandidateArgs) {
       ? (["content-digest"] as const)
       : []),
     ...(args.shape.hasContentType ? (["content-type"] as const) : []),
-    ...(args.policy.requiredCoveredComponentsWhenPresent ?? []).filter(
+    ...(args.policy.requiredCoveredHeadersWhenPresent ?? []).filter(
       (component) =>
         args.request.headers.has(
           typeof component === "string" ? component : component.name
