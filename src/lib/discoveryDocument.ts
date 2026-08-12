@@ -96,7 +96,11 @@ const isRoutePolicyCandidate = (
     value.length <= MAX_POLICIES_PER_ROUTE &&
     value.every(isRoutePolicy))
 
-const isRoutePolicyConfig = (value: JsonValue): value is RoutePolicyConfig =>
+type ParsedRoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]>
+
+const isRoutePolicyConfig = (
+  value: JsonValue
+): value is ParsedRoutePolicyConfig =>
   isRecord(value) &&
   Object.keys(value).length <= MAX_ROUTE_POLICIES &&
   Object.entries(value).every(
@@ -131,7 +135,10 @@ export function formatDiscoveryDocument(
   const replayableEnabled =
     config.routePolicy != null &&
     Object.values(config.routePolicy).some(
-      (candidate) => candidate !== false && hasReplayableRoutePolicy(candidate)
+      (candidate) =>
+        candidate !== false &&
+        candidate !== undefined &&
+        hasReplayableRoutePolicy(candidate)
     )
 
   if (replayableEnabled && !isSecureEndpoint(config.invalidationEndpoint)) {
@@ -144,7 +151,7 @@ export function formatDiscoveryDocument(
     ? (Object.fromEntries(
         Object.entries(config.routePolicy).filter(
           (entry): entry is [string, RoutePolicy | RoutePolicy[]] =>
-            entry[1] !== false
+            entry[1] !== false && entry[1] !== undefined
         )
       ) as RoutePolicyConfig)
     : undefined
@@ -223,7 +230,10 @@ export const parseDiscoveryDocument = (
   }
   const replayable =
     document.route_policies !== undefined &&
-    Object.values(document.route_policies).some(hasReplayableRoutePolicy)
+    Object.values(document.route_policies).some(
+      (candidate) =>
+        candidate !== undefined && hasReplayableRoutePolicy(candidate)
+    )
   return replayable && document.invalidation_endpoint === undefined
     ? null
     : document

@@ -4,7 +4,8 @@ export type DiscoveryDocumentConfig = {
   verificationEndpoint?: string
   invalidationEndpoint?: string
   maxValiditySec?: number
-  routePolicy?: Record<string, RoutePolicy | RoutePolicy[] | false> & {
+  routePolicy?: {
+    [route: string]: RoutePolicy | RoutePolicy[] | false | undefined
     default?: RoutePolicy
   }
 }

@@ -38,7 +38,9 @@ export function matchRoutePolicy(
     | undefined
 
   for (const [key, candidate] of Object.entries(policies)) {
-    if (key === "default" || !key.endsWith("/*")) continue
+    if (key === "default" || !key.endsWith("/*") || candidate === undefined) {
+      continue
+    }
 
     const prefix = key.slice(0, -1) // "/prefix/*" -> "/prefix/"
     if (!pathname.startsWith(prefix)) continue

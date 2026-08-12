@@ -33,7 +33,8 @@ export type RoutePolicy = {
   classBoundPolicies?: CoveredComponent[] | CoveredComponent[][]
 }
 
-export type RoutePolicyConfig = Record<string, RoutePolicy | RoutePolicy[]> & {
+export type RoutePolicyConfig = {
+  [route: string]: RoutePolicy | RoutePolicy[] | undefined
   default?: RoutePolicy
 }
 
