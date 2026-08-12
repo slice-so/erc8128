@@ -2,6 +2,7 @@ import { cpSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { buildPackage } from "../../build"
+import { bundleDeclarationTypes } from "../../build-declarations"
 import { dependencies, peerDependencies } from "./package.json"
 
 const DtsPaths = [new URL("./dist/esm/index.d.ts", import.meta.url)]
@@ -11,7 +12,7 @@ cpSync(new URL("./src", import.meta.url), buildSource, { recursive: true })
 
 try {
   await buildPackage({
-    bundleTypes: true,
+    bundleDeclarations: bundleDeclarationTypes,
     entrypoints: [join(buildSource, "index.ts")],
     external: [...Object.keys(dependencies), ...Object.keys(peerDependencies)],
     root: buildSource,
