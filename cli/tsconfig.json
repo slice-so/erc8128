@@ -5,7 +5,7 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "rootDir": "..",
+    "rootDir": "../../..",
     "target": "ES2024",
     "noEmit": true,
     "types": ["bun-types"],
@@ -13,6 +13,6 @@
       "@slicekit/erc8128": ["../src/index.ts"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["*.ts", "src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
