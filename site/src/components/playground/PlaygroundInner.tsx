@@ -734,7 +734,7 @@ export function PlaygroundInner() {
       </div>
 
       {/* Main grid */}
-      <div className="lg:grid gap-0 border border-white/15 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)] lg:max-h-[756px]">
+      <div className="gap-0 border border-white/15 lg:grid lg:min-h-[756px] lg:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
         {/* Left column — Compose & Components */}
         <div className="border-b border-white/15 p-4 md:p-6 lg:border-b-0 lg:border-r lg:border-white/15 flex flex-col justify-between">
           <div>
