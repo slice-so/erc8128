@@ -12,6 +12,7 @@ import {
   getDiscoveryDocument,
   getVerificationRuntime
 } from "./lib/erc8128/backend-config"
+import { MAX_VERIFY_BODY_BYTES } from "./lib/erc8128/constants"
 import {
   parseConfiguredStorageMode,
   parseStorageMode
@@ -44,13 +45,12 @@ type RuntimeBindings = CloudflareBindings & StorageRuntimeBindings
 
 type VerificationRpcBindings = {
   ERC8128_SECRET_ALCHEMY_ID?: string
+  SECRET_ALCHEMY_KEY?: string
 }
 
 let cachedVerifyMessage:
   | { alchemyId: string; verifyMessage: VerifyMessageFn }
   | undefined
-
-export const MAX_VERIFY_BODY_BYTES = 1_048_576
 
 export function resolveStorageSelection(
   bindings: StorageRuntimeBindings,
@@ -73,7 +73,9 @@ export function resolveStorageSelection(
 export function getVerifyMessage(
   bindings: VerificationRpcBindings
 ): VerifyMessageFn | null {
-  const alchemyId = bindings.ERC8128_SECRET_ALCHEMY_ID?.trim()
+  const alchemyId =
+    bindings.ERC8128_SECRET_ALCHEMY_ID?.trim() ||
+    bindings.SECRET_ALCHEMY_KEY?.trim()
   if (!alchemyId) return null
   if (cachedVerifyMessage?.alchemyId === alchemyId) {
     return cachedVerifyMessage.verifyMessage

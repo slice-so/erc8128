@@ -1,0 +1,1 @@
+export const MAX_VERIFY_BODY_BYTES = 1_048_576
