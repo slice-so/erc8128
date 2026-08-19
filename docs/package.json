@@ -2,6 +2,7 @@
   "name": "@slicekit/erc8128-docs",
   "version": "1.0.0",
   "private": true,
+  "license": "(MIT OR Apache-2.0)",
   "description": "Documentation for ERC-8128: Signed HTTP Requests with Ethereum",
   "type": "module",
   "scripts": {

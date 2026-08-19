@@ -24,7 +24,7 @@
     "wallet"
   ],
   "author": "slice-so",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "dependencies": {
     "@slicekit/erc8128": "^0.4.0",
     "commander": "^14.0.0",
@@ -41,6 +41,8 @@
     "typescript": "^5.9.2"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
   ]
 }

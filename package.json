@@ -14,7 +14,7 @@
     "access": "public"
   },
   "author": "slice-so",
-  "license": "MIT",
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/esm/index.js",
@@ -33,7 +33,9 @@
     }
   },
   "files": [
-    "./dist"
+    "./dist",
+    "./LICENSE-MIT",
+    "./LICENSE-APACHE"
   ],
   "dependencies": {
     "@noble/hashes": "^2.2.0",
