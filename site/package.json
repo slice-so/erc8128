@@ -5,8 +5,8 @@
   "private": true,
   "license": "(MIT OR Apache-2.0)",
   "scripts": {
-    "prebuild": "cd .. && bun run build.ts",
-    "predev": "cd .. && bun run build.ts",
+    "prebuild": "test -f ../dist/esm/index.d.ts || (cd .. && bun run build.ts)",
+    "predev": "test -f ../dist/esm/index.d.ts || (cd .. && bun run build.ts)",
     "dev": "astro build && wrangler dev",
     "build": "astro build",
     "preview": "wrangler dev",
