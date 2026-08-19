@@ -75,6 +75,7 @@ export {
   isReplayMode,
   replayModeValues
 } from "./lib/policyValues"
+export { assertErc8128PrivateKey } from "./lib/privateKey"
 export {
   formatErc8128ProblemDetails,
   formatEthHttpSigChallenge,
