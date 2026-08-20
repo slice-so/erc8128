@@ -1,0 +1,116 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": false,
+    "clientKind": "git",
+    "useIgnoreFile": false
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "files": {
+    "maxSize": 1000000000,
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!**/.astro",
+      "!**/.next",
+      "!**/.open-next",
+      "!**/.vercel",
+      "!**/.turbo",
+      "!**/.build",
+      "!**/.output",
+      "!**/.out",
+      "!**/.wrangler",
+      "!**/playwright-report",
+      "!**/test-results",
+      "!**/e2e/artifacts",
+      "!**/dist",
+      "!**/generated",
+      "!**/typechain",
+      "!**/worker-configuration.d.ts",
+      "!**/packages/erc8128/site/worker-configuration.d.ts",
+      "!**/apps/api/.wrangler",
+      "!packages/contracts/**/dependencies/**/*",
+      "!packages/contracts/core/docs",
+      "!**/packages/indexer/ponder-env.d.ts",
+      "!**/packages/slicekit-abi/package.json",
+      "!**/packages/slicekit-core/package.json",
+      "!**/packages/slicekit-react/package.json",
+      "!**/packages/erc8128/package.json",
+      "!**/packages/database/scripts/data/*"
+    ]
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "complexity": {
+        "noForEach": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
+        "useUniqueElementIds": "warn"
+      },
+      "performance": {
+        "noDelete": "off"
+      },
+      "nursery": {},
+      "suspicious": {
+        "noUndeclaredEnvVars": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "jsxQuoteStyle": "double",
+      "trailingCommas": "none",
+      "semicolons": "asNeeded",
+      "quoteStyle": "double"
+    }
+  },
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/apps/marketplace/**"],
+      "linter": {
+        "rules": {
+          "preset": "none"
+        }
+      }
+    },
+    {
+      "includes": ["**/*.svelte", "**/*.astro", "**/*.vue"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useConst": "off",
+            "useImportType": "off"
+          },
+          "correctness": {
+            "noUnusedVariables": "off",
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
+}

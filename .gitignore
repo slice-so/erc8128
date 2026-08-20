@@ -1,2 +1,15 @@
 node_modules/
+**/node_modules/
+dist/
 **/dist/
+coverage/
+**/coverage/
+.turbo/
+**/.turbo/
+.wrangler/
+**/.wrangler/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store

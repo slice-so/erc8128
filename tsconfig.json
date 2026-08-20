@@ -1,8 +1,26 @@
 {
-  "extends": "@slice/typescript-config/base.json",
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+    "strictNullChecks": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "types": ["bun-types"],
+    "composite": false,
+    "declaration": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "preserveWatchOutput": true,
+    "inlineSources": false,
     "outDir": "./dist",
     "rootDir": "../.."
   },
+  "exclude": ["node_modules"],
   "include": ["*.ts", "src/**/*"]
 }

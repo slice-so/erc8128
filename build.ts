@@ -1,8 +1,8 @@
 import { cpSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { buildPackage } from "../../build"
-import { bundleDeclarationTypes } from "../../build-declarations"
+import { buildPackage } from "./tooling/build"
+import { bundleDeclarationTypes } from "./tooling/build-declarations"
 import { dependencies, peerDependencies } from "./package.json"
 
 const DtsPaths = [new URL("./dist/esm/index.d.ts", import.meta.url)]
