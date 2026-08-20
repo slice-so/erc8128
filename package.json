@@ -22,11 +22,6 @@
   "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "development": {
-        "types": "./src/index.ts",
-        "import": "./src/index.ts",
-        "default": "./src/index.ts"
-      },
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
       "default": "./dist/esm/index.js"
@@ -40,27 +35,31 @@
   "dependencies": {
     "@noble/hashes": "^2.2.0",
     "@noble/secp256k1": "^3.1.0",
-    "viem": "catalog:"
+    "viem": "^2.48.0"
   },
   "devDependencies": {
-    "@slice/typescript-config": "workspace:*",
-    "@tanstack/react-query": "catalog:",
-    "@types/node": "catalog:",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "astro": "catalog:",
+    "@tanstack/react-query": "^5.100.11",
+    "@types/node": "~25.6.2",
+    "@types/react": "~19.2.14",
+    "@types/react-dom": "~19.2.3",
+    "astro": "^5.17.1",
     "commander": "^14.0.0",
-    "connectkit": "catalog:",
-    "drizzle-kit": "catalog:",
+    "connectkit": "~1.9.2",
+    "drizzle-kit": "~0.31.10",
     "drizzle-orm": "~0.41.0",
-    "hono": "catalog:",
-    "porto": "catalog:",
+    "hono": "~4.12.18",
+    "porto": "^0.2.37",
     "postgres": "~3.4.7",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "satori": "catalog:",
-    "wagmi": "catalog:",
-    "wrangler": "catalog:"
+    "react": "~19.2.6",
+    "react-dom": "~19.2.6",
+    "satori": "^0.12.0",
+    "wagmi": "^3.6.11",
+    "wrangler": "^4.66.0",
+    "typescript": "6.0.3",
+    "bun-types": "1.3.14",
+    "@biomejs/biome": "^2.4.15",
+    "rollup": "^4.60.4",
+    "rollup-plugin-dts": "^6.4.1"
   },
   "peerDependencies": {},
   "repository": {
@@ -75,5 +74,6 @@
     "web3",
     "dapp",
     "dappkit"
-  ]
+  ],
+  "packageManager": "bun@1.3.14"
 }
