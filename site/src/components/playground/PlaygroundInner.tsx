@@ -119,8 +119,7 @@ type SentRequestSnapshot = {
   body?: string
 }
 
-const PLAYGROUND_ORIGIN =
-  import.meta.env.SITE?.replace(/\/$/, "") || "https://erc8128.org"
+const PLAYGROUND_ORIGIN = "https://erc8128.org"
 
 function getPlaygroundOrigin() {
   return PLAYGROUND_ORIGIN
